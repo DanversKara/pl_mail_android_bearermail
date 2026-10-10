@@ -156,4 +156,21 @@
         <item quantity="one">and 1 more waiting</item>
         <item quantity="other">and %1$d more waiting</item>
     </plurals>
+    <!-- BearerMail: on-the-spot aliases -->
+    <string name="alias_new_title">New alias</string>
+    <string name="alias_ready_title">Alias ready</string>
+    <string name="alias_ready_body">It receives mail now and can send as itself. It has been copied, so you can paste it into a form. Remove it any time in Settings → Aliases on the web.</string>
+    <string name="alias_address">Address</string>
+    <string name="alias_random">Make it random</string>
+    <string name="alias_label">What is it for? (optional)</string>
+    <string name="alias_label_hint">e.g. Shop rewards</string>
+    <string name="alias_explain">Mail to this address lands in your inbox. Give it out instead of your real address, and delete it if it starts getting spam.</string>
+    <string name="alias_create">Create</string>
+    <string name="alias_cancel">Cancel</string>
+    <string name="alias_done">Done</string>
+    <string name="alias_copy">Copy address</string>
+    <string name="compose_new_alias">New alias…</string>
+    <string name="compose_random_alias">Random alias (one tap)</string>
+    <!-- BearerMail: Drive links -->
+    <string name="compose_drive">Insert Drive link</string>
 </resources>

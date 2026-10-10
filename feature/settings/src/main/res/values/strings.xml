@@ -58,15 +58,15 @@
     <string name="push_transport_explains">Only the options this phone and this server can actually deliver over are offered. The rest say why not.</string>
 
     <string name="push_transport_webpush">Web Push (UnifiedPush)</string>
-    <string name="push_transport_webpush_explains">A distributor app you install holds the connection. plMail encrypts every payload to this device, so the distributor learns when mail arrives but never what it says. No Google.</string>
+    <string name="push_transport_webpush_explains">A distributor app you install holds the connection. BearerMail encrypts every payload to this device, so the distributor learns when mail arrives but never what it says. No Google.</string>
 
     <string name="push_transport_fcm">Firebase (Google)</string>
     <string name="push_transport_fcm_explains">Nothing to install. Your server needs a Firebase project, and Google learns that a message arrived and when — never what it contains.</string>
 
     <string name="push_transport_pull">Pull only</string>
-    <string name="push_transport_pull_explains">No registration anywhere. plMail checks every 15 minutes and whenever you open the app, and stays live while the app is on screen. Nobody outside your server learns when mail arrives.</string>
+    <string name="push_transport_pull_explains">No registration anywhere. BearerMail checks every 15 minutes and whenever you open the app, and stays live while the app is on screen. Nobody outside your server learns when mail arrives.</string>
 
-    <string name="push_reason_server_too_old">This server does not know about Firebase yet. Updating plMail on the server adds the option.</string>
+    <string name="push_reason_server_too_old">This server does not know about Firebase yet. Updating BearerMail on the server adds the option.</string>
     <string name="push_reason_server_disabled">Firebase is switched off on this server. Turn it on under Push in the server\'s admin settings.</string>
     <string name="push_reason_server_config">This server\'s Firebase configuration is incomplete, so it cannot be started.</string>
     <string name="push_reason_not_in_build">This is the Google-free build, which contains no Firebase code at all. That is deliberate.</string>
@@ -126,14 +126,14 @@
     <string name="language_system">Follow the system</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
-    <string name="appearance_language_body">The language plMail is written in on this phone. It is a setting on this device only — it is never sent to your account and never reaches your browser or your other devices.</string>
+    <string name="appearance_language_body">The language BearerMail is written in on this phone. It is a setting on this device only — it is never sent to your account and never reaches your browser or your other devices.</string>
     <!--
       Only shown from Android 13, where the same setting exists in the system's
       own app list. Naming the path makes the two obviously one setting rather
       than two that might disagree, and it is left out below Android 13 because
       there is no such screen to send anybody to.
     -->
-    <string name="appearance_language_system">This is the same setting as Android\'s own, under Settings → Apps → plMail → Language. Changing it in either place changes both.</string>
+    <string name="appearance_language_system">This is the same setting as Android\'s own, under Settings → Apps → BearerMail → Language. Changing it in either place changes both.</string>
 
     <!--
       The sync switch, first on the screen because it decides what every control
@@ -153,7 +153,7 @@
       discovered afterwards.
     -->
     <string name="appearance_sync">Match the web</string>
-    <string name="appearance_sync_body">Anything you have not set here follows plMail in your browser. Turn it off to freeze this phone\'s look where it is. Nothing you change on this screen ever reaches your browser either way. Turning it back on takes the browser\'s settings again and discards the phone\'s.</string>
+    <string name="appearance_sync_body">Anything you have not set here follows BearerMail in your browser. Turn it off to freeze this phone\'s look where it is. Nothing you change on this screen ever reaches your browser either way. Turning it back on takes the browser\'s settings again and discards the phone\'s.</string>
 
     <string name="appearance_theme">Theme</string>
     <string name="theme_system">Follow the system</string>
@@ -302,9 +302,9 @@
       the server's rendered card: the wire carries a token, and the repair for
       the first of these is an OAuth flow that only a browser can finish.
     -->
-    <string name="accounts_attention_reconnect">This account needs reconnecting. Sign in again in plMail on the web — new mail will not arrive until you do.</string>
+    <string name="accounts_attention_reconnect">This account needs reconnecting. Sign in again in BearerMail on the web — new mail will not arrive until you do.</string>
     <string name="accounts_attention_push">Push is not working for this account. Mail still arrives, but on the periodic check rather than immediately.</string>
-    <string name="accounts_attention_generic">This account needs attention. Open plMail on the web to see what is wrong.</string>
+    <string name="accounts_attention_generic">This account needs attention. Open BearerMail on the web to see what is wrong.</string>
 
     <string name="accounts_server_backfill_all">It has fetched all of it.</string>
     <plurals name="accounts_server_backfill_reached">

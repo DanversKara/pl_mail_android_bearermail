@@ -7,5 +7,6 @@
       the two from the start rather than discovering the overflow at the end.
     -->
 
-    <string name="calendar_app_name">plMail Kalender</string>
+    <string name="calendar_app_name">BearerMail Kalender</string>
+    <string name="share_to_drive">BearerMail Drive</string>
 </resources>

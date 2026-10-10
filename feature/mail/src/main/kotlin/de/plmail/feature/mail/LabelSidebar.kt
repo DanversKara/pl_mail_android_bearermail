@@ -26,7 +26,9 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Drafts
@@ -151,6 +153,8 @@ fun LabelSidebar(
      * boundary exists to prevent.
      */
     onCalendar: (() -> Unit)?,
+    onDrive: (() -> Unit)? = null,
+    onNewAlias: (() -> Unit)? = null,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -177,6 +181,8 @@ fun LabelSidebar(
             onEditingChange = onEditingChange,
             onImportantChange = onImportantChange,
             onCalendar = onCalendar,
+            onDrive = onDrive,
+            onNewAlias = onNewAlias,
             onPush = onPush,
             onNotifications = onNotifications,
             onDiagnostics = onDiagnostics,
@@ -201,6 +207,8 @@ private fun SidebarContent(
     onEditingChange: (Boolean) -> Unit,
     onImportantChange: (Label, Boolean) -> Unit,
     onCalendar: (() -> Unit)?,
+    onDrive: (() -> Unit)?,
+    onNewAlias: (() -> Unit)?,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -344,6 +352,26 @@ private fun SidebarContent(
                     onClick = open,
                     icon = Icons.Outlined.CalendarMonth,
                     text = stringResource(R.string.calendar),
+                )
+            }
+
+            // BearerMail Drive: a place, like the calendar, so it sits beside it.
+            onDrive?.let { open ->
+                SidebarRow(
+                    selected = false,
+                    onClick = open,
+                    icon = Icons.Outlined.Cloud,
+                    text = stringResource(R.string.drive),
+                )
+            }
+
+            // BearerMail: make a throwaway address on the spot.
+            onNewAlias?.let { open ->
+                SidebarRow(
+                    selected = false,
+                    onClick = open,
+                    icon = Icons.Outlined.AlternateEmail,
+                    text = stringResource(R.string.new_alias),
                 )
             }
 

@@ -1,3 +1,18 @@
+# BearerMail for Android
+
+**A fork of the [plMail Android app](https://github.com/karatektus/pl_mail_android) by
+[karatektus](https://github.com/karatektus)**, renamed BearerMail and extended to go with the
+[BearerMail server](https://github.com/DanversKara/pl_mail_bearermail). Same licence (AGPL-3.0);
+all credit for the app itself goes to its author. The original README follows unchanged.
+
+What this fork adds (Drive, share to Drive, Drive links, on-the-spot aliases, the BearerMail name
+and its own install id) and how to build it: **[BEARERMAIL.md](BEARERMAIL.md)**.
+
+> Not the official app. For plMail itself, go to karatektus. Report problems with the additions
+> here, not upstream.
+
+---
+
 # plMail for Android
 
 A native Android client for [plMail](https://github.com/karatektus/pl_mail), talking to it over

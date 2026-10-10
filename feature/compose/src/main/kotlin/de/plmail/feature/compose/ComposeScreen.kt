@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddLink
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
+import de.plmail.feature.drive.DriveLinkPicker
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import de.plmail.core.data.StagedAttachment
@@ -106,6 +108,10 @@ fun ComposeScreen(
     val body = rememberRichTextState()
 
     var isChoosingWhen by remember { mutableStateOf(false) }
+
+    // BearerMail: null = no alias dialog; false = type one; true = one-tap random.
+    var aliasRequest by remember { mutableStateOf<Boolean?>(null) }
+    var isPickingDrive by remember { mutableStateOf(false) }
     var isPickingExactTime by remember { mutableStateOf(false) }
 
     // Open, until the message itself is being written. Saveable because a
@@ -162,6 +168,14 @@ fun ComposeScreen(
                     }
                 },
                 actions = {
+                    // BearerMail: insert a Drive share link into the message.
+                    IconButton(onClick = { isPickingDrive = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.AddLink,
+                            contentDescription = stringResource(R.string.compose_drive),
+                        )
+                    }
+
                     IconButton(onClick = { picker.launch(arrayOf("*/*")) }) {
                         Icon(
                             imageVector = Icons.Filled.AttachFile,
@@ -201,6 +215,25 @@ fun ComposeScreen(
             }
 
             return@Scaffold
+        }
+
+        aliasRequest?.let { random ->
+            QuickAliasDialog(
+                onDismiss = { aliasRequest = null },
+                preferredAccount = state.draft.accountKey.ifBlank { null },
+                instantRandom = random,
+                onCreated = { identity -> viewModel.useNewIdentity(identity) },
+            )
+        }
+
+        if (isPickingDrive) {
+            DriveLinkPicker(
+                onDismiss = { isPickingDrive = false },
+                onPicked = { name, url ->
+                    isPickingDrive = false
+                    body.addLink(text = name, url = url)
+                },
+            )
         }
 
         if (isPickingExactTime) {
@@ -251,6 +284,7 @@ fun ComposeScreen(
                         if (it) isWritingBody = false
                     },
                     onIdentity = viewModel::setIdentity,
+                    onNewAlias = { random -> aliasRequest = random },
                     onTo = viewModel::setTo,
                     onCc = viewModel::setCc,
                     onBcc = viewModel::setBcc,

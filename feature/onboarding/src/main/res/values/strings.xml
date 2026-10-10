@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_title">Connect to your server</string>
-    <string name="onboarding_intro">plMail runs on a server you host. Enter its address, or scan the code from Settings → App passwords.</string>
+    <string name="onboarding_intro">BearerMail runs on a server you host. Enter its address, or scan the code from Settings → App passwords.</string>
 
     <string name="onboarding_address_label">Server address</string>
     <string name="onboarding_address_hint">nas.local</string>
@@ -52,5 +52,5 @@
     <string name="onboarding_error_unauthenticated">That app password was rejected. Create a new one in Settings → App passwords.</string>
     <string name="onboarding_error_unreachable">Could not reach %1$s. Check the address, and that the server is running.</string>
     <string name="onboarding_error_certificate_changed">The certificate for %1$s has changed since you last connected. If you did not change it yourself, do not continue.</string>
-    <string name="onboarding_error_malformed">Something answered at that address, but it was not plMail.</string>
+    <string name="onboarding_error_malformed">Something answered at that address, but it was not BearerMail.</string>
 </resources>

@@ -92,4 +92,21 @@
         <item quantity="one">und 1 weitere wartet</item>
         <item quantity="other">und %1$d weitere warten</item>
     </plurals>
+    <!-- BearerMail: Aliase unterwegs -->
+    <string name="alias_new_title">Neuer Alias</string>
+    <string name="alias_ready_title">Alias bereit</string>
+    <string name="alias_ready_body">Er empfängt ab sofort E-Mails und kann als Absender genutzt werden. Die Adresse wurde kopiert und kann in ein Formular eingefügt werden. Entfernen jederzeit unter Einstellungen → Aliase im Web.</string>
+    <string name="alias_address">Adresse</string>
+    <string name="alias_random">Zufällig erzeugen</string>
+    <string name="alias_label">Wofür? (optional)</string>
+    <string name="alias_label_hint">z. B. Kundenkarte</string>
+    <string name="alias_explain">E-Mails an diese Adresse landen in deinem Posteingang. Gib sie statt deiner echten Adresse heraus und lösche sie, wenn Spam kommt.</string>
+    <string name="alias_create">Erstellen</string>
+    <string name="alias_cancel">Abbrechen</string>
+    <string name="alias_done">Fertig</string>
+    <string name="alias_copy">Adresse kopieren</string>
+    <string name="compose_new_alias">Neuer Alias…</string>
+    <string name="compose_random_alias">Zufälliger Alias (ein Tipp)</string>
+    <!-- BearerMail: Drive-Links -->
+    <string name="compose_drive">Drive-Link einfügen</string>
 </resources>

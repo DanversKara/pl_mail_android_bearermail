@@ -166,6 +166,17 @@ constructor(
     }
 
     /**
+     * BearerMail: a just-created alias joins the From list and becomes the sender.
+     */
+    fun useNewIdentity(identity: SendIdentity) {
+        _state.update { state ->
+            if (state.identities.any { it.identityId == identity.identityId }) state
+            else state.copy(identities = state.identities + identity)
+        }
+        setIdentity(identity)
+    }
+
+    /**
      * Stages picked files without reading them.
      *
      * The content URIs are held as they arrived, on the transient grant the picker gives this task

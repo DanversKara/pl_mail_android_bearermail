@@ -53,7 +53,7 @@
     <string name="reader_reply_more">Weitere Antwortoptionen</string>
     <string name="inbox_empty_body">Neue Nachrichten erscheinen hier, sobald sie eintreffen.</string>
     <string name="inbox_end">Mehr liegt auf diesem Gerät nicht</string>
-    <string name="drawer_title">plMail</string>
+    <string name="drawer_title">BearerMail</string>
     <string name="open_labels">Labels</string>
     <string name="labels_loading">Labels werden geladen…</string>
     <string name="label_new">Neues Label</string>
@@ -66,6 +66,8 @@
     <string name="sidebar_unpin_a11y">Zu „Labels“ verschieben</string>
     <string name="sidebar_important_empty">Tippe auf einen Stern, um ein Label hier oben zu behalten.</string>
     <string name="calendar">Kalender</string>
+    <string name="drive">Drive</string>
+    <string name="new_alias">Neuer Alias</string>
     <string name="push">Push</string>
     <string name="notifications">Benachrichtigungen</string>
     <string name="diagnostics">Diagnose</string>
@@ -199,7 +201,7 @@
         <item quantity="one">%1$d Änderung wartet auf Ihren Server.</item>
         <item quantity="other">%1$d Änderungen warten auf Ihren Server.</item>
     </plurals>
-    <string name="server_unreachable">plMail konnte %1$s nicht erreichen. Das ist die Post, die bereits auf dem Gerät liegt.</string>
+    <string name="server_unreachable">BearerMail konnte %1$s nicht erreichen. Das ist die Post, die bereits auf dem Gerät liegt.</string>
     <string name="account_unreachable_host">%1$s ist unter %2$s nicht erreichbar. Die anderen Konten sind aktuell.</string>
 
     <string name="action_queued">%1$s — hier. Ihr Server erfährt es, sobald er antwortet.</string>

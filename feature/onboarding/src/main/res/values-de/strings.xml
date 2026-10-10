@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_title">Mit deinem Server verbinden</string>
-    <string name="onboarding_intro">plMail läuft auf einem Server, den du selbst betreibst. Gib seine Adresse ein oder scanne den Code aus Einstellungen → App-Passwörter.</string>
+    <string name="onboarding_intro">BearerMail läuft auf einem Server, den du selbst betreibst. Gib seine Adresse ein oder scanne den Code aus Einstellungen → App-Passwörter.</string>
 
     <string name="onboarding_address_label">Serveradresse</string>
     <string name="onboarding_address_hint">nas.local</string>
@@ -36,5 +36,5 @@
     <string name="onboarding_error_unauthenticated">Dieses App-Passwort wurde abgelehnt. Erstelle ein neues unter Einstellungen → App-Passwörter.</string>
     <string name="onboarding_error_unreachable">%1$s ist nicht erreichbar. Prüfe die Adresse und ob der Server läuft.</string>
     <string name="onboarding_error_certificate_changed">Das Zertifikat für %1$s hat sich seit der letzten Verbindung geändert. Falls du es nicht selbst geändert hast, fahre nicht fort.</string>
-    <string name="onboarding_error_malformed">An dieser Adresse hat etwas geantwortet, aber es war nicht plMail.</string>
+    <string name="onboarding_error_malformed">An dieser Adresse hat etwas geantwortet, aber es war nicht BearerMail.</string>
 </resources>

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.DropdownMenu
@@ -59,6 +61,8 @@ internal fun ComposeHeader(
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onIdentity: (SendIdentity) -> Unit,
+    /** BearerMail: opens the new-alias dialog; true = make a random one in one tap. */
+    onNewAlias: (random: Boolean) -> Unit = {},
     onTo: (List<EmailAddress>) -> Unit,
     onCc: (List<EmailAddress>) -> Unit,
     onBcc: (List<EmailAddress>) -> Unit,
@@ -103,7 +107,7 @@ internal fun ComposeHeader(
             return@Column
         }
 
-        FromRow(state = state, onSelected = onIdentity)
+        FromRow(state = state, onSelected = onIdentity, onNewAlias = onNewAlias)
         PlMailDivider()
 
         RecipientField(
@@ -364,7 +368,11 @@ private fun SummaryRow(state: ComposeUiState, onExpand: () -> Unit) {
  * name shows that name here and the mail goes out under the account's.
  */
 @Composable
-private fun FromRow(state: ComposeUiState, onSelected: (SendIdentity) -> Unit) {
+private fun FromRow(
+    state: ComposeUiState,
+    onSelected: (SendIdentity) -> Unit,
+    onNewAlias: (random: Boolean) -> Unit,
+) {
     var isOpen by remember { mutableStateOf(false) }
     val theme = PlMailTheme.values
     val choices = state.identities
@@ -372,7 +380,8 @@ private fun FromRow(state: ComposeUiState, onSelected: (SendIdentity) -> Unit) {
     Row(
         modifier =
             Modifier.fillMaxWidth()
-                .clickable(enabled = choices.size > 1) { isOpen = true }
+                // Always openable: the menu also holds "New alias…".
+                .clickable { isOpen = true }
                 .padding(horizontal = theme.spacing.gutter, vertical = theme.spacing.medium),
         horizontalArrangement = Arrangement.spacedBy(theme.spacing.small),
         verticalAlignment = Alignment.CenterVertically,
@@ -391,7 +400,7 @@ private fun FromRow(state: ComposeUiState, onSelected: (SendIdentity) -> Unit) {
             modifier = Modifier.weight(1f),
         )
 
-        if (choices.size > 1) {
+        if (choices.isNotEmpty()) {
             Icon(
                 imageVector = Icons.Filled.MoreHoriz,
                 contentDescription = stringResource(R.string.compose_choose_sender),
@@ -423,6 +432,25 @@ private fun FromRow(state: ComposeUiState, onSelected: (SendIdentity) -> Unit) {
                     },
                 )
             }
+
+            PlMailDivider()
+
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.compose_new_alias)) },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                onClick = {
+                    isOpen = false
+                    onNewAlias(false)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.compose_random_alias)) },
+                leadingIcon = { Icon(Icons.Filled.Casino, contentDescription = null) },
+                onClick = {
+                    isOpen = false
+                    onNewAlias(true)
+                },
+            )
         }
     }
 }

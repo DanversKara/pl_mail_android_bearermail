@@ -22,8 +22,8 @@
     <string name="calendar_loading">Loading your calendar…</string>
 
     <string name="calendar_offline">You are offline. This is the calendar already on your phone.</string>
-    <string name="calendar_unreachable">plMail could not reach %1$s. This is the calendar already on your phone.</string>
-    <string name="calendar_unreachable_unnamed">plMail could not reach your server. This is the calendar already on your phone.</string>
+    <string name="calendar_unreachable">BearerMail could not reach %1$s. This is the calendar already on your phone.</string>
+    <string name="calendar_unreachable_unnamed">BearerMail could not reach your server. This is the calendar already on your phone.</string>
     <!-- The server's own words. Several refusals here carry nothing else. -->
     <string name="calendar_refresh_refused">The calendar could not be refreshed: %1$s</string>
 
@@ -104,8 +104,8 @@
 
     <string name="calendar_none_writable">None of your calendars accepts new events.</string>
     <string name="calendar_write_refused">The server refused this change: %1$s</string>
-    <string name="calendar_write_unreachable">plMail could not reach %1$s. Nothing was changed.</string>
-    <string name="calendar_write_unreachable_unnamed">plMail could not reach your server. Nothing was changed.</string>
+    <string name="calendar_write_unreachable">BearerMail could not reach %1$s. Nothing was changed.</string>
+    <string name="calendar_write_unreachable_unnamed">BearerMail could not reach your server. Nothing was changed.</string>
     <string name="calendar_gone">This server is no longer offering a calendar.</string>
 
     <!--
@@ -182,4 +182,5 @@
         <item quantity="one">%1$d more</item>
         <item quantity="other">%1$d more</item>
     </plurals>
+    <string name="calendar_add_from_drive">Add from Drive</string>
 </resources>

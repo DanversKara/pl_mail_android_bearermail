@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- The product's name, not a word. It reads the same in every locale. -->
-    <string name="app_name" translatable="false">plMail</string>
+    <string name="app_name" translatable="false">BearerMail</string>
 
     <!--
       What the calendar's own launcher icon is called, when the user has asked
@@ -10,5 +10,6 @@
       has to say in German. Kept short on purpose; a launcher gives a label
       about twelve characters before it ellipsises.
     -->
-    <string name="calendar_app_name">plMail Calendar</string>
+    <string name="calendar_app_name">BearerMail Calendar</string>
+    <string name="share_to_drive">BearerMail Drive</string>
 </resources>

@@ -9,4 +9,6 @@
 -->
 <paths>
     <cache-path name="blobs" path="blobs/" />
+    <!-- BearerMail Drive downloads (DriveRepository.downloadToCache). -->
+    <cache-path name="drive" path="drive/" />
 </paths>

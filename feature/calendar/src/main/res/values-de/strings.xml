@@ -13,8 +13,8 @@
     <string name="calendar_loading">Kalender wird geladen…</string>
 
     <string name="calendar_offline">Sie sind offline. Das sind die Termine, die bereits auf dem Gerät liegen.</string>
-    <string name="calendar_unreachable">plMail konnte %1$s nicht erreichen. Das sind die Termine, die bereits auf dem Gerät liegen.</string>
-    <string name="calendar_unreachable_unnamed">plMail konnte den Server nicht erreichen. Das sind die Termine, die bereits auf dem Gerät liegen.</string>
+    <string name="calendar_unreachable">BearerMail konnte %1$s nicht erreichen. Das sind die Termine, die bereits auf dem Gerät liegen.</string>
+    <string name="calendar_unreachable_unnamed">BearerMail konnte den Server nicht erreichen. Das sind die Termine, die bereits auf dem Gerät liegen.</string>
     <string name="calendar_refresh_refused">Der Kalender konnte nicht aktualisiert werden: %1$s</string>
 
     <string name="calendar_horizon">Ihr Server schreibt wiederkehrende Termine nur für einen begrenzten Zeitraum um den heutigen Tag heraus (%1$s). Weiter entfernte Tage können deshalb unvollständig sein.</string>
@@ -73,8 +73,8 @@
 
     <string name="calendar_none_writable">Keiner Ihrer Kalender nimmt neue Termine an.</string>
     <string name="calendar_write_refused">Der Server hat diese Änderung abgelehnt: %1$s</string>
-    <string name="calendar_write_unreachable">plMail konnte %1$s nicht erreichen. Es wurde nichts geändert.</string>
-    <string name="calendar_write_unreachable_unnamed">plMail konnte den Server nicht erreichen. Es wurde nichts geändert.</string>
+    <string name="calendar_write_unreachable">BearerMail konnte %1$s nicht erreichen. Es wurde nichts geändert.</string>
+    <string name="calendar_write_unreachable_unnamed">BearerMail konnte den Server nicht erreichen. Es wurde nichts geändert.</string>
     <string name="calendar_gone">Dieser Server bietet keinen Kalender mehr an.</string>
 
     <string name="calendar_view_choose">Kalenderansicht wechseln</string>
@@ -107,4 +107,5 @@
         <item quantity="one">%1$d weiterer</item>
         <item quantity="other">%1$d weitere</item>
     </plurals>
+    <string name="calendar_add_from_drive">Aus Drive einfügen</string>
 </resources>

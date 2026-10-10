@@ -71,7 +71,7 @@
       a claim about the server, which the app cannot make between syncs.
     -->
     <string name="inbox_end">That\'s everything on this device</string>
-    <string name="drawer_title">plMail</string>
+    <string name="drawer_title">BearerMail</string>
     <string name="open_labels">Labels</string>
     <string name="labels_loading">Loading your labels…</string>
     <string name="label_new">New label</string>
@@ -95,6 +95,8 @@
       one. Only drawn where the server publishes a calendar at all.
     -->
     <string name="calendar">Calendar</string>
+    <string name="drive">Drive</string>
+    <string name="new_alias">New alias</string>
     <string name="push">Push</string>
     <!--
       "Notifications", not "Notification settings": the drawer's other entries
@@ -292,7 +294,7 @@
       The server itself, rather than one account on it. No reassurance about
       other accounts, because none of them was reached either.
     -->
-    <string name="server_unreachable">plMail could not reach %1$s. This is the mail already on your phone.</string>
+    <string name="server_unreachable">BearerMail could not reach %1$s. This is the mail already on your phone.</string>
     <string name="account_unreachable_host">Could not reach %1$s at %2$s. The other accounts are still up to date.</string>
 
     <string name="action_queued">%1$s here. Your server will be told when it answers.</string>

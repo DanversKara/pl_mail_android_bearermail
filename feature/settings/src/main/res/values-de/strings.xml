@@ -38,15 +38,15 @@
     <string name="push_transport_explains">Angeboten wird nur, was dieses Telefon und dieser Server tatsächlich zustellen können. Bei allem anderen steht, woran es liegt.</string>
 
     <string name="push_transport_webpush">Web Push (UnifiedPush)</string>
-    <string name="push_transport_webpush_explains">Eine Verteiler-App, die Sie installieren, hält die Verbindung. plMail verschlüsselt jede Nachricht für dieses Gerät; der Verteiler erfährt also, wann eine E-Mail ankommt, aber nie, was darin steht. Ohne Google.</string>
+    <string name="push_transport_webpush_explains">Eine Verteiler-App, die Sie installieren, hält die Verbindung. BearerMail verschlüsselt jede Nachricht für dieses Gerät; der Verteiler erfährt also, wann eine E-Mail ankommt, aber nie, was darin steht. Ohne Google.</string>
 
     <string name="push_transport_fcm">Firebase (Google)</string>
     <string name="push_transport_fcm_explains">Nichts zu installieren. Ihr Server braucht ein Firebase-Projekt, und Google erfährt, dass und wann eine Nachricht angekommen ist – nie, was darin steht.</string>
 
     <string name="push_transport_pull">Nur abrufen</string>
-    <string name="push_transport_pull_explains">Nirgends registriert. plMail sieht alle 15 Minuten nach und immer, wenn Sie die App öffnen, und bleibt aktuell, solange die App geöffnet ist. Außer Ihrem Server erfährt niemand, wann E-Mails ankommen.</string>
+    <string name="push_transport_pull_explains">Nirgends registriert. BearerMail sieht alle 15 Minuten nach und immer, wenn Sie die App öffnen, und bleibt aktuell, solange die App geöffnet ist. Außer Ihrem Server erfährt niemand, wann E-Mails ankommen.</string>
 
-    <string name="push_reason_server_too_old">Dieser Server kennt Firebase noch nicht. Nach einem Update von plMail auf dem Server steht die Option zur Verfügung.</string>
+    <string name="push_reason_server_too_old">Dieser Server kennt Firebase noch nicht. Nach einem Update von BearerMail auf dem Server steht die Option zur Verfügung.</string>
     <string name="push_reason_server_disabled">Firebase ist auf diesem Server ausgeschaltet. In den Administrationseinstellungen des Servers lässt es sich unter „Push“ einschalten.</string>
     <string name="push_reason_server_config">Die Firebase-Konfiguration dieses Servers ist unvollständig und kann deshalb nicht gestartet werden.</string>
     <string name="push_reason_not_in_build">Dies ist die Google-freie Variante; sie enthält überhaupt keinen Firebase-Code. Das ist Absicht.</string>
@@ -89,11 +89,11 @@
     <!-- Endonyme: siehe die englische Fassung. Beide Namen sind in beiden Sprachen dasselbe Wort. -->
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
-    <string name="appearance_language_body">Die Sprache, in der plMail auf diesem Telefon geschrieben ist. Die Einstellung gilt nur für dieses Gerät — sie wird nie an Ihr Konto gesendet und erreicht weder Ihren Browser noch Ihre anderen Geräte.</string>
-    <string name="appearance_language_system">Das ist dieselbe Einstellung wie die von Android unter Einstellungen → Apps → plMail → Sprache. Eine Änderung an einer der beiden Stellen ändert beide.</string>
+    <string name="appearance_language_body">Die Sprache, in der BearerMail auf diesem Telefon geschrieben ist. Die Einstellung gilt nur für dieses Gerät — sie wird nie an Ihr Konto gesendet und erreicht weder Ihren Browser noch Ihre anderen Geräte.</string>
+    <string name="appearance_language_system">Das ist dieselbe Einstellung wie die von Android unter Einstellungen → Apps → BearerMail → Sprache. Eine Änderung an einer der beiden Stellen ändert beide.</string>
 
     <string name="appearance_sync">Wie im Web</string>
-    <string name="appearance_sync_body">Was Sie hier nicht selbst einstellen, folgt plMail in Ihrem Browser. Ausgeschaltet bleibt dieses Telefon bei dem, was es gerade zeigt. Was Sie auf diesem Bildschirm ändern, erreicht Ihren Browser so oder so nie. Beim Wiedereinschalten gelten wieder die Einstellungen des Browsers; die des Telefons werden verworfen.</string>
+    <string name="appearance_sync_body">Was Sie hier nicht selbst einstellen, folgt BearerMail in Ihrem Browser. Ausgeschaltet bleibt dieses Telefon bei dem, was es gerade zeigt. Was Sie auf diesem Bildschirm ändern, erreicht Ihren Browser so oder so nie. Beim Wiedereinschalten gelten wieder die Einstellungen des Browsers; die des Telefons werden verworfen.</string>
 
     <string name="appearance_theme">Farbschema</string>
     <string name="theme_system">Wie das System</string>
@@ -174,9 +174,9 @@
     <string name="accounts_window_empty">Von diesem Konto liegt noch nichts auf diesem Gerät.</string>
 
     <string name="accounts_server_backfill_pending">Es kommt noch ältere Post; Ihr Server ist in diesem Postfach noch nicht am Ende angelangt.</string>
-    <string name="accounts_attention_reconnect">Dieses Konto muss neu verbunden werden. Melden Sie sich in plMail im Web erneut an — bis dahin kommt keine neue Post an.</string>
+    <string name="accounts_attention_reconnect">Dieses Konto muss neu verbunden werden. Melden Sie sich in BearerMail im Web erneut an — bis dahin kommt keine neue Post an.</string>
     <string name="accounts_attention_push">Push funktioniert für dieses Konto nicht. Post kommt weiterhin an, aber erst bei der regelmäßigen Prüfung statt sofort.</string>
-    <string name="accounts_attention_generic">Dieses Konto braucht Aufmerksamkeit. Öffnen Sie plMail im Web, um zu sehen, was nicht stimmt.</string>
+    <string name="accounts_attention_generic">Dieses Konto braucht Aufmerksamkeit. Öffnen Sie BearerMail im Web, um zu sehen, was nicht stimmt.</string>
 
     <string name="accounts_server_backfill_all">Er hat alles davon geholt.</string>
     <plurals name="accounts_server_backfill_reached">

@@ -22,6 +22,7 @@ import de.plmail.jmap.methods.EmailSubmissionChanges
 import de.plmail.jmap.methods.EmailSubmissionGet
 import de.plmail.jmap.methods.EmailSubmissionSet
 import de.plmail.jmap.methods.FORBIDDEN_FROM
+import de.plmail.jmap.methods.IdentityCreate
 import de.plmail.jmap.methods.IdentityGet
 import de.plmail.jmap.methods.SendHold
 import de.plmail.jmap.methods.SetError
@@ -139,6 +140,49 @@ constructor(
                 mail.replaceIdentities(StoreKey.account(server, accountId.value), identities)
             }
         }
+    }
+
+    /**
+     * Creates a new sending address on [accountKey] and returns it once the identity list has
+     * been re-read.
+     *
+     * BearerMail: on the self-hosted server the alias is written to the mail server's alias map in
+     * the same request, so it can *receive* within seconds — an address made up at a shop counter
+     * works before the receipt prints.
+     *
+     * [localPart] is what goes before the `@`; the domain is taken from the account's primary
+     * identity so a typo cannot create an alias on someone else's domain.
+     */
+    suspend fun createAlias(accountKey: String, localPart: String, displayName: String?): SendIdentity {
+        val account =
+            database.accounts().byUid(accountKey)
+                ?: throw IllegalStateException("That account is no longer on this phone.")
+        val client = clients.forAccount(accountKey) ?: throw IllegalStateException("Not connected.")
+
+        val known = database.identities().forAccount(accountKey)
+        val domain =
+            known.firstNotNullOfOrNull { it.email.substringAfter('@', "").takeIf(String::isNotBlank) }
+                ?: throw IllegalStateException("This account has no address to take a domain from.")
+
+        val local = localPart.trim().lowercase()
+        require(ALIAS_LOCAL_PART.matches(local)) {
+            "Use letters, numbers, dots, dashes or underscores (up to 64)."
+        }
+        val email = "$local@$domain"
+
+        val request = RequestBuilder()
+        val set = request.add(IdentityCreate(AccountId(account.accountId), email, displayName))
+        val result = client.send(request).result(set)
+
+        result.notCreated[IdentityCreate.CREATION_ID]?.let { failure ->
+            throw IllegalArgumentException(failure.description ?: "The server refused $email.")
+        }
+
+        refreshIdentities()
+
+        return identities().first().firstOrNull {
+            it.accountKey == accountKey && it.email.equals(email, ignoreCase = true)
+        } ?: throw IllegalStateException("$email was created but has not appeared yet. Try again.")
     }
 
     /**
@@ -732,7 +776,27 @@ constructor(
         const val DRAFTS_ROLE = "drafts"
         const val SENT_ROLE = "sent"
         const val TRASH_ROLE = "trash"
+        val ALIAS_LOCAL_PART = Regex("^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$")
     }
+}
+
+/**
+ * A throwaway local part for a one-tap alias: an optional readable prefix plus eight random
+ * characters, e.g. `shop.k3v9x2ma`. Random from [java.security.SecureRandom] so an alias cannot be
+ * guessed from the ones before it.
+ */
+fun randomAliasLocalPart(prefix: String? = null): String {
+    val alphabet = "abcdefghijkmnpqrstuvwxyz23456789"
+    val random = java.security.SecureRandom()
+    val tail = (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
+    val head =
+        prefix
+            ?.lowercase()
+            ?.replace(Regex("[^a-z0-9]+"), "-")
+            ?.trim('-')
+            ?.take(20)
+            ?.takeIf { it.isNotBlank() }
+    return if (head == null) tail else "$head.$tail"
 }
 
 /**

@@ -13,13 +13,12 @@ import kotlin.test.assertTrue
 class BuildConfigurationTest {
 
     @Test
-    fun `application id is namespaced under the shared plMail identity`() {
-        // One identity across both clients: de.plmail is what the iOS app's
-        // PRODUCT_BUNDLE_IDENTIFIER already uses, and the pairing deep link
-        // will be registered against this app, so it wants to be predictable.
+    fun `application id is the BearerMail identity`() {
+        // BearerMail installs as its own app (com.bearermail.mail) so it sits
+        // next to a stock plMail install instead of replacing it.
         assertTrue(
-            BuildConfig.APPLICATION_ID.startsWith("de.plmail"),
-            "expected an id under de.plmail, got ${BuildConfig.APPLICATION_ID}",
+            BuildConfig.APPLICATION_ID.startsWith("com.bearermail.mail"),
+            "expected an id under com.bearermail.mail, got ${BuildConfig.APPLICATION_ID}",
         )
     }
 

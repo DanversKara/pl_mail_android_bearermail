@@ -42,7 +42,7 @@ val releaseKeyPassword = signingValue("PLMAIL_KEY_PASSWORD", "keyPassword")
 android {
     namespace = "de.plmail"
 
-    defaultConfig { applicationId = "de.plmail" }
+    defaultConfig { applicationId = "com.bearermail.mail" }
 
     /**
      * Two builds, because "without Google" has to be true rather than merely configurable.
@@ -164,6 +164,7 @@ dependencies {
     implementation(projects.feature.onboarding)
     implementation(projects.feature.mail)
     implementation(projects.feature.calendar)
+    implementation(projects.feature.drive)
     implementation(projects.feature.compose)
     implementation(projects.feature.search)
     implementation(projects.feature.settings)

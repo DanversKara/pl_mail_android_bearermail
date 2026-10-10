@@ -50,8 +50,8 @@
       has.
     -->
     <string name="reply_failed_offline">There was no connection to your server. Your reply is still here.</string>
-    <string name="reply_failed_unanswerable">This message could not be answered from the notification. Open plMail to reply.</string>
-    <string name="reply_failed_refused">Your server would not accept the reply. Open plMail to send it.</string>
+    <string name="reply_failed_unanswerable">This message could not be answered from the notification. Open BearerMail to reply.</string>
+    <string name="reply_failed_refused">Your server would not accept the reply. Open BearerMail to send it.</string>
 
     <plurals name="new_messages">
         <item quantity="one">1 new message</item>

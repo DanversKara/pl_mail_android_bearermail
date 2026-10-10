@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddLink
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import de.plmail.feature.drive.DriveLinkPicker
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,6 +122,24 @@ internal fun EventEditorScreen(
 
     val form = state.form
     var confirmingDelete by remember(session) { mutableStateOf(false) }
+    var isPickingDrive by remember(session) { mutableStateOf(false) }
+
+    // BearerMail: "Add from Drive" appends "name: link" to the description.
+    if (isPickingDrive) {
+        DriveLinkPicker(
+            onDismiss = { isPickingDrive = false },
+            onPicked = { name, url ->
+                isPickingDrive = false
+                viewModel.edit {
+                    val line = "$name: $url"
+                    it.copy(
+                        description =
+                            if (it.description.isBlank()) line else it.description.trimEnd() + "\n" + line
+                    )
+                }
+            },
+        )
+    }
 
     if (confirmingDelete) {
         DeleteConfirmation(
@@ -246,6 +266,14 @@ internal fun EventEditorScreen(
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            TextButton(onClick = { isPickingDrive = true }) {
+                Icon(Icons.Filled.AddLink, contentDescription = null)
+                Text(
+                    stringResource(R.string.calendar_add_from_drive),
+                    modifier = Modifier.padding(start = PlMailTheme.spacing.small),
+                )
+            }
 
             WriteNote(state.outcome)
 
