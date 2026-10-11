@@ -72,7 +72,7 @@ object MeetingDetector {
     private val LABELLED_PLACE =
         Regex("""\b(?:address|location|where|place|venue|adresse|ort)\s*[:\-]\s*([^\n]{4,160})""", RegexOption.IGNORE_CASE)
     private val NEXT_FIELD =
-        Regex("""\s+(?:phone|tel|telephone|time|when|date|at\s+\d)\b\s*[:\-]?""", RegexOption.IGNORE_CASE)
+        Regex("""\s+(?:phone|tel|telephone|time|when|date|at\s+\d)\b\s*[:\-]?|[.!?](?:\s|$)""", RegexOption.IGNORE_CASE)
 
     /** [received] is when the mail arrived, on the phone's own clock. */
     fun detect(subject: String?, body: String, sender: String?, received: LocalDateTime): PlanSuggestion? {
@@ -83,7 +83,8 @@ object MeetingDetector {
 
         val time = findTime(text)
         val date = findDate(text, received)
-        val location = findAddress(text)
+        // Addresses often wrap onto two lines in the sender's mail app, so read them flattened.
+        val location = findAddress(text.replace(Regex("""\s*\n\s*"""), " "))
         val hasPlan = PLAN_WORDS.any { Regex("""\b""" + Regex.escape(it)).containsMatchIn(lower) }
 
         if (time == null && date == null) return null
