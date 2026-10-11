@@ -25,6 +25,11 @@ not listed here is upstream's work.
 - **Insert event in compose.** Composer menu (⋯) → **Insert event** picks one of your upcoming
   events, writes its details into the message and attaches it as an `.ics`, so the recipient can add
   it to their calendar in one tap.
+- **Too big to attach → Drive link.** Picking a file over 25 MB in the composer uploads it to Drive
+  and adds a download link with a short note, instead of failing at Send (phone uploads up to
+  300 MB; bigger files from the website).
+- **Links open a page, not a raw download.** Shared Drive links show the file with a Download button
+  and a "Report this link" button for the recipient.
 - **On-the-spot aliases.** Drawer → **New alias**, or the composer's From menu → **New alias…** /
   **Random alias (one tap)**. Type a name or make a random one (e.g. `shop.k3v9x2ma@yourdomain`).
   The address is copied to the clipboard, receives mail within seconds (the server adds it to the

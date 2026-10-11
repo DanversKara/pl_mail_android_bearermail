@@ -117,4 +117,5 @@
     <string name="compose_event_empty">In den nächsten drei Monaten steht nichts an.</string>
     <string name="compose_event_when">Wann</string>
     <string name="compose_event_where">Wo</string>
+    <string name="compose_too_large_note">Zu groß als Anhang, daher liegt es in meinem Drive. Hier herunterladen:</string>
 </resources>

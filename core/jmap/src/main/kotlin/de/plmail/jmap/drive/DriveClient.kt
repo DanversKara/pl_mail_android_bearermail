@@ -226,9 +226,12 @@ data class DriveShare(
     val downloadCount: Int = 0,
     val createdAt: String = "",
 ) {
-    /** The link to hand someone: the direct download when there is one, else the landing page. */
+    /**
+     * The link to hand someone: the share's landing page, which shows the file name and size with a
+     * Download button — and a "Report this link" for the recipient (BearerMail).
+     */
     val bestLink: String
-        get() = downloadUrl ?: url
+        get() = url
 }
 
 @Serializable internal data class DriveAllFiles(val files: List<DriveFile> = emptyList())

@@ -136,6 +136,23 @@ fun ComposeScreen(
     // way a Compose text field becomes unusable.
     LaunchedEffect(body.annotatedString) { viewModel.setBody(body.toHtml()) }
 
+    // BearerMail: files too big to attach were put in Drive; link them here.
+    val tooLargeNote = stringResource(R.string.compose_too_large_note)
+    LaunchedEffect(state.pendingDriveLinks) {
+        if (state.pendingDriveLinks.isEmpty()) return@LaunchedEffect
+        val html = buildString {
+            append("<p><i>").append(tooLargeNote.escapeHtml()).append("</i>")
+            state.pendingDriveLinks.forEach { link ->
+                append("<br><a href=\"").append(link.url.escapeHtml()).append("\">📎 ")
+                append(link.name.escapeHtml()).append("</a> (")
+                append(String.format(java.util.Locale.ROOT, "%.1f", link.sizeBytes / 1048576.0)).append(" MB)")
+            }
+            append("</p>")
+        }
+        body.setHtml(body.toHtml() + html)
+        viewModel.driveLinksInserted()
+    }
+
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             viewModel.attachPicked(uris)
@@ -724,3 +741,6 @@ private val UNDERLINE =
     androidx.compose.ui.text.SpanStyle(
         textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
     )
+
+private fun String.escapeHtml(): String =
+    replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

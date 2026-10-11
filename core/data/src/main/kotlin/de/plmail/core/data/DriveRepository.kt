@@ -81,6 +81,25 @@ constructor(
      * Read fully before sending — Drive's own upload ceiling (50 MB by default) is the bound.
      */
     suspend fun upload(uri: Uri, folderId: Long?): DriveFile {
+        // The phone app reads a file whole before sending it, so it keeps to a
+        // size a phone can hold; bigger files go up from the website.
+        val declared =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+                        }
+                    }
+                    .getOrNull()
+            }
+        if (declared != null && declared > PHONE_MAX_BYTES) {
+            throw JmapError.RequestRejected(
+                "tooLarge",
+                413,
+                "That file is ${declared / 1_000_000} MB. The phone app uploads up to ${PHONE_MAX_BYTES / 1_000_000} MB — use the website for bigger files.",
+            )
+        }
+
         val (name, type, bytes) =
             withContext(Dispatchers.IO) {
                 val resolver = context.contentResolver
@@ -130,5 +149,9 @@ constructor(
                 client.download(file.id, out)
             } ?: throw JmapError.RequestRejected("unwritable", 0, "Could not write there.")
         }
+    }
+
+    private companion object {
+        const val PHONE_MAX_BYTES = 300L * 1024 * 1024
     }
 }
