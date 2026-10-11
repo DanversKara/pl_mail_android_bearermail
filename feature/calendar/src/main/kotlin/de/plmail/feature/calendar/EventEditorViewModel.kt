@@ -94,6 +94,31 @@ constructor(private val calendar: EventEditing, private val clock: Clock) : View
                                 .copy(calendarKey = defaultCalendarKey),
                         loadedFor = session,
                     )
+            is EditorRequest.NewFrom -> {
+                val dateOnly = !request.startWire.contains('T')
+                val start =
+                    runCatching {
+                            if (dateOnly) java.time.LocalDate.parse(request.startWire).atTime(9, 0)
+                            else java.time.LocalDateTime.parse(request.startWire)
+                        }
+                        .getOrNull()
+                val base =
+                    (start?.let { EventFormState.forNewEventAt(it) }
+                        ?: EventFormState.forNewEvent(clock))
+                _state.value =
+                    EditorState(
+                        form =
+                            base.copy(
+                                calendarKey = defaultCalendarKey,
+                                title = request.title,
+                                location = request.location,
+                                description = request.description,
+                                isAllDay = dateOnly && start != null,
+                                endDate = if (dateOnly) base.startDate else base.endDate,
+                            ),
+                        loadedFor = session,
+                    )
+            }
             is EditorRequest.Edit -> {
                 _state.value = EditorState(loadedFor = session)
 

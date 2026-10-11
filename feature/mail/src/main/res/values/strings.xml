@@ -301,4 +301,8 @@
     <string name="action_queued_host">%1$s here. %2$s will be told when it answers.</string>
     <!-- A phone with no browser, or a tel: link on a tablet. Rare, and not a crash. -->
     <string name="link_no_handler">Nothing on this device can open that link.</string>
+    <!-- BearerMail: plans found in a message -->
+    <string name="plan_heading">Looks like a plan</string>
+    <string name="plan_add">Add to calendar</string>
+    <string name="plan_no_time">time not stated</string>
 </resources>

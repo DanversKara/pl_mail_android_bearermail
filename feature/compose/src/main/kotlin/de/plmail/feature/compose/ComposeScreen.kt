@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddLink
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -112,6 +113,9 @@ fun ComposeScreen(
     // BearerMail: null = no alias dialog; false = type one; true = one-tap random.
     var aliasRequest by remember { mutableStateOf<Boolean?>(null) }
     var isPickingDrive by remember { mutableStateOf(false) }
+    var isPickingEvent by remember { mutableStateOf(false) }
+    val whenLabel = stringResource(R.string.compose_event_when)
+    val whereLabel = stringResource(R.string.compose_event_where)
     var isPickingExactTime by remember { mutableStateOf(false) }
 
     // Open, until the message itself is being written. Saveable because a
@@ -194,6 +198,7 @@ fun ComposeScreen(
                         canSchedule = state.canScheduleSend,
                         onSendLater = { isChoosingWhen = true },
                         onDiscard = { viewModel.discard(onClose) },
+                        onInsertEvent = { isPickingEvent = true },
                     )
 
                     // Anchored under the overflow button it was opened from, so
@@ -223,6 +228,21 @@ fun ComposeScreen(
                 preferredAccount = state.draft.accountKey.ifBlank { null },
                 instantRandom = random,
                 onCreated = { identity -> viewModel.useNewIdentity(identity) },
+            )
+        }
+
+        if (isPickingEvent) {
+            EventPickerDialog(
+                load = viewModel::upcomingEvents,
+                whenText = viewModel::eventWhen,
+                onPick = { row ->
+                    isPickingEvent = false
+                    // Appended at the end: the editor has no "insert HTML here" call that is
+                    // stable across its versions, and the end is where a P.S. goes anyway.
+                    body.setHtml(body.toHtml() + viewModel.eventHtml(row, whenLabel, whereLabel))
+                    viewModel.attachEvent(row)
+                },
+                onDismiss = { isPickingEvent = false },
             )
         }
 
@@ -525,6 +545,7 @@ private fun OverflowMenu(
     canSchedule: Boolean,
     onSendLater: () -> Unit,
     onDiscard: () -> Unit,
+    onInsertEvent: () -> Unit = {},
 ) {
     var isOpen by remember { mutableStateOf(false) }
 
@@ -546,6 +567,16 @@ private fun OverflowMenu(
                 },
             )
         }
+
+        // BearerMail: one of your calendar events, into the message and attached as .ics.
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.compose_insert_event)) },
+            leadingIcon = { Icon(Icons.Outlined.Event, contentDescription = null) },
+            onClick = {
+                isOpen = false
+                onInsertEvent()
+            },
+        )
 
         DropdownMenuItem(
             text = { Text(stringResource(R.string.compose_discard)) },

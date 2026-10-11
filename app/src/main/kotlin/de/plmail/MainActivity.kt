@@ -29,6 +29,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.AppLocaleOverride
 import de.plmail.core.designsystem.PlMailTheme
 import de.plmail.feature.calendar.CalendarScreen
+import de.plmail.feature.calendar.EditorRequest
 import de.plmail.feature.compose.ComposeHost
 import de.plmail.feature.compose.ComposeRequest
 import de.plmail.feature.compose.ComposeRequestSaver
@@ -251,6 +252,9 @@ private fun PlMailApp(
     var isCalendaring by rememberSaveable { mutableStateOf(false) }
     var isDriving by rememberSaveable { mutableStateOf(false) }
     var isMakingAlias by rememberSaveable { mutableStateOf(false) }
+    // BearerMail: an event editor the calendar should open on arrival — "Add to
+    // calendar" from a plan found in a mail.
+    var pendingCalendarEditor by remember { mutableStateOf<EditorRequest?>(null) }
     var composing by rememberSaveable(stateSaver = ComposeRequestSaver) { mutableStateOf(null) }
 
     // A conversation picked from a search result. It goes through the same
@@ -421,7 +425,11 @@ private fun PlMailApp(
                         // own back between them; what :app decides is only
                         // whether the calendar or the mail is on screen, the
                         // same way it does for every other swapped screen here.
-                        CalendarScreen(onBack = { isCalendaring = false })
+                        CalendarScreen(
+                            onBack = { isCalendaring = false },
+                            pending = pendingCalendarEditor,
+                            onPendingHandled = { pendingCalendarEditor = null },
+                        )
                     } else if (screen == Screen.DRIVE) {
                         DriveScreen(
                             onBack = { isDriving = false },
@@ -475,6 +483,21 @@ private fun PlMailApp(
                             onCalendar = if (hasCalendar) ({ isCalendaring = true }) else null,
                             onDrive = if (hasDrive) ({ isDriving = true }) else null,
                             onNewAlias = { isMakingAlias = true },
+                            onAddToCalendar =
+                                if (hasCalendar) {
+                                    { plan ->
+                                        pendingCalendarEditor =
+                                            EditorRequest.NewFrom(
+                                                startWire = plan.startWire,
+                                                title = plan.title,
+                                                location = plan.location.orEmpty(),
+                                                description = plan.description,
+                                            )
+                                        isCalendaring = true
+                                    }
+                                } else {
+                                    null
+                                },
                             onCompose = { composing = ComposeRequest.New },
                             onReply = { accountKey, emailId, all ->
                                 composing = ComposeRequest.Reply(accountKey, emailId, all)

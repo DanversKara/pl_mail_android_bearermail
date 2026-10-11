@@ -61,6 +61,8 @@ fun MailShell(
     onCompose: () -> Unit,
     onReply: (accountKey: String, emailId: String, all: Boolean) -> Unit,
     onForward: (accountKey: String, emailId: String) -> Unit,
+    /** BearerMail: "Add to calendar" from a plan found in a message. Null hides the card. */
+    onAddToCalendar: ((de.plmail.core.data.PlanSuggestion) -> Unit)? = null,
     /** A conversation to open straight away, from a notification tap. */
     openThread: ThreadTarget? = null,
     onThreadOpened: () -> Unit = {},
@@ -214,6 +216,7 @@ fun MailShell(
                 onCompose = onCompose,
                 onReply = onReply,
                 onForward = onForward,
+                onAddToCalendar = onAddToCalendar,
                 openThread = openThread,
                 onThreadOpened = onThreadOpened,
             )

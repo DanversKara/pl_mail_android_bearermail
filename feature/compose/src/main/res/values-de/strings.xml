@@ -109,4 +109,12 @@
     <string name="compose_random_alias">Zufälliger Alias (ein Tipp)</string>
     <!-- BearerMail: Drive-Links -->
     <string name="compose_drive">Drive-Link einfügen</string>
+    <!-- BearerMail: Termin einfügen -->
+    <string name="compose_insert_event">Termin einfügen</string>
+    <string name="compose_event_title">Termin einfügen</string>
+    <string name="compose_event_hint">Die Details kommen in die Nachricht und der Termin wird als .ics angehängt – mit einem Tipp in den eigenen Kalender übernehmbar.</string>
+    <string name="compose_event_search">Termine durchsuchen</string>
+    <string name="compose_event_empty">In den nächsten drei Monaten steht nichts an.</string>
+    <string name="compose_event_when">Wann</string>
+    <string name="compose_event_where">Wo</string>
 </resources>

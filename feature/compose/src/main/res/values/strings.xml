@@ -173,4 +173,12 @@
     <string name="compose_random_alias">Random alias (one tap)</string>
     <!-- BearerMail: Drive links -->
     <string name="compose_drive">Insert Drive link</string>
+    <!-- BearerMail: insert a calendar event -->
+    <string name="compose_insert_event">Insert event</string>
+    <string name="compose_event_title">Insert an event</string>
+    <string name="compose_event_hint">Its details go into the message and it is attached as an .ics, so they can add it to their calendar in one tap.</string>
+    <string name="compose_event_search">Search your events</string>
+    <string name="compose_event_empty">Nothing coming up in the next three months.</string>
+    <string name="compose_event_when">When</string>
+    <string name="compose_event_where">Where</string>
 </resources>

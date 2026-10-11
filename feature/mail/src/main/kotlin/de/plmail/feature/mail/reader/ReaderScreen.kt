@@ -64,6 +64,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.plmail.core.data.Label
 import de.plmail.core.data.MailAction
+import de.plmail.core.data.PlanSuggestion
 import de.plmail.core.database.AttachmentEntity
 import de.plmail.core.designsystem.PlMailAvatar
 import de.plmail.core.designsystem.PlMailDivider
@@ -118,6 +119,11 @@ fun ReaderScreen(
     onMove: () -> Unit = {},
     /** Goes to a label's own list, from a chip under the subject. */
     onOpenLabel: (Label) -> Unit = {},
+    /**
+     * BearerMail: opens the calendar's editor filled in from a plan this conversation describes.
+     * Null where the server has no calendar — then no card is drawn.
+     */
+    onAddToCalendar: ((PlanSuggestion) -> Unit)? = null,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -134,6 +140,13 @@ fun ReaderScreen(
 
     val context = LocalContext.current
     val snackbars = remember { SnackbarHostState() }
+
+    // BearerMail: a plan in the newest message ("meet me … at 10am"), read once per body.
+    val newestMessage = state.messages.lastOrNull()
+    val plan =
+        remember(newestMessage?.email?.uid, newestMessage?.text, newestMessage?.html, onAddToCalendar != null) {
+            if (onAddToCalendar == null || newestMessage == null) null else planIn(newestMessage)
+        }
 
     LaunchedEffect(accountKey, threadId) { viewModel.open(accountKey, threadId, subject) }
 
@@ -254,6 +267,22 @@ fun ReaderScreen(
                     )
                 }
 
+                // BearerMail: "meet me at … at 10am" in the newest message gets an
+                // Add to calendar card. Computed from text already on the phone.
+                if (plan != null && onAddToCalendar != null) {
+                    item(key = PLAN_KEY) {
+                        PlanCard(
+                            plan = plan,
+                            onAdd = { onAddToCalendar(plan) },
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = PlMailTheme.spacing.gutter,
+                                    vertical = PlMailTheme.spacing.small,
+                                ),
+                        )
+                    }
+                }
+
                 items(items = state.messages, key = { it.email.uid }) { message ->
                     Message(
                         message = message,
@@ -279,6 +308,9 @@ fun ReaderScreen(
 
 /** The subject row's key in the reader's list, which no message uid can collide with. */
 private const val SUBJECT_KEY = "reader:subject"
+
+/** The plan card's key, which no message uid can collide with either. */
+private const val PLAN_KEY = "reader:plan"
 
 /**
  * Reply, reply-all and forward, always on screen.

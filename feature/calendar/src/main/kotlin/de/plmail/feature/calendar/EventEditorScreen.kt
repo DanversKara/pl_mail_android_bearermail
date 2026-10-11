@@ -168,7 +168,7 @@ internal fun EventEditorScreen(
                 title = {
                     Text(
                         stringResource(
-                            if (request == EditorRequest.New) R.string.calendar_new_title
+                            if (request.isNew) R.string.calendar_new_title
                             else R.string.calendar_edit_title
                         )
                     )
@@ -245,9 +245,9 @@ internal fun EventEditorScreen(
             )
 
             RepeatField(
-                isEditingRecurring = request != EditorRequest.New && state.isRecurring,
+                isEditingRecurring = !request.isNew && state.isRecurring,
                 repeat = form.repeat,
-                isCreating = request == EditorRequest.New,
+                isCreating = request.isNew,
                 onSelect = { value -> viewModel.edit { it.copy(repeat = value) } },
             )
 
@@ -292,7 +292,7 @@ internal fun EventEditorScreen(
                 // Beside Save and in the same form, as the web has it: an event
                 // is deleted from the place where it is being looked at rather
                 // than from a menu somewhere else.
-                if (request != EditorRequest.New) {
+                if (!request.isNew) {
                     TextButton(onClick = { confirmingDelete = true }, enabled = !state.isSaving) {
                         Text(
                             text = stringResource(R.string.calendar_delete),

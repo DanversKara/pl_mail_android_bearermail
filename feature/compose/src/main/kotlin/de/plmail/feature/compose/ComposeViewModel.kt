@@ -7,6 +7,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.plmail.core.data.CancelOutcome
 import de.plmail.core.data.ComposeDraft
 import de.plmail.core.data.ComposeRepository
+import de.plmail.core.data.EventShare
+import de.plmail.core.database.AgendaRow
 import de.plmail.core.data.ContactSuggestions
 import de.plmail.core.data.ScheduledSend
 import de.plmail.core.data.ScheduledSends
@@ -56,6 +58,7 @@ constructor(
     private val contacts: ContactSuggestions,
     private val sendQueue: SendQueue,
     private val scheduled: ScheduledSends,
+    private val events: EventShare,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ComposeUiState())
@@ -163,6 +166,21 @@ constructor(
         // carrying the old answer over would offer "send later" on a mailbox
         // that would refuse it.
         if (changedAccount) viewModelScope.launch { readSendWindow() }
+    }
+
+    /** BearerMail: upcoming calendar events for "Insert event". */
+    suspend fun upcomingEvents(): List<AgendaRow> = events.upcoming()
+
+    fun eventWhen(row: AgendaRow): String = events.whenText(row)
+
+    fun eventHtml(row: AgendaRow, whenLabel: String, whereLabel: String): String =
+        events.bodyHtml(row, whenLabel, whereLabel)
+
+    /** Attaches the event as an .ics, through the same path as a picked file. */
+    fun attachEvent(row: AgendaRow) {
+        viewModelScope.launch {
+            runCatching { events.icsFile(row) }.onSuccess { uri -> attachPicked(listOf(uri)) }
+        }
     }
 
     /**

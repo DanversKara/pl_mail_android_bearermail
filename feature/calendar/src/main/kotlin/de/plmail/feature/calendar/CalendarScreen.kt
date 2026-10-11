@@ -45,7 +45,23 @@ sealed interface EditorRequest {
      * opened — so a save would send back whatever the cache held before the server was last asked.
      */
     data class Edit(val eventKey: String) : EditorRequest
+
+    /**
+     * BearerMail: a new event filled in from a mail ("meet me at 218 Main St at 10am"). Strings
+     * only, for the same saver reason as [NewAt]. [startWire] is `yyyy-MM-ddTHH:mm`, or
+     * `yyyy-MM-dd` for a day with no time, which opens as an all-day event.
+     */
+    data class NewFrom(
+        val startWire: String,
+        val title: String,
+        val location: String,
+        val description: String,
+    ) : EditorRequest
 }
+
+/** Whether this opening creates an event rather than editing one. */
+val EditorRequest.isNew: Boolean
+    get() = this !is EditorRequest.Edit
 
 /**
  * One *opening* of the editor: what it is for, and the fact that it is a new one.
@@ -76,7 +92,13 @@ data class EditorSession(val serial: Int, val request: EditorRequest)
  * rather than on a detail describing an event that has just been renamed or deleted.
  */
 @Composable
-fun CalendarScreen(onBack: () -> Unit, viewModel: CalendarViewModel = hiltViewModel()) {
+fun CalendarScreen(
+    onBack: () -> Unit,
+    /** BearerMail: an editor to open straight away — "Add to calendar" from a mail. */
+    pending: EditorRequest? = null,
+    onPendingHandled: () -> Unit = {},
+    viewModel: CalendarViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     var open by rememberSaveable(stateSaver = OccurrenceKeySaver) { mutableStateOf(null) }
@@ -123,6 +145,13 @@ fun CalendarScreen(onBack: () -> Unit, viewModel: CalendarViewModel = hiltViewMo
     fun openEditor(request: EditorRequest) {
         openings += 1
         editing = EditorSession(openings, request)
+    }
+
+    LaunchedEffect(pending) {
+        val request = pending ?: return@LaunchedEffect
+        open = null
+        openEditor(request)
+        onPendingHandled()
     }
 
     when (screen) {
@@ -210,6 +239,15 @@ private val EditorSessionSaver: Saver<EditorSession?, Any> =
                 EditorRequest.New -> listOf(it.serial.toString(), "new")
                 is EditorRequest.NewAt -> listOf(it.serial.toString(), "newAt", request.startWire)
                 is EditorRequest.Edit -> listOf(it.serial.toString(), "edit", request.eventKey)
+                is EditorRequest.NewFrom ->
+                    listOf(
+                        it.serial.toString(),
+                        "newFrom",
+                        request.startWire,
+                        request.title,
+                        request.location,
+                        request.description,
+                    )
             }
         },
         restore = {
@@ -220,6 +258,8 @@ private val EditorSessionSaver: Saver<EditorSession?, Any> =
                 it.getOrNull(1) == "new" -> EditorSession(serial, EditorRequest.New)
                 it.getOrNull(1) == "newAt" -> EditorSession(serial, EditorRequest.NewAt(it[2]))
                 it.getOrNull(1) == "edit" -> EditorSession(serial, EditorRequest.Edit(it[2]))
+                it.getOrNull(1) == "newFrom" && it.size >= 6 ->
+                    EditorSession(serial, EditorRequest.NewFrom(it[2], it[3], it[4], it[5]))
                 else -> null
             }
         },

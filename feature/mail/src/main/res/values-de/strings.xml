@@ -207,4 +207,8 @@
     <string name="action_queued">%1$s — hier. Ihr Server erfährt es, sobald er antwortet.</string>
     <string name="action_queued_host">%1$s — hier. %2$s erfährt es, sobald der Server antwortet.</string>
     <string name="link_no_handler">Auf diesem Gerät kann diesen Link nichts öffnen.</string>
+    <!-- BearerMail: plans found in a message -->
+    <string name="plan_heading">Sieht nach einer Verabredung aus</string>
+    <string name="plan_add">Zum Kalender hinzufügen</string>
+    <string name="plan_no_time">keine Uhrzeit angegeben</string>
 </resources>
