@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.os.PersistableBundle
+import androidx.annotation.ChecksSdkIntAtLeast
 
 /**
  * BearerMail: puts a one-time code on the clipboard, marked sensitive so Android 13+ hides it in
@@ -30,6 +31,7 @@ fun Context.copyOneTimeCode(code: String): Boolean {
  * from the app would be noise; below that, the app has to say so itself.
  */
 val systemConfirmsCopy: Boolean
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
     get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
 private const val EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
