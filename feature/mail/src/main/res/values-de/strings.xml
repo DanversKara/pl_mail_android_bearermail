@@ -211,4 +211,9 @@
     <string name="plan_heading">Sieht nach einer Verabredung aus</string>
     <string name="plan_add">Zum Kalender hinzufügen</string>
     <string name="plan_no_time">keine Uhrzeit angegeben</string>
+    <!-- BearerMail: one-time codes found in a message -->
+    <string name="code_heading">Bestätigungscode</string>
+    <string name="code_copy">Kopieren</string>
+    <string name="code_copied_short">Kopiert</string>
+    <string name="code_copied">Code kopiert</string>
 </resources>

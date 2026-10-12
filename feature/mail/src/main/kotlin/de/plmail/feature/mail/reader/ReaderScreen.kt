@@ -147,6 +147,11 @@ fun ReaderScreen(
         remember(newestMessage?.email?.uid, newestMessage?.text, newestMessage?.html, onAddToCalendar != null) {
             if (onAddToCalendar == null || newestMessage == null) null else planIn(newestMessage)
         }
+    // BearerMail: a one-time code in the newest message ("Your code is 482913"), with a Copy button.
+    val code =
+        remember(newestMessage?.email?.uid, newestMessage?.text, newestMessage?.html) {
+            newestMessage?.let(::codeIn)
+        }
 
     LaunchedEffect(accountKey, threadId) { viewModel.open(accountKey, threadId, subject) }
 
@@ -269,6 +274,19 @@ fun ReaderScreen(
 
                 // BearerMail: "meet me at … at 10am" in the newest message gets an
                 // Add to calendar card. Computed from text already on the phone.
+                if (code != null) {
+                    item(key = CODE_KEY) {
+                        CodeCard(
+                            code = code,
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = PlMailTheme.spacing.gutter,
+                                    vertical = PlMailTheme.spacing.small,
+                                ),
+                        )
+                    }
+                }
+
                 if (plan != null && onAddToCalendar != null) {
                     item(key = PLAN_KEY) {
                         PlanCard(
@@ -311,6 +329,9 @@ private const val SUBJECT_KEY = "reader:subject"
 
 /** The plan card's key, which no message uid can collide with either. */
 private const val PLAN_KEY = "reader:plan"
+
+/** The code card's key. */
+private const val CODE_KEY = "reader:code"
 
 /**
  * Reply, reply-all and forward, always on screen.

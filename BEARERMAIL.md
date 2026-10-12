@@ -35,6 +35,12 @@ not listed here is upstream's work.
   The address is copied to the clipboard, receives mail within seconds (the server adds it to the
   mail server automatically), and can be used as the From address straight away. Delete it on the
   web under Settings → Aliases.
+- **Copy verification codes.** When a mail carries a one-time code ("Your verification code is
+  482 913", "G-482913 is your Google code"), the reader shows a **Verification code** card with a
+  **Copy** button, and the new-mail notification gets a **Copy 482913** button (it takes Mark
+  read's place, since Android shows three buttons at most). The code goes on the clipboard marked
+  sensitive, so it is hidden in the clipboard preview. Detection runs on the phone and needs a code
+  word next to the number, so order numbers, prices, dates and phone numbers are left alone.
 
 ## Server needed
 

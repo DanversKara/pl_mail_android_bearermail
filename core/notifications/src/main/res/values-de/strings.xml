@@ -9,6 +9,9 @@
     <string name="action_archive">Archivieren</string>
     <string name="action_mark_read">Als gelesen markieren</string>
     <string name="action_reply">Antworten</string>
+    <!-- BearerMail: copies the one-time code found in the mail, e.g. "Copy 482913" -->
+    <string name="action_copy_code">%1$s kopieren</string>
+    <string name="code_copied">Code kopiert</string>
     <string name="action_try_again">Erneut versuchen</string>
 
     <string name="reply_hint">Ihre Antwort</string>
