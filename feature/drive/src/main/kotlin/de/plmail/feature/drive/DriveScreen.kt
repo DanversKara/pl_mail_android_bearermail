@@ -68,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -551,7 +552,11 @@ private fun FileRow(
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
-                        stringResource(R.string.drive_shared, file.shareCount),
+                        pluralStringResource(
+                            R.plurals.drive_shared,
+                            file.shareCount,
+                            file.shareCount,
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = PlMailTheme.colors.accent,
                     )
@@ -768,7 +773,12 @@ private fun LinksDialog(
                                         when (days) {
                                             null -> stringResource(R.string.drive_links_never)
                                             1 -> stringResource(R.string.drive_links_day)
-                                            else -> stringResource(R.string.drive_links_days, days)
+                                            else ->
+                                                pluralStringResource(
+                                                    R.plurals.drive_links_days,
+                                                    days,
+                                                    days,
+                                                )
                                         }
                                     )
                                 },
@@ -821,8 +831,9 @@ private fun LinksDialog(
                                     share.expiresAt?.asShortDate()?.let {
                                         stringResource(R.string.drive_links_expires_on, it)
                                     },
-                                    stringResource(
-                                        R.string.drive_links_downloads,
+                                    pluralStringResource(
+                                        R.plurals.drive_links_downloads,
+                                        share.downloadCount,
                                         share.downloadCount,
                                     ),
                                 )

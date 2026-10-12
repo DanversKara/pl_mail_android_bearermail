@@ -30,7 +30,10 @@
     <string name="drive_delete_file_body">Die Datei und alle Links darauf funktionieren dann nicht mehr. Das kann nicht rückgängig gemacht werden.</string>
     <string name="drive_delete_folder_title">Ordner %1$s löschen?</string>
     <string name="drive_delete_folder_body">Alles darin, auch Unterordner, wird ebenfalls gelöscht. Das kann nicht rückgängig gemacht werden.</string>
-    <string name="drive_shared">%1$d Link(s)</string>
+    <plurals name="drive_shared">
+        <item quantity="one">%1$d Link</item>
+        <item quantity="other">%1$d Links</item>
+    </plurals>
     <string name="drive_open_with">Öffnen mit</string>
     <string name="drive_send_with">Senden mit</string>
     <string name="drive_move_title">%1$s verschieben</string>
@@ -41,7 +44,10 @@
     <string name="drive_links_password">Passwort (optional)</string>
     <string name="drive_links_expires">Läuft ab</string>
     <string name="drive_links_never">Nie</string>
-    <string name="drive_links_days">%1$d Tage</string>
+    <plurals name="drive_links_days">
+        <item quantity="one">%1$d Tag</item>
+        <item quantity="other">%1$d Tage</item>
+    </plurals>
     <string name="drive_links_day">1 Tag</string>
     <string name="drive_links_create">Link erstellen</string>
     <string name="drive_links_none">Noch keine Links. Jeder mit dem Link kann die Datei laden; ein Passwort beschränkt das auf Leute, denen du es sagst.</string>
@@ -50,11 +56,14 @@
     <string name="drive_links_revoke">Widerrufen</string>
     <string name="drive_links_protected">Passwortgeschützt</string>
     <string name="drive_links_expires_on">Läuft ab am %1$s</string>
-    <string name="drive_links_downloads">%1$d Downloads</string>
+    <plurals name="drive_links_downloads">
+        <item quantity="one">%1$d Download</item>
+        <item quantity="other">%1$d Downloads</item>
+    </plurals>
     <string name="drive_links_copied">Link kopiert.</string>
     <string name="drive_done">Fertig</string>
     <string name="drive_pick_title">Aus Drive einfügen</string>
-    <string name="drive_pick_explain">Wähle eine Datei, um einen Download-Link einzufügen. Große Dateien sind als Link besser als als Anhang.</string>
+    <string name="drive_pick_explain">Wähle eine Datei, um einen Download-Link einzufügen. Große Dateien verschickt man besser als Link statt als Anhang.</string>
     <string name="drive_pick_upload">Vom Telefon hochladen und verlinken</string>
     <string name="drive_pick_search">Drive durchsuchen</string>
 </resources>
