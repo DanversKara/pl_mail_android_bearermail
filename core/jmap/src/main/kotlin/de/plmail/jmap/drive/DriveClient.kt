@@ -47,7 +47,12 @@ class DriveClient(private val client: JmapClient) {
     /** Every file, across folders, newest first — for "attach from Drive" pickers. */
     suspend fun allFiles(): List<DriveFile> = decode<DriveAllFiles>(get("/all")).files
 
-    suspend fun upload(name: String, contentType: String, data: ByteArray, folderId: Long?): DriveFile {
+    suspend fun upload(
+        name: String,
+        contentType: String,
+        data: ByteArray,
+        folderId: Long?,
+    ): DriveFile {
         require(data.isNotEmpty()) { "Refusing to upload an empty file." }
         val max = maxUploadBytes()
         if (data.size > max) {
@@ -61,9 +66,7 @@ class DriveClient(private val client: JmapClient) {
             append("/upload?name=").append(enc(name))
             folderId?.let { append("&folder=").append(it) }
         }
-        return decode(
-            send("POST", query, data, contentType.ifBlank { "application/octet-stream" })
-        )
+        return decode(send("POST", query, data, contentType.ifBlank { "application/octet-stream" }))
     }
 
     suspend fun createFolder(name: String, parentId: Long?): DriveFolder =
@@ -94,7 +97,9 @@ class DriveClient(private val client: JmapClient) {
             sendJson(
                 "PATCH",
                 "/file/$id",
-                buildJsonObject { put("folderId", folderId?.let { JsonPrimitive(it) } ?: JsonNull) },
+                buildJsonObject {
+                    put("folderId", folderId?.let { JsonPrimitive(it) } ?: JsonNull)
+                },
             )
         )
 
@@ -181,18 +186,18 @@ class DriveClient(private val client: JmapClient) {
         return response
     }
 
-    private fun problem(response: HttpResponse): String? =
-        runCatching { json.decodeFromString<DriveProblem>(response.bodyAsText()).detail }.getOrNull()
+    private fun problem(response: HttpResponse): String? = runCatching {
+        json.decodeFromString<DriveProblem>(response.bodyAsText()).detail
+    }.getOrNull()
 
-    private inline fun <reified T> decode(response: HttpResponse): T =
-        runCatching { json.decodeFromString<T>(response.bodyAsText()) }
-            .getOrElse { throw JmapError.MalformedResponse("Drive sent something unexpected.") }
+    private inline fun <reified T> decode(response: HttpResponse): T = runCatching {
+        json.decodeFromString<T>(response.bodyAsText())
+    }.getOrElse { throw JmapError.MalformedResponse("Drive sent something unexpected.") }
 
     private fun enc(value: String) = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 }
 
-@Serializable
-data class DriveFolder(val id: Long, val name: String, val parentId: Long? = null)
+@Serializable data class DriveFolder(val id: Long, val name: String, val parentId: Long? = null)
 
 @Serializable
 data class DriveFile(

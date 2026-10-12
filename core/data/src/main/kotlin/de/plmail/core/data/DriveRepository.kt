@@ -35,9 +35,9 @@ constructor(
         DriveClient(clients.current() ?: throw JmapError.NotAuthenticated("Not connected."))
 
     /** Whether the connected server has Drive. False when not connected or unreachable. */
-    suspend fun isAvailable(): Boolean =
-        runCatching { clients.current()?.let { DriveClient(it).isAvailable() } ?: false }
-            .getOrDefault(false)
+    suspend fun isAvailable(): Boolean = runCatching {
+        clients.current()?.let { DriveClient(it).isAvailable() } ?: false
+    }.getOrDefault(false)
 
     suspend fun list(folderId: Long?): DriveListing = drive().list(folderId)
 
@@ -86,10 +86,12 @@ constructor(
         val declared =
             withContext(Dispatchers.IO) {
                 runCatching {
-                        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                    context.contentResolver
+                        .query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                        ?.use { c ->
                             if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
                         }
-                    }
+                }
                     .getOrNull()
             }
         if (declared != null && declared > PHONE_MAX_BYTES) {
@@ -106,11 +108,11 @@ constructor(
                 val type = resolver.getType(uri) ?: "application/octet-stream"
                 val name =
                     runCatching {
-                            resolver.query(uri, null, null, null, null)?.use { c ->
-                                val col = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                                if (c.moveToFirst() && col >= 0) c.getString(col) else null
-                            }
+                        resolver.query(uri, null, null, null, null)?.use { c ->
+                            val col = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (c.moveToFirst() && col >= 0) c.getString(col) else null
                         }
+                    }
                         .getOrNull()
                         ?.takeIf { it.isNotBlank() } ?: (uri.lastPathSegment ?: "upload")
                 val bytes =
@@ -132,7 +134,8 @@ constructor(
      */
     suspend fun downloadToCache(file: DriveFile): File {
         val dir = File(context.cacheDir, "drive").apply { mkdirs() }
-        val safe = file.name.replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001f]"), "_").ifBlank { "file" }
+        val safe =
+            file.name.replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001f]"), "_").ifBlank { "file" }
         val target = File(dir, "${file.id}-$safe")
         val client = drive()
         withContext(Dispatchers.IO) {

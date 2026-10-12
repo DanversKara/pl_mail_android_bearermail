@@ -78,22 +78,29 @@ internal fun EventPickerDialog(
                             color = PlMailTheme.colors.inkMuted,
                         )
                     else -> {
-                        val shown =
-                            list.filter {
-                                query.isBlank() ||
-                                    it.title.contains(query.trim(), ignoreCase = true) ||
-                                    it.location.orEmpty().contains(query.trim(), ignoreCase = true)
-                            }
+                        val shown = list.filter {
+                            query.isBlank() ||
+                                it.title.contains(query.trim(), ignoreCase = true) ||
+                                it.location.orEmpty().contains(query.trim(), ignoreCase = true)
+                        }
                         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 340.dp)) {
-                            items(shown, key = { it.eventKey + "@" + (it.startLocal ?: it.date) }) { row ->
+                            items(
+                                shown,
+                                key = { it.eventKey + "@" + (it.startLocal ?: it.date) },
+                            ) { row ->
                                 Row(
                                     Modifier.fillMaxWidth()
                                         .clickable { onPick(row) }
                                         .padding(vertical = PlMailTheme.spacing.small),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.small),
+                                    horizontalArrangement =
+                                        Arrangement.spacedBy(PlMailTheme.spacing.small),
                                 ) {
-                                    Icon(Icons.Outlined.Event, contentDescription = null, tint = PlMailTheme.colors.inkSoft)
+                                    Icon(
+                                        Icons.Outlined.Event,
+                                        contentDescription = null,
+                                        tint = PlMailTheme.colors.inkSoft,
+                                    )
                                     Column(Modifier.weight(1f)) {
                                         Text(
                                             row.title.ifBlank { "—" },
@@ -101,7 +108,10 @@ internal fun EventPickerDialog(
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                         Text(
-                                            listOfNotNull(whenText(row), row.location?.takeIf { it.isNotBlank() })
+                                            listOfNotNull(
+                                                    whenText(row),
+                                                    row.location?.takeIf { it.isNotBlank() },
+                                                )
                                                 .joinToString(" · "),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = PlMailTheme.colors.inkMuted,

@@ -96,12 +96,11 @@ constructor(private val calendar: EventEditing, private val clock: Clock) : View
                     )
             is EditorRequest.NewFrom -> {
                 val dateOnly = !request.startWire.contains('T')
-                val start =
-                    runCatching {
-                            if (dateOnly) java.time.LocalDate.parse(request.startWire).atTime(9, 0)
-                            else java.time.LocalDateTime.parse(request.startWire)
-                        }
-                        .getOrNull()
+                val start = runCatching {
+                    if (dateOnly) java.time.LocalDate.parse(request.startWire).atTime(9, 0)
+                    else java.time.LocalDateTime.parse(request.startWire)
+                }
+                    .getOrNull()
                 val base =
                     (start?.let { EventFormState.forNewEventAt(it) }
                         ?: EventFormState.forNewEvent(clock))

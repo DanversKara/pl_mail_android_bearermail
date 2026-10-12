@@ -35,8 +35,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
@@ -144,8 +144,10 @@ fun DriveScreen(
                     snackbars.currentSnackbarData?.dismiss()
                     snackbars.showSnackbar(event.text)
                 }
-                is DriveEvent.Open -> context.handOff(event.file, event.type, send = false, openWith)
-                is DriveEvent.SendFile -> context.handOff(event.file, event.type, send = true, sendWith)
+                is DriveEvent.Open ->
+                    context.handOff(event.file, event.type, send = false, openWith)
+                is DriveEvent.SendFile ->
+                    context.handOff(event.file, event.type, send = true, sendWith)
                 is DriveEvent.LinkReady -> {
                     context.copyToClipboard(event.url)
                     snackbars.currentSnackbarData?.dismiss()
@@ -229,7 +231,8 @@ fun DriveScreen(
                     )
                     LinearProgressIndicator(
                         progress = { (upload.done.toFloat() + 0.5f) / upload.total },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = PlMailTheme.spacing.tiny),
+                        modifier =
+                            Modifier.fillMaxWidth().padding(vertical = PlMailTheme.spacing.tiny),
                     )
                 }
             }
@@ -618,7 +621,12 @@ private fun NameDialog(
 }
 
 @Composable
-private fun ConfirmDialog(title: String, body: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun ConfirmDialog(
+    title: String,
+    body: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -685,7 +693,8 @@ private fun MoveDialog(
                                         at = folder
                                     }
                                     .padding(vertical = PlMailTheme.spacing.small),
-                                horizontalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.small),
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(PlMailTheme.spacing.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(Icons.Filled.Folder, null, tint = PlMailTheme.colors.accent)
@@ -805,12 +814,16 @@ private fun LinksDialog(
                         )
                         Text(
                             listOfNotNull(
-                                    stringResource(R.string.drive_links_protected)
-                                        .takeIf { share.isProtected },
+                                    stringResource(R.string.drive_links_protected).takeIf {
+                                        share.isProtected
+                                    },
                                     share.expiresAt?.asShortDate()?.let {
                                         stringResource(R.string.drive_links_expires_on, it)
                                     },
-                                    stringResource(R.string.drive_links_downloads, share.downloadCount),
+                                    stringResource(
+                                        R.string.drive_links_downloads,
+                                        share.downloadCount,
+                                    ),
                                 )
                                 .joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
@@ -860,12 +873,10 @@ internal fun Long.asFileSize(): String =
         else -> "%.2f GB".format(this / (1024.0 * 1024 * 1024))
     }
 
-private fun String.asShortDate(): String? =
-    runCatching {
-            OffsetDateTime.parse(this)
-                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-        }
-        .getOrNull()
+private fun String.asShortDate(): String? = runCatching {
+    OffsetDateTime.parse(this).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+}
+    .getOrNull()
 
 private fun Context.copyToClipboard(text: String) {
     getSystemService(ClipboardManager::class.java)

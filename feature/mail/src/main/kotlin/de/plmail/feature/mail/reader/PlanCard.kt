@@ -34,8 +34,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * BearerMail: the plan this message describes, if it describes one — read from the newest
- * message's text with [MeetingDetector]. Null for almost every mail.
+ * BearerMail: the plan this message describes, if it describes one — read from the newest message's
+ * text with [MeetingDetector]. Null for almost every mail.
  */
 internal fun planIn(message: ReaderMessage): PlanSuggestion? {
     val body =
@@ -43,7 +43,8 @@ internal fun planIn(message: ReaderMessage): PlanSuggestion? {
             ?: message.html?.takeIf { it.isNotBlank() }?.let(MeetingDetector::textOf)
             ?: return null
     val receivedMillis = message.email.receivedAt ?: return null
-    val received = LocalDateTime.ofInstant(Instant.ofEpochMilli(receivedMillis), ZoneId.systemDefault())
+    val received =
+        LocalDateTime.ofInstant(Instant.ofEpochMilli(receivedMillis), ZoneId.systemDefault())
     val sender =
         listOfNotNull(
                 message.email.fromName?.takeIf { it.isNotBlank() },
@@ -61,7 +62,9 @@ internal fun PlanCard(plan: PlanSuggestion, onAdd: () -> Unit, modifier: Modifie
     val theme = PlMailTheme.values
     val whenText =
         if (plan.hasTime) {
-            plan.start.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+            plan.start.format(
+                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+            )
         } else {
             plan.start.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
         }
@@ -71,8 +74,16 @@ internal fun PlanCard(plan: PlanSuggestion, onAdd: () -> Unit, modifier: Modifie
             modifier = Modifier.fillMaxWidth().padding(theme.spacing.medium),
             verticalArrangement = Arrangement.spacedBy(theme.spacing.tiny),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Outlined.EventAvailable, contentDescription = null, tint = theme.colors.success, modifier = Modifier.size(18.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.EventAvailable,
+                    contentDescription = null,
+                    tint = theme.colors.success,
+                    modifier = Modifier.size(18.dp),
+                )
                 Text(
                     stringResource(R.string.plan_heading),
                     style = MaterialTheme.typography.labelLarge,
@@ -87,18 +98,39 @@ internal fun PlanCard(plan: PlanSuggestion, onAdd: () -> Unit, modifier: Modifie
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Outlined.Schedule, contentDescription = null, tint = theme.colors.inkMuted, modifier = Modifier.size(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = theme.colors.inkMuted,
+                    modifier = Modifier.size(16.dp),
+                )
                 Text(
-                    if (plan.hasTime) whenText else whenText + " · " + stringResource(R.string.plan_no_time),
+                    if (plan.hasTime) whenText
+                    else whenText + " · " + stringResource(R.string.plan_no_time),
                     style = MaterialTheme.typography.bodyMedium,
                     color = theme.colors.inkSoft,
                 )
             }
             plan.location?.let { place ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = theme.colors.inkMuted, modifier = Modifier.size(16.dp))
-                    Text(place, style = MaterialTheme.typography.bodyMedium, color = theme.colors.inkSoft)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = theme.colors.inkMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        place,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = theme.colors.inkSoft,
+                    )
                 }
             }
             Button(
@@ -110,7 +142,11 @@ internal fun PlanCard(plan: PlanSuggestion, onAdd: () -> Unit, modifier: Modifie
                         contentColor = theme.colors.onAccent,
                     ),
             ) {
-                Icon(Icons.Outlined.EventAvailable, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Outlined.EventAvailable,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
                 Text(stringResource(R.string.plan_add), modifier = Modifier.padding(start = 8.dp))
             }
         }

@@ -96,7 +96,9 @@ class DriveLinkPickerViewModel @Inject constructor(private val drive: DriveRepos
         _state.update { it.copy(isWorking = true, error = null) }
         viewModelScope.launch {
             runCatching { block() }
-                .onSuccess { picked -> _state.update { it.copy(isWorking = false, picked = picked) } }
+                .onSuccess { picked ->
+                    _state.update { it.copy(isWorking = false, picked = picked) }
+                }
                 .onFailure { error ->
                     _state.update { it.copy(isWorking = false, error = error.readable()) }
                 }
@@ -136,7 +138,10 @@ fun DriveLinkPicker(
                     style = MaterialTheme.typography.bodySmall,
                     color = PlMailTheme.colors.inkMuted,
                 )
-                TextButton(onClick = { upload.launch(arrayOf("*/*")) }, enabled = !state.isWorking) {
+                TextButton(
+                    onClick = { upload.launch(arrayOf("*/*")) },
+                    enabled = !state.isWorking,
+                ) {
                     Icon(Icons.Filled.CloudUpload, contentDescription = null)
                     Text(
                         stringResource(R.string.drive_pick_upload),
@@ -151,7 +156,11 @@ fun DriveLinkPicker(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 state.error?.let {
-                    Text(it, color = PlMailTheme.colors.danger, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        it,
+                        color = PlMailTheme.colors.danger,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 val files = state.files
                 when {
@@ -160,7 +169,9 @@ fun DriveLinkPicker(
                             CircularProgressIndicator(Modifier.padding(PlMailTheme.spacing.medium))
                         }
                     else -> {
-                        val shown = files.filter { it.name.contains(query.trim(), ignoreCase = true) }
+                        val shown = files.filter {
+                            it.name.contains(query.trim(), ignoreCase = true)
+                        }
                         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
                             items(shown, key = { it.id }) { file ->
                                 Row(
@@ -168,7 +179,8 @@ fun DriveLinkPicker(
                                         .clickable { viewModel.pick(file) }
                                         .padding(vertical = PlMailTheme.spacing.small),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.small),
+                                    horizontalArrangement =
+                                        Arrangement.spacedBy(PlMailTheme.spacing.small),
                                 ) {
                                     Icon(
                                         Icons.AutoMirrored.Filled.InsertDriveFile,
@@ -176,7 +188,11 @@ fun DriveLinkPicker(
                                         tint = PlMailTheme.colors.inkSoft,
                                     )
                                     Column(Modifier.weight(1f)) {
-                                        Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            file.name,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                         Text(
                                             listOfNotNull(file.folderName, file.size.asFileSize())
                                                 .joinToString(" · "),

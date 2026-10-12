@@ -316,7 +316,8 @@ class JmapClient(
             throw JmapError.RequestRejected(
                 type = "forbidden",
                 status = 0,
-                detail = "Refusing to send credentials to ${origin(url)}; this server is $expected.",
+                detail =
+                    "Refusing to send credentials to ${origin(url)}; this server is $expected.",
             )
         }
     }

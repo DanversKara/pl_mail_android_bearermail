@@ -106,8 +106,9 @@ class DriveViewModel @Inject constructor(private val drive: DriveRepository) : V
     }
 
     /** Sub-folders of [folderId] for the move picker; null when they could not be read. */
-    suspend fun foldersIn(folderId: Long?): List<DriveFolder>? =
-        runCatching { drive.list(folderId).folders }.getOrNull()
+    suspend fun foldersIn(folderId: Long?): List<DriveFolder>? = runCatching {
+        drive.list(folderId).folders
+    }.getOrNull()
 
     // ---------------------------------------------------------------- uploading
 
@@ -146,23 +147,27 @@ class DriveViewModel @Inject constructor(private val drive: DriveRepository) : V
 
     // ---------------------------------------------------------------- folders
 
-    fun createFolder(name: String) = act("Folder created.") {
-        drive.createFolder(name.trim(), _state.value.folderId)
-    }
+    fun createFolder(name: String) =
+        act("Folder created.") {
+            drive.createFolder(name.trim(), _state.value.folderId)
+        }
 
-    fun renameFolder(folder: DriveFolder, name: String) = act("Folder renamed.") {
-        drive.renameFolder(folder.id, name.trim())
-    }
+    fun renameFolder(folder: DriveFolder, name: String) =
+        act("Folder renamed.") {
+            drive.renameFolder(folder.id, name.trim())
+        }
 
     fun deleteFolder(folder: DriveFolder) = act("Folder deleted.") { drive.deleteFolder(folder.id) }
 
     // ---------------------------------------------------------------- files
 
-    fun renameFile(file: DriveFile, name: String) = act("Renamed.") {
-        drive.renameFile(file.id, name.trim())
-    }
+    fun renameFile(file: DriveFile, name: String) =
+        act("Renamed.") {
+            drive.renameFile(file.id, name.trim())
+        }
 
-    fun moveFile(file: DriveFile, folderId: Long?) = act("Moved.") { drive.moveFile(file.id, folderId) }
+    fun moveFile(file: DriveFile, folderId: Long?) =
+        act("Moved.") { drive.moveFile(file.id, folderId) }
 
     fun deleteFile(file: DriveFile) = act("Deleted.") { drive.deleteFile(file.id) }
 
@@ -210,7 +215,9 @@ class DriveViewModel @Inject constructor(private val drive: DriveRepository) : V
         viewModelScope.launch {
             runCatching { drive.createShare(sharing.file.id, password, expires) }
                 .onSuccess { share ->
-                    updateSharing { it.copy(shares = listOf(share) + it.shares, isCreating = false) }
+                    updateSharing {
+                        it.copy(shares = listOf(share) + it.shares, isCreating = false)
+                    }
                     _events.send(DriveEvent.LinkReady(share.bestLink))
                 }
                 .onFailure { error ->

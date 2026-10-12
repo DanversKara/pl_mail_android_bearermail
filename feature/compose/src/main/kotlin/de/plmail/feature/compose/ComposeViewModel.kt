@@ -7,15 +7,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.plmail.core.data.CancelOutcome
 import de.plmail.core.data.ComposeDraft
 import de.plmail.core.data.ComposeRepository
+import de.plmail.core.data.ContactSuggestions
 import de.plmail.core.data.DriveRepository
 import de.plmail.core.data.EventShare
-import de.plmail.core.database.AgendaRow
-import de.plmail.core.data.ContactSuggestions
 import de.plmail.core.data.ScheduledSend
 import de.plmail.core.data.ScheduledSends
 import de.plmail.core.data.SendIdentity
 import de.plmail.core.data.SendQueue
 import de.plmail.core.data.StagedAttachment
+import de.plmail.core.database.AgendaRow
 import de.plmail.jmap.mail.DraftComposer
 import de.plmail.jmap.mail.EmailAddress
 import de.plmail.jmap.mail.Signatures
@@ -185,9 +185,7 @@ constructor(
         }
     }
 
-    /**
-     * BearerMail: a just-created alias joins the From list and becomes the sender.
-     */
+    /** BearerMail: a just-created alias joins the From list and becomes the sender. */
     fun useNewIdentity(identity: SendIdentity) {
         _state.update { state ->
             if (state.identities.any { it.identityId == identity.identityId }) state
@@ -225,18 +223,26 @@ constructor(
             val links = mutableListOf<DriveLinkInsert>()
             for ((uri, staged) in files) {
                 runCatching {
-                        val stored = drive.upload(uri, null)
-                        DriveLinkInsert(stored.name, drive.linkFor(stored), stored.size)
-                    }
+                    val stored = drive.upload(uri, null)
+                    DriveLinkInsert(stored.name, drive.linkFor(stored), stored.size)
+                }
                     .onSuccess { links += it }
                     .onFailure { error ->
                         _state.update {
-                            it.copy(error = ComposeError.SaveFailed("${staged.name}: ${error.message ?: "upload failed"}"))
+                            it.copy(
+                                error =
+                                    ComposeError.SaveFailed(
+                                        "${staged.name}: ${error.message ?: "upload failed"}"
+                                    )
+                            )
                         }
                     }
             }
             _state.update {
-                it.copy(isUploadingToDrive = false, pendingDriveLinks = it.pendingDriveLinks + links)
+                it.copy(
+                    isUploadingToDrive = false,
+                    pendingDriveLinks = it.pendingDriveLinks + links,
+                )
             }
         }
     }

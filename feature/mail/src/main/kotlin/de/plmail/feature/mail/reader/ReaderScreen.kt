@@ -144,10 +144,16 @@ fun ReaderScreen(
     // BearerMail: a plan in the newest message ("meet me … at 10am"), read once per body.
     val newestMessage = state.messages.lastOrNull()
     val plan =
-        remember(newestMessage?.email?.uid, newestMessage?.text, newestMessage?.html, onAddToCalendar != null) {
+        remember(
+            newestMessage?.email?.uid,
+            newestMessage?.text,
+            newestMessage?.html,
+            onAddToCalendar != null,
+        ) {
             if (onAddToCalendar == null || newestMessage == null) null else planIn(newestMessage)
         }
-    // BearerMail: a one-time code in the newest message ("Your code is 482913"), with a Copy button.
+    // BearerMail: a one-time code in the newest message ("Your code is 482913"), with a Copy
+    // button.
     val code =
         remember(newestMessage?.email?.uid, newestMessage?.text, newestMessage?.html) {
             newestMessage?.let(::codeIn)
