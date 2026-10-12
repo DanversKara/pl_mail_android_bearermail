@@ -32,6 +32,9 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 lint {
                     warningsAsErrors = true
                     abortOnError = true
+                    // Every issue in the build log; see the application plugin.
+                    textReport = true
+                    textOutput = file("stdout")
                 }
 
                 testOptions.unitTests {

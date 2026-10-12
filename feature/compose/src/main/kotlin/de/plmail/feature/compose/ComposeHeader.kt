@@ -61,8 +61,6 @@ internal fun ComposeHeader(
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onIdentity: (SendIdentity) -> Unit,
-    /** BearerMail: opens the new-alias dialog; true = make a random one in one tap. */
-    onNewAlias: (random: Boolean) -> Unit = {},
     onTo: (List<EmailAddress>) -> Unit,
     onCc: (List<EmailAddress>) -> Unit,
     onBcc: (List<EmailAddress>) -> Unit,
@@ -70,6 +68,8 @@ internal fun ComposeHeader(
     onShowCopyFields: () -> Unit,
     onQueryChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** BearerMail: opens the new-alias dialog; true = make a random one in one tap. */
+    onNewAlias: (random: Boolean) -> Unit = {},
 ) {
     val toField = remember { FocusRequester() }
 
