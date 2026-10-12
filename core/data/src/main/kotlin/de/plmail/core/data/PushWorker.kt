@@ -21,20 +21,20 @@ import dagger.hilt.components.SingletonComponent
  *
  * Both transports hand the app a callback that ends long before a sync can. The Firebase service is
  * stopped the moment `onMessageReceived` returns, and the UnifiedPush receiver's broadcast is over
- * when `onReceive` does. Work launched from either into a coroutine scope of its own *looks* like it
- * outlives the callback, and on a phone at rest it does not:
+ * when `onReceive` does. Work launched from either into a coroutine scope of its own *looks* like
+ * it outlives the callback, and on a phone at rest it does not:
  *
- * - The Firebase service cancelled its scope in `onDestroy`, which Firebase calls milliseconds after
- *   the message is handled — so the `Email/changes` the push had started was cancelled mid-flight
- *   and nothing was ever announced.
+ * - The Firebase service cancelled its scope in `onDestroy`, which Firebase calls milliseconds
+ *   after the message is handled — so the `Email/changes` the push had started was cancelled
+ *   mid-flight and nothing was ever announced.
  * - A receiver's process drops to cached once `onReceive` returns, and since Android 12 a cached
  *   process is **frozen**. The coroutine did not fail; it stopped, holding its request, until the
  *   user opened the app and thawed it — which is exactly when the notification then appeared.
  *
- * Both read, from the outside, as "notifications only arrive when I open the app". An expedited
- * job is the platform's answer for this case: it is what Firebase's own documentation says to
- * schedule from `onMessageReceived`, and JobScheduler binding the job is what keeps the process out
- * of the freezer for as long as the sync takes.
+ * Both read, from the outside, as "notifications only arrive when I open the app". An expedited job
+ * is the platform's answer for this case: it is what Firebase's own documentation says to schedule
+ * from `onMessageReceived`, and JobScheduler binding the job is what keeps the process out of the
+ * freezer for as long as the sync takes.
  *
  * ## One door, still
  *
@@ -73,8 +73,8 @@ class PushWorker(context: Context, parameters: WorkerParameters) :
         // the server's next one. Logged rather than swallowed, for the reason
         // the receivers give: this runs where nobody is watching.
         runCatching {
-                if (sealed) push.deliverSealed(payload, via) else push.deliver(payload, via)
-            }
+            if (sealed) push.deliverSealed(payload, via) else push.deliver(payload, via)
+        }
             .onFailure { Log.w(TAG, "Push handling failed", it) }
 
         return Result.success()

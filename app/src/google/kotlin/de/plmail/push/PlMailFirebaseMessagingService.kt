@@ -38,13 +38,13 @@ import kotlinx.coroutines.runBlocking
  *
  * A high-priority data message buys the process a short window, not an unbounded one, and the
  * `Email/changes` loop a state change triggers can legitimately take longer against a sleeping NAS.
- * This used to launch the work into a scope of its own and cancel that scope in `onDestroy` —
- * which Firebase calls as soon as `onMessageReceived` returns, so every background sync was
- * cancelled mid-request and mail was only announced once the app was opened. See [PushWorker].
+ * This used to launch the work into a scope of its own and cancel that scope in `onDestroy` — which
+ * Firebase calls as soon as `onMessageReceived` returns, so every background sync was cancelled
+ * mid-request and mail was only announced once the app was opened. See [PushWorker].
  *
  * The token callbacks are not deliveries and do not go there. They run on Firebase's own worker
- * thread, so they block it instead: the service stays started until the server has been told, and
- * a rotation can no longer be cancelled half-way through the way a delivery was.
+ * thread, so they block it instead: the service stays started until the server has been told, and a
+ * rotation can no longer be cancelled half-way through the way a delivery was.
  */
 @AndroidEntryPoint
 class PlMailFirebaseMessagingService : FirebaseMessagingService() {

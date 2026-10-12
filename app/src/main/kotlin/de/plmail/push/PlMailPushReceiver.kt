@@ -88,10 +88,10 @@ class PlMailPushReceiver : MessagingReceiver() {
     /**
      * A delivered message: either the verification handshake or a state change.
      *
-     * Both are queued for [PushWorker], whose work ends in `PushRepository.deliver`: that tells them
-     * apart by shape, records the delivery in the received-push log and hands a state change to the
-     * one applier every channel shares. The first message is load-bearing — until the verification
-     * code is echoed back, nothing else is ever delivered.
+     * Both are queued for [PushWorker], whose work ends in `PushRepository.deliver`: that tells
+     * them apart by shape, records the delivery in the received-push log and hands a state change
+     * to the one applier every channel shares. The first message is load-bearing — until the
+     * verification code is echoed back, nothing else is ever delivered.
      */
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
         Log.d(TAG, "push event")
