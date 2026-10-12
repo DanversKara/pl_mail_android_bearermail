@@ -188,11 +188,13 @@ class DriveClient(private val client: JmapClient) {
 
     private fun problem(response: HttpResponse): String? = runCatching {
         json.decodeFromString<DriveProblem>(response.bodyAsText()).detail
-    }.getOrNull()
+    }
+        .getOrNull()
 
     private inline fun <reified T> decode(response: HttpResponse): T = runCatching {
         json.decodeFromString<T>(response.bodyAsText())
-    }.getOrElse { throw JmapError.MalformedResponse("Drive sent something unexpected.") }
+    }
+        .getOrElse { throw JmapError.MalformedResponse("Drive sent something unexpected.") }
 
     private fun enc(value: String) = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 }

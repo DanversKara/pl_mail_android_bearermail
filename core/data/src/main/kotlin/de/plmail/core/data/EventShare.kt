@@ -130,7 +130,8 @@ constructor(
 
     private fun localOrNull(value: String): LocalDateTime? = runCatching {
         LocalDateTime.parse(value)
-    }.getOrNull()
+    }
+        .getOrNull()
 
     private fun escapeIcs(value: String): String =
         value

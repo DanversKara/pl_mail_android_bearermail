@@ -108,7 +108,8 @@ class DriveViewModel @Inject constructor(private val drive: DriveRepository) : V
     /** Sub-folders of [folderId] for the move picker; null when they could not be read. */
     suspend fun foldersIn(folderId: Long?): List<DriveFolder>? = runCatching {
         drive.list(folderId).folders
-    }.getOrNull()
+    }
+        .getOrNull()
 
     // ---------------------------------------------------------------- uploading
 

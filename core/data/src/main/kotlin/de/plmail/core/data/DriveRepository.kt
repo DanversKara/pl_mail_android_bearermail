@@ -37,7 +37,8 @@ constructor(
     /** Whether the connected server has Drive. False when not connected or unreachable. */
     suspend fun isAvailable(): Boolean = runCatching {
         clients.current()?.let { DriveClient(it).isAvailable() } ?: false
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     suspend fun list(folderId: Long?): DriveListing = drive().list(folderId)
 
