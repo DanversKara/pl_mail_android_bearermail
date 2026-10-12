@@ -8,8 +8,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.plmail.core.data.PushDelivery
 import de.plmail.core.data.PushRegistration
-import de.plmail.core.data.PushRepository
 import de.plmail.core.data.PushTransportManager
+import de.plmail.core.data.PushWorker
 import de.plmail.core.datastore.PushStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,18 +27,20 @@ import org.unifiedpush.android.connector.data.PushMessage
  * is why UnifiedPush needs no server change: the server is already speaking the protocol the
  * distributor expects.
  *
- * A broadcast receiver has roughly ten seconds and no coroutine scope of its own, so the work is
- * handed to an application-scoped one. `goAsync` is not used deliberately: the sync a state change
- * triggers can take far longer than a receiver is allowed to hold the system, and the right answer
- * to that is to let it outlive the broadcast rather than to race the deadline.
+ * A delivered message is handed to [PushWorker] rather than handled here. The sync a state change
+ * triggers can take far longer than a receiver is allowed to hold the system, and the obvious
+ * alternative — launching it into a scope of its own and returning — is the one this used to take:
+ * once `onReceive` returns the process is cached, and a cached process on Android 12 and later is
+ * frozen, so the sync stopped mid-request and mail was announced only when the app was next opened.
+ *
+ * The registration callbacks are short — one or two requests — and stay here, under `goAsync`, so
+ * the broadcast holds the process until they have finished rather than leaving them to the freezer.
  */
 class PlMailPushReceiver : MessagingReceiver() {
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
-        fun push(): PushRepository
-
         fun transports(): PushTransportManager
 
         fun pushState(): PushStateStore
@@ -86,15 +88,14 @@ class PlMailPushReceiver : MessagingReceiver() {
     /**
      * A delivered message: either the verification handshake or a state change.
      *
-     * Both are handled by [PushRepository], which tells them apart by shape, records the delivery
-     * in the received-push log and hands a state change to the one applier every channel shares.
-     * The first message is load-bearing — until the verification code is echoed back, nothing else
-     * is ever delivered.
+     * Both are queued for [PushWorker], whose work ends in `PushRepository.deliver`: that tells
+     * them apart by shape, records the delivery in the received-push log and hands a state change
+     * to the one applier every channel shares. The first message is load-bearing — until the
+     * verification code is echoed back, nothing else is ever delivered.
      */
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
-        launch(context) { dependencies ->
-            dependencies.push().deliver(message.content, PushDelivery.UNIFIEDPUSH)
-        }
+        Log.d(TAG, "push event")
+        PushWorker.enqueue(context, message.content.decodeToString(), PushDelivery.UNIFIEDPUSH)
     }
 
     /**
@@ -139,14 +140,22 @@ class PlMailPushReceiver : MessagingReceiver() {
                 Dependencies::class.java,
             )
 
-        // Application-scoped rather than tied to the broadcast: a receiver has
-        // about ten seconds, and the Email/changes loop a push triggers can
-        // legitimately take longer against a sleeping NAS.
+        // Held until the work is done: without it the process is cached the
+        // moment onReceive returns, and frozen shortly after. Only the
+        // registration callbacks come here, and they are a request or two --
+        // a delivery, which can take far longer, goes to PushWorker instead.
+        val pending = goAsync()
+
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             // Logged rather than swallowed. A push path that fails quietly is
             // indistinguishable from one that was never triggered, and this
             // runs where no user is watching.
-            runCatching { block(dependencies) }.onFailure { Log.w(TAG, "Push handling failed", it) }
+            try {
+                runCatching { block(dependencies) }
+                    .onFailure { Log.w(TAG, "Push handling failed", it) }
+            } finally {
+                pending.finish()
+            }
         }
     }
 }
