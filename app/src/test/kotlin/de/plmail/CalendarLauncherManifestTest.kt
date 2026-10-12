@@ -183,10 +183,11 @@ class CalendarLauncherManifestTest {
         // The alias's class name is fixed to the namespace while the package it
         // is switched under is the applicationId. This suite runs once per
         // variant, so this is where the two are seen to differ on the flavours
-        // where they do.
+        // where they do. BearerMail installs as com.bearermail.mail (plus
+        // .google / .debug), never under the de.plmail namespace.
         assertTrue(
-            applicationId.startsWith(NAMESPACE),
-            "expected an applicationId under $NAMESPACE, got $applicationId",
+            applicationId.startsWith(APPLICATION_ID),
+            "expected an applicationId under $APPLICATION_ID, got $applicationId",
         )
     }
 
@@ -217,10 +218,11 @@ class CalendarLauncherManifestTest {
 
         /**
          * The module's namespace, which is what `android:name=".Foo"` resolves against, and
-         * deliberately not `BuildConfig.APPLICATION_ID`: those two are the same string in the foss
-         * debug build and differ in the other three.
+         * deliberately not `BuildConfig.APPLICATION_ID`: in BearerMail the two differ in every
+         * build.
          */
         const val NAMESPACE = "de.plmail"
+        const val APPLICATION_ID = "com.bearermail.mail"
 
         /**
          * A path and not a dotted name. The file is `test_config.properties` inside the
