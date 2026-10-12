@@ -5,14 +5,10 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.PushDelivery
-import de.plmail.core.data.PushRepository
 import de.plmail.core.data.PushTransportManager
+import de.plmail.core.data.PushWorker
 import javax.inject.Inject
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Where Firebase delivers, in the `google` flavour only.
@@ -31,26 +27,29 @@ import kotlinx.coroutines.launch
  *
  * ## One apply-path
  *
- * Nothing here interprets the payload. It is handed to [PushRepository.deliver], the same call the
- * UnifiedPush receiver makes and the same one the EventSource stream ends in, so a state change is
- * applied by one piece of code however it arrived. Forking that per transport is how two paths come
- * to disagree about when a sync is worth making — and here the two would be exercised on different
- * *devices*, so the disagreement would never show up in one person's testing.
+ * Nothing here interprets the payload. It is handed to [PushWorker], which ends in
+ * `PushRepository.deliver` — the same call the UnifiedPush receiver's work makes and the same one
+ * the EventSource stream ends in, so a state change is applied by one piece of code however it
+ * arrived. Forking that per transport is how two paths come to disagree about when a sync is worth
+ * making — and here the two would be exercised on different *devices*, so the disagreement would
+ * never show up in one person's testing.
  *
- * ## Why this outlives the callback
+ * ## Why a job and not a coroutine
  *
  * A high-priority data message buys the process a short window, not an unbounded one, and the
  * `Email/changes` loop a state change triggers can legitimately take longer against a sleeping NAS.
- * The work goes to a scope of its own for the same reason the broadcast receiver's does.
+ * This used to launch the work into a scope of its own and cancel that scope in `onDestroy` —
+ * which Firebase calls as soon as `onMessageReceived` returns, so every background sync was
+ * cancelled mid-request and mail was only announced once the app was opened. See [PushWorker].
+ *
+ * The token callbacks are not deliveries and do not go there. They run on Firebase's own worker
+ * thread, so they block it instead: the service stays started until the server has been told, and
+ * a rotation can no longer be cancelled half-way through the way a delivery was.
  */
 @AndroidEntryPoint
 class PlMailFirebaseMessagingService : FirebaseMessagingService() {
 
-    @Inject lateinit var push: PushRepository
-
     @Inject lateinit var transports: PushTransportManager
-
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onMessageReceived(message: RemoteMessage) {
         // A push with content in it -- a calendar reminder -- arrives sealed to
@@ -58,7 +57,7 @@ class PlMailFirebaseMessagingService : FirebaseMessagingService() {
         // The server never sends such a thing readable through Firebase; see
         // PushRepository.deliverSealed for the other half.
         message.data[ENCRYPTED]?.let { sealed ->
-            launch { push.deliverSealed(sealed, PushDelivery.FCM) }
+            PushWorker.enqueue(this, sealed, PushDelivery.FCM, sealed = true)
             return
         }
 
@@ -73,7 +72,7 @@ class PlMailFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        launch { push.deliver(payload, PushDelivery.FCM) }
+        PushWorker.enqueue(this, payload, PushDelivery.FCM)
     }
 
     /**
@@ -85,7 +84,7 @@ class PlMailFirebaseMessagingService : FirebaseMessagingService() {
      * create arms the verification handshake.
      */
     override fun onRegistered(token: String) {
-        launch { transports.tokenRotated(token) }
+        rotate(token)
     }
 
     /**
@@ -107,7 +106,7 @@ class PlMailFirebaseMessagingService : FirebaseMessagingService() {
     @Deprecated("Firebase's own replacement is onRegistered; both are taken while both are sent.")
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
-        launch { transports.tokenRotated(token) }
+        rotate(token)
     }
 
     /**
@@ -122,17 +121,14 @@ class PlMailFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "FCM registration given up.")
     }
 
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
-    }
-
-    private fun launch(block: suspend () -> Unit) {
-        scope.launch {
-            // Logged rather than swallowed. A push path that fails quietly is
-            // indistinguishable from one that was never triggered, and this
-            // runs where no user is watching.
-            runCatching { block() }.onFailure { Log.w(TAG, "FCM handling failed", it) }
+    private fun rotate(token: String) {
+        // Blocking Firebase's worker thread, not the main one: both token
+        // callbacks are dispatched off it. Logged rather than swallowed. A push
+        // path that fails quietly is indistinguishable from one that was never
+        // triggered, and this runs where no user is watching.
+        runBlocking {
+            runCatching { transports.tokenRotated(token) }
+                .onFailure { Log.w(TAG, "FCM token rotation failed", it) }
         }
     }
 
