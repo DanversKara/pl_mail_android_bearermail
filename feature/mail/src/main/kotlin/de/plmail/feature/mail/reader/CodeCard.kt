@@ -36,8 +36,8 @@ import de.plmail.core.designsystem.PlMailTheme
 import de.plmail.feature.mail.R
 
 /**
- * BearerMail: the one-time code in the newest message, if it carries one — read with
- * [OtpDetector] from the subject and text already on the phone. Null for almost every mail.
+ * BearerMail: the one-time code in the newest message, if it carries one — read with [OtpDetector]
+ * from the subject and text already on the phone. Null for almost every mail.
  */
 internal fun codeIn(message: ReaderMessage): String? {
     val body =
@@ -60,9 +60,20 @@ internal fun CodeCard(code: String, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(theme.spacing.tiny)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.Password, contentDescription = null, tint = theme.colors.inkMuted, modifier = Modifier.size(18.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(theme.spacing.tiny),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Password,
+                        contentDescription = null,
+                        tint = theme.colors.inkMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
                     Text(
                         stringResource(R.string.code_heading),
                         style = MaterialTheme.typography.labelLarge,
@@ -81,7 +92,8 @@ internal fun CodeCard(code: String, modifier: Modifier = Modifier) {
                 onClick = {
                     if (context.copyOneTimeCode(code)) {
                         copied = true
-                        if (!systemConfirmsCopy) Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                        if (!systemConfirmsCopy)
+                            Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
                     }
                 }
             ) {

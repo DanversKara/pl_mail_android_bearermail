@@ -17,6 +17,9 @@
       they have no way to evaluate.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- BearerMail: installs updates downloaded from the repository's GitHub Releases. The user
+         confirms every install on Android's own screen. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!--
       Package visibility for UnifiedPush.
@@ -458,6 +461,10 @@
             </intent-filter>
         </receiver>
 
+        <!-- BearerMail: the package installer's answer after an update was handed to it. -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

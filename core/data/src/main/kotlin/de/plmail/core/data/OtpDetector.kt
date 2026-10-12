@@ -68,7 +68,11 @@ object OtpDetector {
 
     /** The code in this message, or null. [subject] is checked first: many senders put it there. */
     fun detect(subject: String?, body: String?): String? {
-        subject?.let { s -> find(s)?.let { return it } }
+        subject?.let { s ->
+            find(s)?.let {
+                return it
+            }
+        }
         return body?.let { find(it.take(MAX_TEXT)) }
     }
 
@@ -77,7 +81,11 @@ object OtpDetector {
         val keywords =
             KEYWORD.findAll(text)
                 .map { it.range }
-                .filterNot { NOT_A_CODE_WORD.containsMatchIn(text.substring(maxOf(0, it.first - 16), it.first)) }
+                .filterNot {
+                    NOT_A_CODE_WORD.containsMatchIn(
+                        text.substring(maxOf(0, it.first - 16), it.first)
+                    )
+                }
                 .toList()
         if (keywords.isEmpty()) return null
 
@@ -92,7 +100,9 @@ object OtpDetector {
                 val distance =
                     when {
                         match.range.first > k.last -> match.range.first - k.last
-                        else -> (k.first - match.range.last) * 2 // before the word: rarer, weigh it down
+                        else ->
+                            (k.first - match.range.last) *
+                                2 // before the word: rarer, weigh it down
                     }
                 val limit = if (match.range.first > k.last) WINDOW_AFTER else WINDOW_BEFORE * 2
                 if (distance <= limit && distance < bestDistance) {

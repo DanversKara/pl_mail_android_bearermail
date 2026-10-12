@@ -40,21 +40,24 @@ internal fun conversationNotification(
     // the row so it is the one the thumb lands on.
     val code = OtpDetector.detect(message.subject, message.preview)
 
-    val builder = NotificationCompat.Builder(context, channelId)
-        .setSmallIcon(R.drawable.ic_notification_mail)
-        .setStyle(style)
-        .setContentTitle(message.sender)
-        .setContentText(message.subject ?: context.getString(R.string.no_subject))
-        .setWhen(message.receivedAt)
-        .setShowWhen(true)
-        .setCategory(NotificationCompat.CATEGORY_EMAIL)
-        .setGroup(group)
-        .setAutoCancel(true)
-        .setContentIntent(destinations.openConversation(message.accountKey, message.threadId))
-        // Dismissing one conversation must not leave the account's summary
-        // behind with nothing under it, which is what happens if nobody
-        // tidies up -- see NotificationActions.
-        .setDeleteIntent(NotificationActions.dismissed(context, message.accountKey, notificationId))
+    val builder =
+        NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_notification_mail)
+            .setStyle(style)
+            .setContentTitle(message.sender)
+            .setContentText(message.subject ?: context.getString(R.string.no_subject))
+            .setWhen(message.receivedAt)
+            .setShowWhen(true)
+            .setCategory(NotificationCompat.CATEGORY_EMAIL)
+            .setGroup(group)
+            .setAutoCancel(true)
+            .setContentIntent(destinations.openConversation(message.accountKey, message.threadId))
+            // Dismissing one conversation must not leave the account's summary
+            // behind with nothing under it, which is what happens if nobody
+            // tidies up -- see NotificationActions.
+            .setDeleteIntent(
+                NotificationActions.dismissed(context, message.accountKey, notificationId)
+            )
 
     // Android draws three actions at most. With a code, Copy takes Mark read's place: opening the
     // mail or archiving it reads it anyway, and Reply must stay reachable.
@@ -87,9 +90,7 @@ internal fun conversationNotification(
         )
     }
 
-    return builder
-        .addAction(inlineReplyAction(context, message))
-        .build()
+    return builder.addAction(inlineReplyAction(context, message)).build()
 }
 
 /**

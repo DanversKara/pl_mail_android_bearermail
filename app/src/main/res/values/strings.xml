@@ -12,4 +12,19 @@
     -->
     <string name="calendar_app_name">BearerMail Calendar</string>
     <string name="share_to_drive">BearerMail Drive</string>
+    <!-- BearerMail: updates from GitHub Releases -->
+    <string name="update_title">BearerMail %1$s is available</string>
+    <string name="update_body">Version %1$s (%2$s) is ready. Download it and install it now? Your mail and settings stay as they are.</string>
+    <string name="update_now">Update</string>
+    <string name="update_later">Later</string>
+    <string name="update_skip">Skip this version</string>
+    <string name="update_downloading">Downloading %1$s…</string>
+    <string name="update_permission_title">Allow BearerMail to install updates</string>
+    <string name="update_permission_body">Android asks once whether BearerMail may install apps. Switch on \"Allow from this source\", then come back and the update continues.</string>
+    <string name="update_permission_open">Open settings</string>
+    <string name="update_failed">Update failed</string>
+    <string name="update_failed_body">The update could not be downloaded or installed. Try again, or download it from the release page.</string>
+    <string name="update_failed_signature">This update is signed with a different key than the installed app. Uninstall BearerMail and install the release APK once by hand.</string>
+    <string name="update_retry">Try again</string>
+    <string name="update_open_page">Release page</string>
 </resources>

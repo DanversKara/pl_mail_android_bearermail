@@ -15,13 +15,22 @@ class OtpDetectorTest {
     @Test
     fun `a code after its label`() {
         assertEquals("482913", OtpDetector.detect("Sign in", "Your verification code is 482913."))
-        assertEquals("482913", OtpDetector.detect(null, "Your one-time password: 482913\nIt expires in 10 minutes."))
+        assertEquals(
+            "482913",
+            OtpDetector.detect(null, "Your one-time password: 482913\nIt expires in 10 minutes."),
+        )
         assertEquals("8304", OtpDetector.detect(null, "Use PIN 8304 to confirm."))
     }
 
     @Test
     fun `a code in the subject wins`() {
-        assertEquals("739201", OtpDetector.detect("739201 is your Instagram code", "Someone tried to log in. Order 55512345."))
+        assertEquals(
+            "739201",
+            OtpDetector.detect(
+                "739201 is your Instagram code",
+                "Someone tried to log in. Order 55512345.",
+            ),
+        )
     }
 
     @Test
@@ -32,7 +41,10 @@ class OtpDetectorTest {
 
     @Test
     fun `prefixed and mixed codes`() {
-        assertEquals("G-482913", OtpDetector.detect("G-482913 is your Google verification code", null))
+        assertEquals(
+            "G-482913",
+            OtpDetector.detect("G-482913 is your Google verification code", null),
+        )
         assertEquals("K7Q2XM", OtpDetector.detect(null, "Enter this code to continue: K7Q2XM"))
     }
 
@@ -58,7 +70,8 @@ class OtpDetectorTest {
 
     @Test
     fun `the code nearest its label, not the first number in the mail`() {
-        val body = "Invoice 77881234 is ready.\n\nTo view it, enter the verification code 019283 below."
+        val body =
+            "Invoice 77881234 is ready.\n\nTo view it, enter the verification code 019283 below."
         assertEquals("019283", OtpDetector.detect(null, body))
     }
 }

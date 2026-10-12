@@ -26,8 +26,8 @@ fun Context.copyOneTimeCode(code: String): Boolean {
 }
 
 /**
- * Whether the system shows its own "Copied" confirmation. From Android 13 it does, and a second
- * one from the app would be noise; below that, the app has to say so itself.
+ * Whether the system shows its own "Copied" confirmation. From Android 13 it does, and a second one
+ * from the app would be noise; below that, the app has to say so itself.
  */
 val systemConfirmsCopy: Boolean
     get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU

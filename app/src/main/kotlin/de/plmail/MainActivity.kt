@@ -54,6 +54,7 @@ import de.plmail.feature.settings.SwipeScreen
 import de.plmail.notifications.NotificationRequest
 import de.plmail.notifications.RequestNotificationPermission
 import de.plmail.notifications.notificationRequest
+import de.plmail.update.UpdatePrompt
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -157,6 +158,8 @@ class MainActivity : ComponentActivity() {
                     driveUpload = pendingDriveUpload,
                     onDriveUploadHandled = { pendingDriveUpload = emptyList() },
                 )
+                // BearerMail: offers a newer GitHub release, if there is one.
+                UpdatePrompt()
             }
         }
     }

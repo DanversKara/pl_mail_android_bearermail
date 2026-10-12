@@ -13,15 +13,16 @@ import de.plmail.core.data.systemConfirmsCopy
  *
  * Its own receiver rather than a branch of [NotificationActionReceiver], because that one dismisses
  * the notification before anything else, and a copy should leave it where it is — the user is
- * usually halfway through a sign-in in another app and may need to look at the mail again.
- * Not exported, like the others.
+ * usually halfway through a sign-in in another app and may need to look at the mail again. Not
+ * exported, like the others.
  */
 class CopyCodeReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val code = intent.getStringExtra(EXTRA_CODE) ?: return
         if (context.copyOneTimeCode(code) && !systemConfirmsCopy) {
-            Toast.makeText(context, context.getString(R.string.code_copied), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.code_copied), Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
