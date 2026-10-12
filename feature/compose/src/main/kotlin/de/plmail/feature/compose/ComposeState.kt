@@ -201,5 +201,5 @@ internal fun Long.asFileSize(): String =
     when {
         this < 1_024 -> "$this B"
         this < 1_024 * 1_024 -> "${this / 1_024} KB"
-        else -> "%.1f MB".format(this / (1_024.0 * 1_024.0))
+        else -> "%.1f MB".format(java.util.Locale.ROOT, this / (1_024.0 * 1_024.0))
     }

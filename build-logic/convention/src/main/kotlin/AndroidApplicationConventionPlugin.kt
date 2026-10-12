@@ -83,11 +83,6 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     warningsAsErrors = true
                     abortOnError = true
                     checkDependencies = true
-                    // Every issue in the build log, not only the first: CI's
-                    // HTML report is an artifact, and a red build should say
-                    // what is wrong without downloading it.
-                    textReport = true
-                    textOutput = file("stdout")
 
                     // The one deliberate exception, and it is a decision rather
                     // than an oversight: targetSdk is 36 while compileSdk is 37

@@ -83,6 +83,7 @@ import java.io.File
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * BearerMail Drive on the phone.
@@ -868,9 +869,9 @@ private fun iconFor(type: String): ImageVector =
 internal fun Long.asFileSize(): String =
     when {
         this < 1024 -> "$this B"
-        this < 1024 * 1024 -> "%.1f KB".format(this / 1024.0)
-        this < 1024L * 1024 * 1024 -> "%.1f MB".format(this / (1024.0 * 1024))
-        else -> "%.2f GB".format(this / (1024.0 * 1024 * 1024))
+        this < 1024 * 1024 -> "%.1f KB".format(Locale.ROOT, this / 1024.0)
+        this < 1024L * 1024 * 1024 -> "%.1f MB".format(Locale.ROOT, this / (1024.0 * 1024))
+        else -> "%.2f GB".format(Locale.ROOT, this / (1024.0 * 1024 * 1024))
     }
 
 private fun String.asShortDate(): String? = runCatching {

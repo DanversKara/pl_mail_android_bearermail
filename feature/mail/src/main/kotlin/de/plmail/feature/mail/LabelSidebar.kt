@@ -153,8 +153,6 @@ fun LabelSidebar(
      * boundary exists to prevent.
      */
     onCalendar: (() -> Unit)?,
-    onDrive: (() -> Unit)? = null,
-    onNewAlias: (() -> Unit)? = null,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -162,6 +160,8 @@ fun LabelSidebar(
     onGestures: () -> Unit,
     onAccounts: () -> Unit,
     modifier: Modifier = Modifier,
+    onDrive: (() -> Unit)? = null,
+    onNewAlias: (() -> Unit)? = null,
 ) {
     // The user's sidebar density, where they have chosen one that differs from the
     // overall setting. Wrapping the whole drawer rather than its rows: the group
