@@ -5,6 +5,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.text.format.Formatter
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -31,9 +32,12 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import de.plmail.BuildConfig
 import de.plmail.R
 import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 /** Where the update flow is. */
@@ -49,7 +53,7 @@ private sealed interface UpdateStep {
 }
 
 /**
- * BearerMail: on launch, looks for a newer release (at most every few hours) and, if there is one,
+ * BearerMail: on launch, looks for a newer release (at most once an hour) and, if there is one,
  * asks whether to update. "Update" downloads the APK and opens Android's install confirmation;
  * "Later" asks again next time; "Skip" stays quiet until a version after this one.
  */
@@ -61,6 +65,7 @@ fun UpdatePrompt() {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf<UpdateStep?>(null) }
 
+    // The automatic check on launch, at most once an hour, and quiet when nothing is found.
     LaunchedEffect(Unit) {
         val prefs = UpdatePrefs(context)
         if (!prefs.dueForCheck()) return@LaunchedEffect
@@ -77,6 +82,35 @@ fun UpdatePrompt() {
         prefs.checked()
         if (update != null && update.version != prefs.skippedVersion)
             step = UpdateStep.Offer(update)
+    }
+
+    // Drawer → Check for updates: asks now, ignores the hourly limit and a skipped version, and
+    // always says what it found.
+    LaunchedEffect(Unit) {
+        UpdateChecks.requests.collect {
+            Toast.makeText(context, R.string.update_checking, Toast.LENGTH_SHORT).show()
+            val update =
+                try {
+                    AppUpdater.latest()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.i(TAG, "Update check failed", e)
+                    Toast.makeText(context, R.string.update_check_failed, Toast.LENGTH_LONG).show()
+                    return@collect
+                }
+            UpdatePrefs(context).checked()
+            if (update != null) {
+                step = UpdateStep.Offer(update)
+            } else {
+                Toast.makeText(
+                        context,
+                        context.getString(R.string.update_up_to_date, BuildConfig.VERSION_NAME),
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
+            }
+        }
     }
 
     fun install(update: AvailableUpdate, apk: File) {
@@ -235,6 +269,16 @@ fun UpdatePrompt() {
     }
 }
 
+/** BearerMail: "Check for updates" from the drawer, heard by [UpdatePrompt]. */
+object UpdateChecks {
+    private val _requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val requests: SharedFlow<Unit> = _requests
+
+    fun checkNow() {
+        _requests.tryEmit(Unit)
+    }
+}
+
 /** When the last check ran, and which version the user chose to skip. */
 private class UpdatePrefs(context: Context) {
     private val prefs = context.getSharedPreferences("bearermail_updates", Context.MODE_PRIVATE)
@@ -251,7 +295,7 @@ private class UpdatePrefs(context: Context) {
     private companion object {
         const val KEY_LAST = "last_check"
         const val KEY_SKIPPED = "skipped_version"
-        const val CHECK_EVERY_MS = 6L * 60 * 60 * 1000
+        const val CHECK_EVERY_MS = 60L * 60 * 1000
     }
 }
 

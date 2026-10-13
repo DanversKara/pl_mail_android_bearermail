@@ -60,6 +60,8 @@ fun MailShell(
     onNewAlias: (() -> Unit)? = null,
     /** BearerMail: opens the app lock (PIN) settings. */
     onAppLock: (() -> Unit)? = null,
+    /** BearerMail: checks GitHub for a newer release now. Null in builds that cannot update. */
+    onCheckUpdates: (() -> Unit)? = null,
     onCompose: () -> Unit,
     onReply: (accountKey: String, emailId: String, all: Boolean) -> Unit,
     onForward: (accountKey: String, emailId: String) -> Unit,
@@ -188,6 +190,13 @@ fun MailShell(
                         {
                             scope.launch { drawer.close() }
                             open()
+                        }
+                    },
+                onCheckUpdates =
+                    onCheckUpdates?.let { check ->
+                        {
+                            scope.launch { drawer.close() }
+                            check()
                         }
                     },
             )

@@ -42,7 +42,7 @@ not listed here is upstream's work.
   sensitive, so it is hidden in the clipboard preview. Detection runs on the phone and needs a code
   word next to the number, so order numbers, prices, dates and phone numbers are left alone.
 - **Built-in updater.** Release builds check this repository's GitHub Releases on launch (at most
-  every 6 hours). When a newer version is out, a dialog shows its notes with **Update**, **Later**
+  once an hour), and Drawer → **Check for updates** checks right away. When a newer version is out, a dialog shows its notes with **Update**, **Later**
   and **Skip this version**. Update downloads the APK for the installed flavour (`foss` or
   `google`) and opens Android's own install screen; the first time, Android asks you to allow
   BearerMail to install apps. Debug builds never check.

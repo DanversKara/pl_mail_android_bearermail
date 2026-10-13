@@ -57,6 +57,8 @@ import de.plmail.lock.AppLockSettings
 import de.plmail.notifications.NotificationRequest
 import de.plmail.notifications.RequestNotificationPermission
 import de.plmail.notifications.notificationRequest
+import de.plmail.update.AppUpdater
+import de.plmail.update.UpdateChecks
 import de.plmail.update.UpdatePrompt
 
 @AndroidEntryPoint
@@ -494,6 +496,8 @@ private fun PlMailApp(
                             onAppearance = { isAdjustingAppearance = true },
                             onGestures = { isSettingGestures = true },
                             onAppLock = { isSettingLock = true },
+                            onCheckUpdates =
+                                if (AppUpdater.enabled) ({ UpdateChecks.checkNow() }) else null,
                             onAccounts = { isManagingAccounts = true },
                             // Null hides the drawer entry outright, which is
                             // what an instance publishing no calendars

@@ -3,6 +3,7 @@ package de.plmail.feature.onboarding
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -48,6 +49,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
@@ -82,7 +84,7 @@ fun QrScannerScreen(onScanned: (PairingInvitation) -> Unit, onCancel: () -> Unit
     Scaffold(modifier = Modifier.fillMaxSize()) { insets ->
         Box(modifier = Modifier.fillMaxSize().padding(insets)) {
             if (hasPermission) {
-                CameraPreview(onScanned = onScanned)
+                CameraPreview(onScanned = onScanned, onCancel = onCancel)
 
                 Column(
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
@@ -138,7 +140,7 @@ private fun PermissionRefused(refused: Boolean, onBack: () -> Unit) {
  * we would then have to filter out again.
  */
 @Composable
-private fun CameraPreview(onScanned: (PairingInvitation) -> Unit) {
+private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnScanned by rememberUpdatedState(onScanned)
@@ -146,58 +148,105 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit) {
     val previewView = remember { PreviewView(context) }
     val barcodes = remember { PairingBarcodes() }
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-
-    // Shut down explicitly. An ImageAnalysis executor that outlives the screen
-    // keeps a camera thread alive, and on a device that has already navigated
-    // away that shows up as the preview never releasing the camera for the
-    // next app that wants it.
-    DisposableEffect(Unit) { onDispose { executor.shutdown() } }
-
-    LaunchedEffect(Unit) {
-        // getInstance rather than a suspend helper: the coroutine-friendly
-        // variants have moved between CameraX releases, and this one has been
-        // the stable entry point throughout.
-        val provider = ProcessCameraProvider.getInstance(context).awaitProvider()
-
-        val preview =
-            Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-
-        val scanner =
-            BarcodeScanning.getClient(
-                BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-            )
-
-        val analysis =
-            ImageAnalysis.Builder()
-                // Frames that arrive while one is being decoded are dropped
-                // rather than queued. A queue would make the scanner lag behind
-                // what the camera is pointed at, which reads as the code not
-                // being recognised.
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(executor, QrAnalyzer(scanner, barcodes) { currentOnScanned(it) })
-                }
-
-        provider.unbindAll()
-        provider.bindToLifecycle(
-            lifecycleOwner,
-            CameraSelector.DEFAULT_BACK_CAMERA,
-            preview,
-            analysis,
+    val scanner = remember {
+        BarcodeScanning.getClient(
+            BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
         )
     }
 
-    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+    // BearerMail: why the camera could not be started, shown instead of crashing. Opening it
+    // fails for reasons outside the app (Android's camera privacy switch, another app holding
+    // it, no usable camera), and an exception thrown from here used to close the whole app.
+    var failure by remember { mutableStateOf<String?>(null) }
+
+    // The provider the camera was bound through, so leaving this screen can release it.
+    var bound by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+
+    // Release in this order: unbind first, so the camera stops delivering frames, then shut the
+    // executor. The camera is bound to the activity's lifecycle, not to this screen, so without
+    // the unbind it kept running after the screen closed and handed frames to a shut-down
+    // executor.
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { bound?.unbindAll() }
+            executor.shutdown()
+            scanner.close()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            // getInstance rather than a suspend helper: the coroutine-friendly
+            // variants have moved between CameraX releases, and this one has been
+            // the stable entry point throughout.
+            val provider = ProcessCameraProvider.getInstance(context).awaitProvider()
+
+            // The back camera when there is one, the front one otherwise, rather than failing
+            // on a device whose only usable camera faces the user.
+            val selector =
+                listOf(CameraSelector.DEFAULT_BACK_CAMERA, CameraSelector.DEFAULT_FRONT_CAMERA)
+                    .firstOrNull { runCatching { provider.hasCamera(it) }.getOrDefault(false) }
+                    ?: error("No camera is available on this device.")
+
+            val preview =
+                Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+
+            val analysis =
+                ImageAnalysis.Builder()
+                    // Frames that arrive while one is being decoded are dropped
+                    // rather than queued. A queue would make the scanner lag behind
+                    // what the camera is pointed at, which reads as the code not
+                    // being recognised.
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also {
+                        it.setAnalyzer(
+                            executor,
+                            QrAnalyzer(scanner, barcodes) { found -> currentOnScanned(found) },
+                        )
+                    }
+
+            provider.unbindAll()
+            provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+            bound = provider
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            Log.w(TAG, "Camera could not be started", e)
+            failure = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+        }
+    }
+
+    val reason = failure
+    if (reason != null) {
+        CameraFailed(reason = reason, onBack = onCancel)
+    } else {
+        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+    }
 }
 
-/**
- * Bridges ML Kit to [PairingBarcodes].
- *
- * The `close()` in the completion handler is not tidiness: `ImageAnalysis` hands out a fixed pool
- * of buffers, and an `ImageProxy` that is never closed stalls the whole pipeline after a frame or
- * two. The symptom is a preview that runs perfectly while nothing is ever decoded again.
- */
+/** BearerMail: the camera would not start. Says why, and offers the typed way in. */
+@Composable
+private fun CameraFailed(reason: String, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.scanner_camera_failed),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.scanner_camera_failed_reason, reason),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Button(onClick = onBack) { Text(stringResource(R.string.scanner_enter_manually)) }
+    }
+}
+
+private const val TAG = "BearerMail.Scanner"
+
 private class QrAnalyzer(
     private val scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
     private val barcodes: PairingBarcodes,
