@@ -58,6 +58,8 @@ fun MailShell(
     onDrive: (() -> Unit)? = null,
     /** BearerMail: opens the "new alias" dialog. */
     onNewAlias: (() -> Unit)? = null,
+    /** BearerMail: opens the app lock (PIN) settings. */
+    onAppLock: (() -> Unit)? = null,
     onCompose: () -> Unit,
     onReply: (accountKey: String, emailId: String, all: Boolean) -> Unit,
     onForward: (accountKey: String, emailId: String) -> Unit,
@@ -176,6 +178,13 @@ fun MailShell(
                     },
                 onNewAlias =
                     onNewAlias?.let { open ->
+                        {
+                            scope.launch { drawer.close() }
+                            open()
+                        }
+                    },
+                onAppLock =
+                    onAppLock?.let { open ->
                         {
                             scope.launch { drawer.close() }
                             open()

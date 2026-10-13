@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.LocalOffer
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -162,6 +163,7 @@ fun LabelSidebar(
     modifier: Modifier = Modifier,
     onDrive: (() -> Unit)? = null,
     onNewAlias: (() -> Unit)? = null,
+    onAppLock: (() -> Unit)? = null,
 ) {
     // The user's sidebar density, where they have chosen one that differs from the
     // overall setting. Wrapping the whole drawer rather than its rows: the group
@@ -183,6 +185,7 @@ fun LabelSidebar(
             onCalendar = onCalendar,
             onDrive = onDrive,
             onNewAlias = onNewAlias,
+            onAppLock = onAppLock,
             onPush = onPush,
             onNotifications = onNotifications,
             onDiagnostics = onDiagnostics,
@@ -209,6 +212,7 @@ private fun SidebarContent(
     onCalendar: (() -> Unit)?,
     onDrive: (() -> Unit)?,
     onNewAlias: (() -> Unit)?,
+    onAppLock: (() -> Unit)?,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -397,6 +401,16 @@ private fun SidebarContent(
                 icon = Icons.Outlined.Swipe,
                 text = stringResource(R.string.gestures),
             )
+
+            // BearerMail: PIN to open the app.
+            onAppLock?.let { open ->
+                SidebarRow(
+                    selected = false,
+                    onClick = open,
+                    icon = Icons.Outlined.Lock,
+                    text = stringResource(R.string.app_lock),
+                )
+            }
 
             // Directly above push, and that pairing is the point. The two answer
             // the opposite halves of "my phone is too quiet": this one is what

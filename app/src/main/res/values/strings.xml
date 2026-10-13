@@ -27,4 +27,32 @@
     <string name="update_failed_signature">This update is signed with a different key than the installed app. Uninstall BearerMail and install the release APK once by hand.</string>
     <string name="update_retry">Try again</string>
     <string name="update_open_page">Release page</string>
+    <!-- BearerMail: app lock -->
+    <string name="lock_title">BearerMail is locked</string>
+    <string name="lock_enter">Enter your %1$d-digit PIN</string>
+    <string name="lock_wrong">Wrong PIN. Try again.</string>
+    <plurals name="lock_wait">
+        <item quantity="one">Too many wrong PINs. Try again in %1$d second.</item>
+        <item quantity="other">Too many wrong PINs. Try again in %1$d seconds.</item>
+    </plurals>
+    <string name="lock_forgot">Forgot your PIN? Clear BearerMail\'s storage in Android Settings → Apps, then pair again.</string>
+    <string name="lock_dots">Digits entered: %1$d of %2$d</string>
+    <string name="lock_delete">Delete</string>
+    <string name="lock_back">Back</string>
+    <string name="lock_settings_title">App lock</string>
+    <string name="lock_explain">Ask for a PIN every time BearerMail opens, so someone holding your unlocked phone cannot read your mail. Notifications still show on the lock screen; turn off previews in Android\'s notification settings if you want them hidden too.</string>
+    <string name="lock_turn_on">Set a PIN</string>
+    <string name="lock_is_on">App lock is on (%1$d-digit PIN)</string>
+    <string name="lock_grace_title">Lock again after leaving the app</string>
+    <string name="lock_grace_now">Immediately</string>
+    <string name="lock_grace_1">After 1 minute</string>
+    <string name="lock_grace_5">After 5 minutes</string>
+    <string name="lock_change">Change PIN</string>
+    <string name="lock_turn_off">Turn off app lock</string>
+    <string name="lock_choose_length">How long should the PIN be?</string>
+    <string name="lock_digits">%1$d-digit PIN</string>
+    <string name="lock_new_pin">Enter a new %1$d-digit PIN</string>
+    <string name="lock_confirm_pin">Enter the same PIN again</string>
+    <string name="lock_mismatch">The PINs did not match. Enter it again.</string>
+    <string name="lock_current_pin">Enter your current PIN</string>
 </resources>

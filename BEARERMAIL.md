@@ -52,6 +52,14 @@ not listed here is upstream's work.
   existing `release.yml` builds, signs and publishes the release, which the app then offers. The
   four signing secrets in `docs/RELEASING.md` must be set, and every APK you install must be signed
   with that same key — Android refuses an update signed with a different one.
+- **App lock (PIN).** Drawer → **App lock** → **Set a PIN**: choose 4, 6 or 12 digits, enter it
+  twice. BearerMail then asks for it on every start, and again when you come back to it (straight
+  away, after 1 minute or after 5 minutes, your choice). From the fifth wrong PIN in a row each try
+  waits 30 seconds, doubling up to 15 minutes. The PIN is stored only as a salted PBKDF2 hash. On
+  Android 13+ the Recents screen shows a blank card while the lock is on. Change the PIN or turn the
+  lock off from the same screen (both ask for the current PIN). Forgotten PIN: clear BearerMail's
+  storage in Android Settings → Apps and pair again. Notifications still show on the phone's lock
+  screen unless you hide previews in Android's notification settings.
 
 ## Server needed
 
