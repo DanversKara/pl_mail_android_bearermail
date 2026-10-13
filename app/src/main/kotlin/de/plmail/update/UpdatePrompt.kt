@@ -84,6 +84,8 @@ fun UpdatePrompt() {
             step = UpdateStep.Offer(update)
     }
 
+    val upToDate = stringResource(R.string.update_up_to_date, BuildConfig.VERSION_NAME)
+
     // Drawer → Check for updates: asks now, ignores the hourly limit and a skipped version, and
     // always says what it found.
     LaunchedEffect(Unit) {
@@ -103,12 +105,7 @@ fun UpdatePrompt() {
             if (update != null) {
                 step = UpdateStep.Offer(update)
             } else {
-                Toast.makeText(
-                        context,
-                        context.getString(R.string.update_up_to_date, BuildConfig.VERSION_NAME),
-                        Toast.LENGTH_LONG,
-                    )
-                    .show()
+                Toast.makeText(context, upToDate, Toast.LENGTH_LONG).show()
             }
         }
     }
