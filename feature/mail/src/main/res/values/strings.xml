@@ -98,6 +98,7 @@
     <string name="drive">Drive</string>
     <string name="new_alias">New alias</string>
     <string name="app_lock">App lock</string>
+    <string name="check_updates">Check for updates</string>
     <string name="push">Push</string>
     <!--
       "Notifications", not "Notification settings": the drawer's other entries

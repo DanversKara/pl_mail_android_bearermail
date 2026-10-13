@@ -52,4 +52,7 @@
     <string name="lock_confirm_pin">Dieselbe PIN noch einmal eingeben</string>
     <string name="lock_mismatch">Die PINs stimmen nicht überein. Bitte erneut eingeben.</string>
     <string name="lock_current_pin">Aktuelle PIN eingeben</string>
+    <string name="update_checking">Suche nach Updates…</string>
+    <string name="update_check_failed">GitHub war nicht erreichbar. Versuchen Sie es erneut, wenn Sie online sind.</string>
+    <string name="update_up_to_date">BearerMail %1$s ist aktuell.</string>
 </resources>

@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.Report
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Swipe
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -164,6 +165,7 @@ fun LabelSidebar(
     onDrive: (() -> Unit)? = null,
     onNewAlias: (() -> Unit)? = null,
     onAppLock: (() -> Unit)? = null,
+    onCheckUpdates: (() -> Unit)? = null,
 ) {
     // The user's sidebar density, where they have chosen one that differs from the
     // overall setting. Wrapping the whole drawer rather than its rows: the group
@@ -186,6 +188,7 @@ fun LabelSidebar(
             onDrive = onDrive,
             onNewAlias = onNewAlias,
             onAppLock = onAppLock,
+            onCheckUpdates = onCheckUpdates,
             onPush = onPush,
             onNotifications = onNotifications,
             onDiagnostics = onDiagnostics,
@@ -213,6 +216,7 @@ private fun SidebarContent(
     onDrive: (() -> Unit)?,
     onNewAlias: (() -> Unit)?,
     onAppLock: (() -> Unit)?,
+    onCheckUpdates: (() -> Unit)?,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -409,6 +413,16 @@ private fun SidebarContent(
                     onClick = open,
                     icon = Icons.Outlined.Lock,
                     text = stringResource(R.string.app_lock),
+                )
+            }
+
+            // BearerMail: look for a newer release on GitHub now.
+            onCheckUpdates?.let { check ->
+                SidebarRow(
+                    selected = false,
+                    onClick = check,
+                    icon = Icons.Outlined.SystemUpdate,
+                    text = stringResource(R.string.check_updates),
                 )
             }
 

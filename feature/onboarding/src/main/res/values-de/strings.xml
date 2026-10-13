@@ -37,4 +37,7 @@
     <string name="onboarding_error_unreachable">%1$s ist nicht erreichbar. Prüfe die Adresse und ob der Server läuft.</string>
     <string name="onboarding_error_certificate_changed">Das Zertifikat für %1$s hat sich seit der letzten Verbindung geändert. Falls du es nicht selbst geändert hast, fahre nicht fort.</string>
     <string name="onboarding_error_malformed">An dieser Adresse hat etwas geantwortet, aber es war nicht BearerMail.</string>
+    <!-- BearerMail: the camera would not start -->
+    <string name="scanner_camera_failed">Die Kamera konnte nicht gestartet werden. Du kannst dich trotzdem verbinden, indem du Serveradresse und App-Passwort eingibst. Funktioniert die Kamera in anderen Apps, prüfe, ob der Kamerazugriff in den Android-Schnelleinstellungen eingeschaltet ist.</string>
+    <string name="scanner_camera_failed_reason">Grund: %1$s</string>
 </resources>

@@ -69,6 +69,7 @@
     <string name="drive">Drive</string>
     <string name="new_alias">Neuer Alias</string>
     <string name="app_lock">App-Sperre</string>
+    <string name="check_updates">Nach Updates suchen</string>
     <string name="push">Push</string>
     <string name="notifications">Benachrichtigungen</string>
     <string name="diagnostics">Diagnose</string>
