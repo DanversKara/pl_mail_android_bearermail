@@ -600,6 +600,20 @@ constructor(
         )
     }
 
+    /**
+     * Whether a save may name the draft's identity. See
+     * [de.plmail.jmap.protocol.Session.draftsKeepIdentity].
+     *
+     * A session that cannot be read counts as no. The save is about to make its own request and
+     * will report an unreachable server in its own words; what must not happen is a guess that
+     * turns a save an older server would have accepted into one it refuses.
+     */
+    private suspend fun keepsIdentity(client: JmapClient, accountId: AccountId): Boolean =
+        runCatching {
+            client.session().draftsKeepIdentity(accountId)
+        }
+        .getOrDefault(false)
+
     private suspend fun create(
         client: JmapClient,
         accountId: AccountId,
@@ -611,7 +625,11 @@ constructor(
             request.add(
                 EmailSet(
                     accountId = accountId,
-                    create = mapOf(CREATION_ID to draft.toWire(attachments)),
+                    create =
+                        mapOf(
+                            CREATION_ID to
+                                draft.toWire(attachments, keepsIdentity(client, accountId))
+                        ),
                 )
             )
 
@@ -638,7 +656,11 @@ constructor(
             request.add(
                 EmailSet(
                     accountId = accountId,
-                    update = mapOf(EmailId(draft.emailId!!) to draft.toPatch(attachments)),
+                    update =
+                        mapOf(
+                            EmailId(draft.emailId!!) to
+                                draft.toPatch(attachments, keepsIdentity(client, accountId))
+                        ),
                 )
             )
 
@@ -802,8 +824,19 @@ internal fun List<de.plmail.jmap.mail.EmailBodyPart>.toStaged(): List<StagedAtta
         )
     }
 
-/** The full object, for a create. */
-internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail =
+/**
+ * The full object, for a create.
+ *
+ * [withIdentity] names the identity the draft is written from, so the draft is stored from that
+ * address and reopens on it — here or on another device. Without it the sender lived only in the
+ * composer until the send, and a reply autosaved from an alias came back from Drafts on the primary
+ * address. Only for a server that says it stores it; see
+ * [de.plmail.jmap.protocol.Session.draftsKeepIdentity].
+ */
+internal fun ComposeDraft.toWire(
+    attachments: List<DraftAttachment>,
+    withIdentity: Boolean = false,
+): DraftEmail =
     DraftEmail(
         // Empty rather than the Drafts binding: the server files a create into
         // Drafts itself and ignores this key entirely, so naming a binding here
@@ -818,6 +851,7 @@ internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail
         inReplyTo = inReplyTo,
         references = references,
         attachments = attachments,
+        identityId = identityId.takeIf { withIdentity && it.isNotBlank() },
     )
 
 /**
@@ -828,17 +862,23 @@ internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail
  * whole-value, so sending it unchanged would be a dozen blob ids per keystroke for no effect. An
  * *empty* list is different and is sent: that is how the last attachment is removed.
  */
-internal fun ComposeDraft.toPatch(attachments: List<DraftAttachment>?): EmailPatch =
-    EmailPatch.build {
-        addresses("to", to)
-        addresses("cc", cc)
-        addresses("bcc", bcc)
-        text("subject", subject)
-        html(bodyHtml)
-        inReplyTo?.let { strings("inReplyTo", it) }
-        references?.let { strings("references", it) }
-        attachments?.let { attachments(it) }
-    }
+internal fun ComposeDraft.toPatch(
+    attachments: List<DraftAttachment>?,
+    withIdentity: Boolean = false,
+): EmailPatch = EmailPatch.build {
+    // Every save, not only the one after the From menu closed: the patch
+    // is the whole of what the composer owns, and a save that left the
+    // sender out would be the one that lost a race with another device.
+    if (withIdentity && identityId.isNotBlank()) text("identityId", identityId)
+    addresses("to", to)
+    addresses("cc", cc)
+    addresses("bcc", bcc)
+    text("subject", subject)
+    html(bodyHtml)
+    inReplyTo?.let { strings("inReplyTo", it) }
+    references?.let { strings("references", it) }
+    attachments?.let { attachments(it) }
+}
 
 /** Compares two drafts by everything that would need saving. */
 internal fun ComposeDraft.sameContentAs(other: ComposeDraft): Boolean =

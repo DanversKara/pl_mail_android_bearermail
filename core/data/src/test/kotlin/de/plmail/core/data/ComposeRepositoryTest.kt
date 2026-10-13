@@ -19,6 +19,7 @@ import de.plmail.jmap.testing.RecordingTransport
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -375,6 +376,67 @@ class ComposeRepositoryTest {
             )
         }
 
+    // ------------------------------------------- the sender a draft is saved with
+
+    @Test
+    fun `an autosave names the identity the draft is written from`() = runTest {
+        // Without it the sender lives only in the composer until the send: a
+        // reply autosaved from an alias came back from Drafts on the primary
+        // address, here or on another device, and went out from there.
+        seedAccounts(single = true)
+
+        val transport = scripted(UPDATED_RESULT, session = DRAFT_IDENTITY_SESSION)
+
+        repository(transport)
+            .save(
+                ComposeDraft(
+                    accountKey = testAccountKey,
+                    identityId = "7",
+                    emailId = "42",
+                    subject = "Hello",
+                )
+            )
+
+        assertTrue(assertNotNull(transport.lastBody).contains("\"identityId\":\"7\""))
+    }
+
+    @Test
+    fun `a first save names it too`() = runTest {
+        seedAccounts(single = true)
+
+        val transport = scripted(CREATED_RESULT, EMPTY_GET_RESULT, session = DRAFT_IDENTITY_SESSION)
+
+        repository(transport)
+            .save(ComposeDraft(accountKey = testAccountKey, identityId = "7", subject = "Hello"))
+
+        val create = transport.requests.first { !it.url.contains("well-known") }
+
+        assertTrue(assertNotNull(create.body).decodeToString().contains("\"identityId\":\"7\""))
+    }
+
+    @Test
+    fun `a server that does not say it stores the identity is not sent one`() = runTest {
+        // An older plMail answers `invalidPatch` to an update naming a property
+        // it cannot change, and refuses the subject and body with it. So the
+        // key is left out unless the session asks for it -- an autosave that
+        // worked yesterday must not start failing because the app was updated.
+        seedAccounts(single = true)
+
+        val transport = scripted(UPDATED_RESULT)
+
+        repository(transport)
+            .save(
+                ComposeDraft(
+                    accountKey = testAccountKey,
+                    identityId = "7",
+                    emailId = "42",
+                    subject = "Hello",
+                )
+            )
+
+        assertTrue(!assertNotNull(transport.lastBody).contains("identityId"))
+    }
+
     // -------------------------------------------------- refused attachments
 
     @Test
@@ -655,7 +717,10 @@ class ComposeRepositoryTest {
     }
 
     /** A transport that serves discovery once and then reads a script, in order. */
-    private fun scripted(vararg bodies: String, session: String = TEST_SESSION): JmapTransport {
+    private fun scripted(
+        vararg bodies: String,
+        session: String = TEST_SESSION,
+    ): RecordingTransport {
         var index = 0
 
         return RecordingTransport { request ->
@@ -746,6 +811,45 @@ class ComposeRepositoryTest {
              "notCreated":{"s1":{"type":"noRecipients",
               "description":"A message must have at least one recipient."}},
              "updated":{},"notUpdated":{},"destroyed":[],"notDestroyed":{}},"c0"]]}
+            """
+
+        /** The mail capability as a server that stores a draft's identity publishes it. */
+        val DRAFT_IDENTITY_SESSION =
+            """
+            {
+              "capabilities": {"urn:ietf:params:jmap:core": {}},
+              "accounts": {
+                "$TEST_ACCOUNT_ID": {
+                  "name": "someone@example.com",
+                  "accountCapabilities": {"urn:ietf:params:jmap:mail": {"draftIdentity": true}}
+                }
+              },
+              "username": "someone@example.com",
+              "apiUrl": "$TEST_SERVER/jmap/api",
+              "downloadUrl": "$TEST_SERVER/jmap/download",
+              "uploadUrl": "$TEST_SERVER/jmap/upload"
+            }
+            """
+
+        val UPDATED_RESULT =
+            """
+            {"methodResponses":[["Email/set",{"accountId":"$TEST_ACCOUNT_ID",
+             "oldState":"s1","newState":"s2","created":{},"notCreated":{},"updated":{"42":null},
+             "notUpdated":{},"destroyed":[],"notDestroyed":{}},"c0"]]}
+            """
+
+        val CREATED_RESULT =
+            """
+            {"methodResponses":[["Email/set",{"accountId":"$TEST_ACCOUNT_ID",
+             "oldState":"s1","newState":"s2","created":{"c1":{"id":"42"}},"notCreated":{},
+             "updated":{},"notUpdated":{},"destroyed":[],"notDestroyed":{}},"c0"]]}
+            """
+
+        /** What reading the new draft's attachments back answers when it has none. */
+        val EMPTY_GET_RESULT =
+            """
+            {"methodResponses":[["Email/get",{"accountId":"$TEST_ACCOUNT_ID","state":"s2",
+             "list":[{"id":"42","attachments":[]}],"notFound":[]},"c0"]]}
             """
 
         val INVALID_PROPERTIES_RESULT =
