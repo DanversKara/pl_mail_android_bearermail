@@ -3,12 +3,7 @@ package de.plmail.feature.onboarding
 import android.graphics.BitmapFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
-import java.util.concurrent.TimeUnit
+import com.google.zxing.RGBLuminanceSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -19,9 +14,9 @@ import org.junit.runner.RunWith
  * The decode path, end to end, against a real QR image.
  *
  * `PairingBarcodesTest` covers which barcode gets acted on, but it hands the class strings — it can
- * never show that ML Kit, configured the way the scanner configures it, actually reads a code the
+ * never show that the decoder the scanner uses (ZXing, via QrDecoder) actually reads a code the
  * server would produce. This does: the asset is a genuine QR encoding a real
- * `plmail://pair?host=…&code=…` URI, decoded by the same scanner options the camera uses.
+ * `plmail://pair?host=…&code=…` URI, decoded by the same QrDecoder the camera uses.
  *
  * It runs without a camera on purpose. The emulator's `hw.camera.back = emulated` source renders
  * nothing useful, so a test that went through the preview would be testing the emulator rather than
@@ -29,11 +24,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class QrDecodingTest {
-
-    private val scanner =
-        BarcodeScanning.getClient(
-            BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        )
 
     @Test
     fun aRealPairingQrDecodesIntoAnInvitation() {
@@ -69,9 +59,11 @@ class QrDecodingTest {
         val context = InstrumentationRegistry.getInstrumentation().context
         val bitmap = context.assets.open(asset).use(BitmapFactory::decodeStream)
 
-        val barcodes =
-            Tasks.await(scanner.process(InputImage.fromBitmap(bitmap, 0)), 30, TimeUnit.SECONDS)
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
-        return barcodes.map { it.rawValue }
+        return listOfNotNull(
+            QrDecoder.decode(RGBLuminanceSource(bitmap.width, bitmap.height, pixels))
+        )
     }
 }

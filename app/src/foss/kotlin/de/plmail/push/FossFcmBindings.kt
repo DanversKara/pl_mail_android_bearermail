@@ -23,12 +23,9 @@ import javax.inject.Singleton
  * and the separation quietly stops being true — so the check that matters is the one on the
  * dependency, not this class.
  *
- * **What this file does not do is make the `foss` build Google-free, and it never did.** That build
- * already carries `com.google.mlkit:barcode-scanning`, and with it `play-services-base`,
- * `play-services-basement` and several `com.google.firebase` support artifacts, because onboarding
- * pairs by scanning a QR code. Nothing here adds to that and nothing here removes it; a genuinely
- * Google-free `foss` flavour needs the scanner replaced, which is a separate piece of work with its
- * own product question attached.
+ * The QR scanner used to be the other source of Google code in this flavour (ML Kit, which brought
+ * `play-services-base` and friends). It decodes with ZXing now, so pairing needs nothing from
+ * Google.
  */
 @Module
 @InstallIn(SingletonComponent::class)

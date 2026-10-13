@@ -19,11 +19,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
 
     // The camera half of pairing. camera-view supplies PreviewView, which is
-    // what CameraX renders into; ML Kit does the decoding.
+    // what CameraX renders into; ZXing does the decoding (pure Java: no Play
+    // services, no native library).
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
-    implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.zxing.core)
 
     // The credential store's constructor takes a DataStore, and :core:datastore
     // keeps that dependency `implementation`. Declared here so the in-memory

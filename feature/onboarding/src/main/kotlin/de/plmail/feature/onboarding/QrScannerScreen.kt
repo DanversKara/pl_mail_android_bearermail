@@ -39,11 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.mlkit.vision.barcode.BarcodeScanner
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import de.plmail.jmap.client.PairingInvitation
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
@@ -149,9 +144,6 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
     val previewView = remember { PreviewView(context) }
     val barcodes = remember { PairingBarcodes() }
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    // Created inside the try below, not while composing: on some phones ML Kit fails to load,
-    // and a failure while composing closed the app before the screen was drawn.
-    var scanner by remember { mutableStateOf<BarcodeScanner?>(null) }
 
     // BearerMail: why the camera could not be started, shown instead of crashing. Opening it
     // fails for reasons outside the app (Android's camera privacy switch, another app holding
@@ -169,20 +161,11 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
         onDispose {
             runCatching { bound?.unbindAll() }
             executor.shutdown()
-            runCatching { scanner?.close() }
         }
     }
 
     LaunchedEffect(Unit) {
         try {
-            val decoder =
-                BarcodeScanning.getClient(
-                    BarcodeScannerOptions.Builder()
-                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                        .build()
-                )
-            scanner = decoder
-
             // getInstance rather than a suspend helper: the coroutine-friendly
             // variants have moved between CameraX releases, and this one has been
             // the stable entry point throughout.
@@ -210,11 +193,12 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
                         it.setAnalyzer(
                             executor,
                             QrAnalyzer(
-                                decoder,
                                 barcodes,
-                                onInvitation = { found -> currentOnScanned(found) },
-                                // Decoding runs on the executor's thread, where an error would
-                                // close the app; it is shown here instead.
+                                // Decoding runs on the executor's thread; what it finds and any
+                                // error are handed to the main thread, where the screen lives.
+                                onInvitation = { found ->
+                                    previewView.post { currentOnScanned(found) }
+                                },
                                 onError = { error ->
                                     previewView.post {
                                         if (failure == null) failure = describe(error)
@@ -271,38 +255,24 @@ private fun describe(e: Throwable): String =
     e.javaClass.simpleName + (e.message?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
 
 private class QrAnalyzer(
-    private val scanner: BarcodeScanner,
     private val barcodes: PairingBarcodes,
     private val onInvitation: (PairingInvitation) -> Unit,
     private val onError: (Throwable) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
-    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(image: ImageProxy) {
-        val frame = image.image
-        if (frame == null) {
-            image.close()
-            return
-        }
-
         // BearerMail: anything thrown here is on the camera's worker thread, where it would close
         // the app. It is handed to onError instead, which shows it on screen.
         try {
-            scanner
-                .process(InputImage.fromMediaImage(frame, image.imageInfo.rotationDegrees))
-                .addOnSuccessListener { found ->
-                    val invitation: PairingInvitation? = barcodes.accept(found.map { it.rawValue })
-
-                    // Handed on already parsed. Re-encoding it into a URI only for
-                    // the ViewModel to parse it again would be a second place for
-                    // the two to disagree.
-                    invitation?.let(onInvitation)
-                }
-                .addOnFailureListener { onError(it) }
-                .addOnCompleteListener { image.close() }
+            val text = QrDecoder.decode(image) ?: return
+            // Handed on already parsed. Re-encoding it into a URI only for
+            // the ViewModel to parse it again would be a second place for
+            // the two to disagree.
+            barcodes.accept(listOf(text))?.let(onInvitation)
         } catch (e: Throwable) {
-            image.close()
             onError(e)
+        } finally {
+            image.close()
         }
     }
 }
