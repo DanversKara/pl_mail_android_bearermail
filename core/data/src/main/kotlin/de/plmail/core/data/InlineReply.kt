@@ -158,7 +158,7 @@ constructor(
         // on the user's behalf. The fallback to the first identity is the
         // composer's too, and is reached only for a message in an account that
         // has no sendable address of its own.
-        val identity = identities.firstOrNull { it.accountKey == accountKey } ?: identities.first()
+        val fallback = identities.firstOrNull { it.accountKey == accountKey } ?: identities.first()
 
         val original =
             when (val fetched = fetchOriginal(accountKey, emailId)) {
@@ -167,11 +167,17 @@ constructor(
                 is Fetched.Found -> fetched.email
             }
 
+        // The address the mail was sent to, when the server names one -- the
+        // composer's rule again, and more important here than there: nobody
+        // sees a From row in the shade, so a reply to mail for an alias that
+        // went out from the main address would be found out by the recipient.
+        val identity = original.replySender(accountKey, identities) ?: fallback
+
         val composed =
             DraftComposer.reply(
                 original = original,
                 mode = DraftComposer.ReplyMode.REPLY,
-                self = identities.map { it.email }.toSet(),
+                self = (identities + identity).map { it.email }.toSet(),
                 // Empty because `composed.quotedHtml` is thrown away -- see the
                 // class note. Passing a localised attribution for a quote
                 // nothing reads would mean this module owning a date format and

@@ -226,6 +226,55 @@ class ComposeRepositoryTest {
     }
 
     @Test
+    fun `a draft on a catch-all address reopens on it, with a row for the picker`() = runTest {
+        // What undo-send hands back: the submission wrote the address onto the
+        // draft, and no entry of Identity/get matches it. Matching on From
+        // would fall through to the primary and the corrected mail would leave
+        // from an address the customer was never given.
+        seedAccounts(single = true)
+        seedIdentities(MULTI_ALIAS)
+
+        val reopened =
+            repository(
+                    draftFrom(
+                        "Anna",
+                        "yo@shop.test",
+                        replyFrom =
+                            """{"id":"addr-eW9Ac2hvcC50ZXN0","name":"Anna","email":"yo@shop.test",
+                            "htmlSignature":"<p>Shop</p>","textSignature":"Shop","mayDelete":false}""",
+                    )
+                )
+                .reopen(testAccountKey, "42")
+
+        val sender = assertNotNull(assertNotNull(reopened).sender)
+
+        assertEquals("addr-eW9Ac2hvcC50ZXN0", reopened.draft.identityId)
+        assertEquals("addr-eW9Ac2hvcC50ZXN0", sender.identityId)
+        assertEquals("yo@shop.test", sender.email)
+        assertEquals("<p>Shop</p>", sender.htmlSignature)
+    }
+
+    @Test
+    fun `a draft the server answers with a listed identity needs no extra row`() = runTest {
+        seedAccounts(single = true)
+        seedIdentities(MULTI_ALIAS)
+
+        val reopened =
+            repository(
+                    draftFrom(
+                        "Rechnungen",
+                        "rechnung@example.test",
+                        replyFrom =
+                            """{"id":"2","name":"Rechnungen","email":"rechnung@example.test"}""",
+                    )
+                )
+                .reopen(testAccountKey, "42")
+
+        assertEquals("2", assertNotNull(reopened).draft.identityId)
+        assertNull(reopened.sender)
+    }
+
+    @Test
     fun `an account with no identities at all cannot open a draft`() = runTest {
         // Rather than a composer with an empty From row that fails on save.
         seedAccounts(single = true)
@@ -623,7 +672,7 @@ class ComposeRepositoryTest {
     }
 
     /** A transport whose `Email/get` answers one draft, written from [email]. */
-    private fun draftFrom(name: String, email: String): JmapTransport =
+    private fun draftFrom(name: String, email: String, replyFrom: String = "null"): JmapTransport =
         RecordingTransport { request ->
             val body =
                 if (request.url.contains("well-known")) TEST_SESSION
@@ -634,7 +683,7 @@ class ComposeRepositoryTest {
                      "from":[{"name":"$name","email":"$email"}],
                      "to":[{"name":null,"email":"someone@example.test"}],
                      "mailboxIds":{"3":true},"keywords":{"${'$'}draft":true},
-                     "attachments":[]}],"notFound":[]},"c0"]]}
+                     "attachments":[],"replyFrom":$replyFrom}],"notFound":[]},"c0"]]}
                     """
 
             HttpResponse(

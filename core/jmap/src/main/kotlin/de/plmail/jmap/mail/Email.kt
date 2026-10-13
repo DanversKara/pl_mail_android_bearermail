@@ -62,6 +62,28 @@ data class Email(
     val htmlBody: List<EmailBodyPart> = emptyList(),
     val attachments: List<EmailBodyPart> = emptyList(),
     val bodyValues: Map<String, EmailBodyValue> = emptyMap(),
+    /**
+     * The identity a reply to this message — or a forward of it — should be sent as, or null.
+     *
+     * plMail's extension, and **the server's answer rather than something to work out here**: it is
+     * the address the mail was sent to, chosen by the same code the web composer opens a reply
+     * with, so the browser and this app pick the same sender for the same mail. Reading To and Cc
+     * against the identity list would be a second copy of that rule, and it could not find the case
+     * that matters most — an address at a catch-all domain, which is in no list.
+     *
+     * For an alias this is the identity `Identity/get` lists, same id. For a catch-all address it
+     * is one that list does not contain, and this object is the only place its id, name and
+     * signature can be learned; the id goes into `EmailSubmission/set` like any other and the
+     * server checks it there.
+     *
+     * On a draft it is the address the draft is already written from.
+     *
+     * Null three ways, all meaning "stay on the primary identity": the mail names none of the
+     * account's addresses, the property was not asked for (it is never sent unasked — see
+     * [de.plmail.jmap.methods.EmailGet.REPLY_PROPERTIES]), or the server predates it and ignored
+     * the name.
+     */
+    val replyFrom: Identity? = null,
 ) {
     val mailboxes: List<MailboxId>
         get() = mailboxIds.filterValues { it }.keys.map(::MailboxId)

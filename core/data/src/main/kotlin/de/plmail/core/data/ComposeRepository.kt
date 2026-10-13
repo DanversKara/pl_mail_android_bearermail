@@ -154,7 +154,10 @@ constructor(
                 EmailGet(
                     accountId = AccountId(account.accountId),
                     ids = listOf(EmailId(emailId)),
-                    properties = EmailGet.READER_PROPERTIES,
+                    // With `replyFrom`: every caller of this is about to write
+                    // an answer, a forward or the draft itself, and that is
+                    // the server saying who it is from.
+                    properties = EmailGet.REPLY_PROPERTIES,
                     fetchTextBodyValues = true,
                     fetchHtmlBodyValues = true,
                 )
@@ -169,22 +172,59 @@ constructor(
      * Its attachments come back as blob ids rather than as files to pick again, which is what makes
      * "undo send, change a word, send" cost nothing and re-upload nothing.
      */
-    suspend fun loadDraft(accountKey: String, emailId: String): ComposeDraft? {
+    suspend fun loadDraft(accountKey: String, emailId: String): ComposeDraft? =
+        reopen(accountKey, emailId)?.draft
+
+    /**
+     * [loadDraft], with the sender the draft is on when that is not one of the listed identities.
+     *
+     * The server names the identity a draft is written from in `replyFrom`, and that is taken
+     * first: it is the only way a draft sent from a catch-all address — held, called back with
+     * undo, reopened — comes back on that address, since no entry of `Identity/get` matches it.
+     * [ReopenedDraft.sender] carries it for the picker, which would otherwise have no row for the
+     * id the draft names.
+     */
+    suspend fun reopen(accountKey: String, emailId: String): ReopenedDraft? {
         val email = original(accountKey, emailId) ?: return null
         val known = database.identities().forAccount(accountKey)
 
-        // Matched on the address the draft already carries rather than taking
-        // the first of the account's identities. Now that there is one identity
-        // per sendable alias, "the first" is the primary — so reopening a draft
-        // written from an alias and saving it again would silently move it back
-        // to the main address.
+        // Without the server's answer: matched on the address the draft
+        // already carries rather than taking the first of the account's
+        // identities. Now that there is one identity per sendable alias, "the
+        // first" is the primary — so reopening a draft written from an alias
+        // and saving it again would silently move it back to the main address.
         val from = email.from.firstOrNull()?.email?.trim()?.lowercase()
+        val named = email.replyFrom
         val identity =
-            known.firstOrNull { it.email.trim().lowercase() == from }?.identityId
+            named?.id?.value
+                ?: known.firstOrNull { it.email.trim().lowercase() == from }?.identityId
                 ?: known.firstOrNull()?.identityId
                 ?: return null
 
-        return ComposeDraft(
+        val sender =
+            named
+                ?.takeIf { known.none { listed -> listed.identityId == it.id.value } }
+                ?.let {
+                    SendIdentity(
+                        accountKey = accountKey,
+                        accountName = database.accounts().byUid(accountKey)?.name.orEmpty(),
+                        identityId = it.id.value,
+                        name = it.name,
+                        email = it.email,
+                        htmlSignature = it.htmlSignature,
+                    )
+                }
+
+        return ReopenedDraft(draft(accountKey, emailId, identity, email), sender)
+    }
+
+    private fun draft(
+        accountKey: String,
+        emailId: String,
+        identity: String,
+        email: Email,
+    ): ComposeDraft =
+        ComposeDraft(
             accountKey = accountKey,
             identityId = identity,
             to = email.to,
@@ -198,7 +238,6 @@ constructor(
             emailId = emailId,
             savedAttachments = email.attachments.toStaged(),
         )
-    }
 
     /**
      * Writes the draft to the server and returns it carrying its id.
@@ -734,6 +773,13 @@ constructor(
         const val TRASH_ROLE = "trash"
     }
 }
+
+/**
+ * A draft read back from the server, and the entry its From row needs when the picker has none.
+ *
+ * [sender] is null whenever [draft] names a listed identity, which is nearly always.
+ */
+data class ReopenedDraft(val draft: ComposeDraft, val sender: SendIdentity? = null)
 
 /**
  * Attachment parts as things the composer can show and re-send.

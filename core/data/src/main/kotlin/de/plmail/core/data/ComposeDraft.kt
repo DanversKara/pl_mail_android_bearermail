@@ -1,5 +1,6 @@
 package de.plmail.core.data
 
+import de.plmail.jmap.mail.Email
 import de.plmail.jmap.mail.EmailAddress
 import de.plmail.jmap.mail.Signatures
 
@@ -125,6 +126,52 @@ data class SendIdentity(
      */
     val label: String
         get() = if (name.isNullOrBlank() || name == email) email else "$name <$email>"
+}
+
+/**
+ * Who answers this message, when the server says: [Email.replyFrom] as an entry for the From row.
+ *
+ * Null means the server named nobody — or is too old to — and the caller stays on the account's
+ * first identity, which is what every reply did before.
+ *
+ * The entry from [known] when the server named an identity this device already lists, so the
+ * picker's own row is the one selected. Otherwise one built from what the server sent: an address
+ * at a catch-all domain is an identity `Identity/get` never lists, and the same construction covers
+ * an alias added on the web a moment ago that the cache has not caught up with. Either way nothing
+ * here decides whether the address may be used — the server chose it, and checks it again when the
+ * mail is submitted.
+ */
+fun Email.replySender(accountKey: String, known: List<SendIdentity>): SendIdentity? {
+    val named = replyFrom ?: return null
+    val ofAccount = known.filter { it.accountKey == accountKey }
+
+    return ofAccount.firstOrNull { it.identityId == named.id.value }
+        ?: SendIdentity(
+            accountKey = accountKey,
+            accountName = ofAccount.firstOrNull()?.accountName.orEmpty(),
+            identityId = named.id.value,
+            name = named.name,
+            email = named.email,
+            htmlSignature = named.htmlSignature,
+        )
+}
+
+/**
+ * The picker's list with [sender] in it.
+ *
+ * A no-op for an identity already listed. One that is not — a catch-all address — goes *after* its
+ * account's own entries, never before them: the first entry of an account is what the rest of the
+ * composer reads as that account's default, and an address that exists for one message must not
+ * become it.
+ */
+fun List<SendIdentity>.including(sender: SendIdentity?): List<SendIdentity> {
+    if (sender == null) return this
+    if (any { it.accountKey == sender.accountKey && it.identityId == sender.identityId })
+        return this
+
+    val after = indexOfLast { it.accountKey == sender.accountKey }
+
+    return if (after < 0) this + sender else take(after + 1) + sender + drop(after + 1)
 }
 
 /**
