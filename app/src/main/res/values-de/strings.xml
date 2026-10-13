@@ -33,7 +33,7 @@
         <item quantity="other">Zu viele falsche PINs. In %1$d Sekunden erneut versuchen.</item>
     </plurals>
     <string name="lock_forgot">PIN vergessen? Löschen Sie den Speicher von BearerMail unter Android-Einstellungen → Apps und koppeln Sie neu.</string>
-    <string name="lock_dots">%1$d von %2$d Ziffern eingegeben</string>
+    <string name="lock_dots">Ziffern eingegeben: %1$d von %2$d</string>
     <string name="lock_delete">Löschen</string>
     <string name="lock_back">Zurück</string>
     <string name="lock_settings_title">App-Sperre</string>
@@ -47,7 +47,7 @@
     <string name="lock_change">PIN ändern</string>
     <string name="lock_turn_off">App-Sperre ausschalten</string>
     <string name="lock_choose_length">Wie lang soll die PIN sein?</string>
-    <string name="lock_digits">%1$d Ziffern</string>
+    <string name="lock_digits">%1$d-stellige PIN</string>
     <string name="lock_new_pin">Neue %1$d-stellige PIN eingeben</string>
     <string name="lock_confirm_pin">Dieselbe PIN noch einmal eingeben</string>
     <string name="lock_mismatch">Die PINs stimmen nicht überein. Bitte erneut eingeben.</string>
