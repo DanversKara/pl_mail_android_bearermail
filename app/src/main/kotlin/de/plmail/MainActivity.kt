@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.AppLocaleOverride
 import de.plmail.core.designsystem.PlMailTheme
+import de.plmail.crash.CrashReportPrompt
 import de.plmail.feature.calendar.CalendarScreen
 import de.plmail.feature.calendar.EditorRequest
 import de.plmail.feature.compose.ComposeHost
@@ -168,7 +169,11 @@ class MainActivity : ComponentActivity() {
                     // BearerMail: offers a newer GitHub release, if there is one. Not
                     // over the lock screen: a dialog is its own window and would sit on top.
                     val locked by AppLock.locked.collectAsStateWithLifecycle()
-                    if (!locked) UpdatePrompt()
+                    if (!locked) {
+                        UpdatePrompt()
+                        // BearerMail: the error behind the last crash, if there was one.
+                        CrashReportPrompt()
+                    }
                 }
             }
         }

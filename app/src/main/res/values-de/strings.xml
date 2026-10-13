@@ -55,4 +55,8 @@
     <string name="update_checking">Suche nach Updates…</string>
     <string name="update_check_failed">GitHub war nicht erreichbar. Versuchen Sie es erneut, wenn Sie online sind.</string>
     <string name="update_up_to_date">BearerMail %1$s ist aktuell.</string>
+    <!-- BearerMail: Absturzbericht -->
+    <string name="crash_title">BearerMail wurde unerwartet beendet</string>
+    <string name="crash_copy">Kopieren</string>
+    <string name="crash_dismiss">Schließen</string>
 </resources>
