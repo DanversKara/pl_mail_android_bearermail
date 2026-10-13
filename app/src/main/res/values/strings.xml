@@ -58,4 +58,8 @@
     <string name="update_checking">Checking for updates…</string>
     <string name="update_check_failed">Could not reach GitHub to check for updates. Try again when you are online.</string>
     <string name="update_up_to_date">BearerMail %1$s is up to date.</string>
+    <!-- BearerMail: crash report -->
+    <string name="crash_title">BearerMail closed unexpectedly</string>
+    <string name="crash_copy">Copy</string>
+    <string name="crash_dismiss">Dismiss</string>
 </resources>

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -148,11 +149,9 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
     val previewView = remember { PreviewView(context) }
     val barcodes = remember { PairingBarcodes() }
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    val scanner = remember {
-        BarcodeScanning.getClient(
-            BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        )
-    }
+    // Created inside the try below, not while composing: on some phones ML Kit fails to load,
+    // and a failure while composing closed the app before the screen was drawn.
+    var scanner by remember { mutableStateOf<BarcodeScanner?>(null) }
 
     // BearerMail: why the camera could not be started, shown instead of crashing. Opening it
     // fails for reasons outside the app (Android's camera privacy switch, another app holding
@@ -170,12 +169,20 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
         onDispose {
             runCatching { bound?.unbindAll() }
             executor.shutdown()
-            scanner.close()
+            runCatching { scanner?.close() }
         }
     }
 
     LaunchedEffect(Unit) {
         try {
+            val decoder =
+                BarcodeScanning.getClient(
+                    BarcodeScannerOptions.Builder()
+                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                        .build()
+                )
+            scanner = decoder
+
             // getInstance rather than a suspend helper: the coroutine-friendly
             // variants have moved between CameraX releases, and this one has been
             // the stable entry point throughout.
@@ -202,7 +209,18 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
                     .also {
                         it.setAnalyzer(
                             executor,
-                            QrAnalyzer(scanner, barcodes) { found -> currentOnScanned(found) },
+                            QrAnalyzer(
+                                decoder,
+                                barcodes,
+                                onInvitation = { found -> currentOnScanned(found) },
+                                // Decoding runs on the executor's thread, where an error would
+                                // close the app; it is shown here instead.
+                                onError = { error ->
+                                    previewView.post {
+                                        if (failure == null) failure = describe(error)
+                                    }
+                                },
+                            ),
                         )
                     }
 
@@ -211,9 +229,10 @@ private fun CameraPreview(onScanned: (PairingInvitation) -> Unit, onCancel: () -
             bound = provider
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Throwable, not Exception: a native library that fails to load throws an Error.
             Log.w(TAG, "Camera could not be started", e)
-            failure = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+            failure = describe(e)
         }
     }
 
@@ -247,10 +266,15 @@ private fun CameraFailed(reason: String, onBack: () -> Unit) {
 
 private const val TAG = "BearerMail.Scanner"
 
+/** The error's own message, prefixed with its type so it is useful in a bug report. */
+private fun describe(e: Throwable): String =
+    e.javaClass.simpleName + (e.message?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
+
 private class QrAnalyzer(
-    private val scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
+    private val scanner: BarcodeScanner,
     private val barcodes: PairingBarcodes,
     private val onInvitation: (PairingInvitation) -> Unit,
+    private val onError: (Throwable) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
@@ -261,17 +285,25 @@ private class QrAnalyzer(
             return
         }
 
-        scanner
-            .process(InputImage.fromMediaImage(frame, image.imageInfo.rotationDegrees))
-            .addOnSuccessListener { found ->
-                val invitation: PairingInvitation? = barcodes.accept(found.map { it.rawValue })
+        // BearerMail: anything thrown here is on the camera's worker thread, where it would close
+        // the app. It is handed to onError instead, which shows it on screen.
+        try {
+            scanner
+                .process(InputImage.fromMediaImage(frame, image.imageInfo.rotationDegrees))
+                .addOnSuccessListener { found ->
+                    val invitation: PairingInvitation? = barcodes.accept(found.map { it.rawValue })
 
-                // Handed on already parsed. Re-encoding it into a URI only for
-                // the ViewModel to parse it again would be a second place for
-                // the two to disagree.
-                invitation?.let(onInvitation)
-            }
-            .addOnCompleteListener { image.close() }
+                    // Handed on already parsed. Re-encoding it into a URI only for
+                    // the ViewModel to parse it again would be a second place for
+                    // the two to disagree.
+                    invitation?.let(onInvitation)
+                }
+                .addOnFailureListener { onError(it) }
+                .addOnCompleteListener { image.close() }
+        } catch (e: Throwable) {
+            image.close()
+            onError(e)
+        }
     }
 }
 

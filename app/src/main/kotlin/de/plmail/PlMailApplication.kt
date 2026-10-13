@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.HiltAndroidApp
 import de.plmail.core.data.AppLocaleOverride
+import de.plmail.crash.CrashReporter
 import de.plmail.lock.AppLock
 import javax.inject.Inject
 
@@ -59,6 +60,9 @@ class PlMailApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // BearerMail: first, so a crash anywhere after this is kept for the next launch.
+        CrashReporter.install(this)
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(presence)
 
