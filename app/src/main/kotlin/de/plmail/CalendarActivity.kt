@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.AppLocaleOverride
 import de.plmail.feature.calendar.CalendarScreen
+import de.plmail.lock.AppLockGate
 
 /**
  * The calendar when it is its own app.
@@ -68,14 +69,16 @@ class CalendarActivity : ComponentActivity() {
 
         setContent {
             PlMailAppTheme {
-                CalendarApp(
-                    // The app bar's arrow means the same thing the gesture does
-                    // in a task of one screen: leave. finish() and not
-                    // finishAndRemoveTask(), because a user who backs out of an
-                    // app expects to find it again in Recents.
-                    onLeave = ::finish,
-                    onNotPaired = ::openOnboarding,
-                )
+                AppLockGate {
+                    CalendarApp(
+                        // The app bar's arrow means the same thing the gesture does
+                        // in a task of one screen: leave. finish() and not
+                        // finishAndRemoveTask(), because a user who backs out of an
+                        // app expects to find it again in Recents.
+                        onLeave = ::finish,
+                        onNotPaired = ::openOnboarding,
+                    )
+                }
             }
         }
     }

@@ -51,6 +51,9 @@ import de.plmail.feature.settings.NotificationsScreen
 import de.plmail.feature.settings.PushLogScreen
 import de.plmail.feature.settings.PushScreen
 import de.plmail.feature.settings.SwipeScreen
+import de.plmail.lock.AppLock
+import de.plmail.lock.AppLockGate
+import de.plmail.lock.AppLockSettings
 import de.plmail.notifications.NotificationRequest
 import de.plmail.notifications.RequestNotificationPermission
 import de.plmail.notifications.notificationRequest
@@ -148,18 +151,23 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PlMailAppTheme {
-                PlMailApp(
-                    pendingLink = pendingLink,
-                    onLinkHandled = { pendingLink = null },
-                    notification = pendingNotification,
-                    onNotificationHandled = { pendingNotification = null },
-                    share = pendingShare,
-                    onShareHandled = { pendingShare = null },
-                    driveUpload = pendingDriveUpload,
-                    onDriveUploadHandled = { pendingDriveUpload = emptyList() },
-                )
-                // BearerMail: offers a newer GitHub release, if there is one.
-                UpdatePrompt()
+                // BearerMail: the PIN lock covers everything, the update prompt included.
+                AppLockGate {
+                    PlMailApp(
+                        pendingLink = pendingLink,
+                        onLinkHandled = { pendingLink = null },
+                        notification = pendingNotification,
+                        onNotificationHandled = { pendingNotification = null },
+                        share = pendingShare,
+                        onShareHandled = { pendingShare = null },
+                        driveUpload = pendingDriveUpload,
+                        onDriveUploadHandled = { pendingDriveUpload = emptyList() },
+                    )
+                    // BearerMail: offers a newer GitHub release, if there is one. Not
+                    // over the lock screen: a dialog is its own window and would sit on top.
+                    val locked by AppLock.locked.collectAsStateWithLifecycle()
+                    if (!locked) UpdatePrompt()
+                }
             }
         }
     }
@@ -254,6 +262,7 @@ private fun PlMailApp(
     var isReadingPushLog by rememberSaveable { mutableStateOf(false) }
     var isAdjustingAppearance by rememberSaveable { mutableStateOf(false) }
     var isSettingGestures by rememberSaveable { mutableStateOf(false) }
+    var isSettingLock by rememberSaveable { mutableStateOf(false) }
     var isManagingAccounts by rememberSaveable { mutableStateOf(false) }
     var isCalendaring by rememberSaveable { mutableStateOf(false) }
     var isDriving by rememberSaveable { mutableStateOf(false) }
@@ -390,6 +399,7 @@ private fun PlMailApp(
                             isDriving -> Screen.DRIVE
                             isAdjustingAppearance -> Screen.APPEARANCE
                             isSettingGestures -> Screen.GESTURES
+                            isSettingLock -> Screen.APP_LOCK
                             isReadingPushLog -> Screen.PUSH_LOG
                             isChoosingPush -> Screen.PUSH
                             isChoosingNotifications -> Screen.NOTIFICATIONS
@@ -411,6 +421,7 @@ private fun PlMailApp(
                             Screen.DRIVE -> isDriving = false
                             Screen.APPEARANCE -> isAdjustingAppearance = false
                             Screen.GESTURES -> isSettingGestures = false
+                            Screen.APP_LOCK -> isSettingLock = false
                             // The log closes back onto the push screen it was
                             // opened from, rather than all the way to mail:
                             // somebody who just compared a log against their
@@ -446,6 +457,8 @@ private fun PlMailApp(
                         AppearanceScreen(onBack = { isAdjustingAppearance = false })
                     } else if (screen == Screen.GESTURES) {
                         SwipeScreen(onBack = { isSettingGestures = false })
+                    } else if (screen == Screen.APP_LOCK) {
+                        AppLockSettings(onBack = { isSettingLock = false })
                     } else if (screen == Screen.PUSH_LOG) {
                         PushLogScreen(onBack = { isReadingPushLog = false })
                     } else if (screen == Screen.PUSH) {
@@ -480,6 +493,7 @@ private fun PlMailApp(
                             onDiagnostics = { isDiagnosing = true },
                             onAppearance = { isAdjustingAppearance = true },
                             onGestures = { isSettingGestures = true },
+                            onAppLock = { isSettingLock = true },
                             onAccounts = { isManagingAccounts = true },
                             // Null hides the drawer entry outright, which is
                             // what an instance publishing no calendars
@@ -601,5 +615,6 @@ private enum class Screen {
     PUSH_LOG,
     APPEARANCE,
     GESTURES,
+    APP_LOCK,
     ACCOUNTS,
 }

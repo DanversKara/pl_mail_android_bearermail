@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.HiltAndroidApp
 import de.plmail.core.data.AppLocaleOverride
+import de.plmail.lock.AppLock
 import javax.inject.Inject
 
 /**
@@ -60,6 +61,10 @@ class PlMailApplication : Application() {
         super.onCreate()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(presence)
+
+        // BearerMail: the PIN lock, armed before the first activity draws anything.
+        AppLock.init(this)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(AppLock.lifecycleObserver)
 
         icons.start()
     }

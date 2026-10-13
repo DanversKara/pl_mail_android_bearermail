@@ -24,4 +24,32 @@
     <string name="update_failed_signature">Dieses Update ist mit einem anderen Schlüssel signiert als die installierte App. Deinstallieren Sie BearerMail und installieren Sie die Release-APK einmal von Hand.</string>
     <string name="update_retry">Erneut versuchen</string>
     <string name="update_open_page">Release-Seite</string>
+    <!-- BearerMail: App-Sperre -->
+    <string name="lock_title">BearerMail ist gesperrt</string>
+    <string name="lock_enter">Geben Sie Ihre %1$d-stellige PIN ein</string>
+    <string name="lock_wrong">Falsche PIN. Bitte erneut versuchen.</string>
+    <plurals name="lock_wait">
+        <item quantity="one">Zu viele falsche PINs. In %1$d Sekunde erneut versuchen.</item>
+        <item quantity="other">Zu viele falsche PINs. In %1$d Sekunden erneut versuchen.</item>
+    </plurals>
+    <string name="lock_forgot">PIN vergessen? Löschen Sie den Speicher von BearerMail unter Android-Einstellungen → Apps und koppeln Sie neu.</string>
+    <string name="lock_dots">%1$d von %2$d Ziffern eingegeben</string>
+    <string name="lock_delete">Löschen</string>
+    <string name="lock_back">Zurück</string>
+    <string name="lock_settings_title">App-Sperre</string>
+    <string name="lock_explain">Bei jedem Öffnen von BearerMail nach einer PIN fragen, damit niemand mit Ihrem entsperrten Telefon Ihre E-Mails lesen kann. Benachrichtigungen erscheinen weiterhin auf dem Sperrbildschirm; blenden Sie die Vorschau in den Android-Benachrichtigungseinstellungen aus, wenn Sie das nicht möchten.</string>
+    <string name="lock_turn_on">PIN festlegen</string>
+    <string name="lock_is_on">App-Sperre ist an (%1$d-stellige PIN)</string>
+    <string name="lock_grace_title">Wieder sperren nach dem Verlassen der App</string>
+    <string name="lock_grace_now">Sofort</string>
+    <string name="lock_grace_1">Nach 1 Minute</string>
+    <string name="lock_grace_5">Nach 5 Minuten</string>
+    <string name="lock_change">PIN ändern</string>
+    <string name="lock_turn_off">App-Sperre ausschalten</string>
+    <string name="lock_choose_length">Wie lang soll die PIN sein?</string>
+    <string name="lock_digits">%1$d Ziffern</string>
+    <string name="lock_new_pin">Neue %1$d-stellige PIN eingeben</string>
+    <string name="lock_confirm_pin">Dieselbe PIN noch einmal eingeben</string>
+    <string name="lock_mismatch">Die PINs stimmen nicht überein. Bitte erneut eingeben.</string>
+    <string name="lock_current_pin">Aktuelle PIN eingeben</string>
 </resources>
