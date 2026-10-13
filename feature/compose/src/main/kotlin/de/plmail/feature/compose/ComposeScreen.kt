@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddLink
-import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -32,6 +31,7 @@ import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
-import de.plmail.feature.drive.DriveLinkPicker
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import de.plmail.core.data.StagedAttachment
@@ -74,6 +73,7 @@ import de.plmail.core.designsystem.PaneTone
 import de.plmail.core.designsystem.PlMailDivider
 import de.plmail.core.designsystem.PlMailPane
 import de.plmail.core.designsystem.PlMailTheme
+import de.plmail.feature.drive.DriveLinkPicker
 import de.plmail.jmap.mail.DraftComposer
 import java.time.Instant
 
@@ -145,7 +145,8 @@ fun ComposeScreen(
             state.pendingDriveLinks.forEach { link ->
                 append("<br><a href=\"").append(link.url.escapeHtml()).append("\">📎 ")
                 append(link.name.escapeHtml()).append("</a> (")
-                append(String.format(java.util.Locale.ROOT, "%.1f", link.sizeBytes / 1048576.0)).append(" MB)")
+                append(String.format(java.util.Locale.ROOT, "%.1f", link.sizeBytes / 1048576.0))
+                    .append(" MB)")
             }
             append("</p>")
         }

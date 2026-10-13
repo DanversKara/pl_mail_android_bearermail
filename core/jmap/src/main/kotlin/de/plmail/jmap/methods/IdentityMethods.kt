@@ -97,8 +97,7 @@ class IdentityDestroy(private val accountId: AccountId, private val id: Identity
         json.decodeFromJsonElement(IdentitySetResult.serializer(), arguments)
 }
 
-@Serializable
-data class CreatedIdentity(val id: IdentityId, val mayDelete: Boolean = true)
+@Serializable data class CreatedIdentity(val id: IdentityId, val mayDelete: Boolean = true)
 
 @Serializable
 data class IdentitySetResult(

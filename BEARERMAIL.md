@@ -35,6 +35,23 @@ not listed here is upstream's work.
   The address is copied to the clipboard, receives mail within seconds (the server adds it to the
   mail server automatically), and can be used as the From address straight away. Delete it on the
   web under Settings → Aliases.
+- **Copy verification codes.** When a mail carries a one-time code ("Your verification code is
+  482 913", "G-482913 is your Google code"), the reader shows a **Verification code** card with a
+  **Copy** button, and the new-mail notification gets a **Copy 482913** button (it takes Mark
+  read's place, since Android shows three buttons at most). The code goes on the clipboard marked
+  sensitive, so it is hidden in the clipboard preview. Detection runs on the phone and needs a code
+  word next to the number, so order numbers, prices, dates and phone numbers are left alone.
+- **Built-in updater.** Release builds check this repository's GitHub Releases on launch (at most
+  every 6 hours). When a newer version is out, a dialog shows its notes with **Update**, **Later**
+  and **Skip this version**. Update downloads the APK for the installed flavour (`foss` or
+  `google`) and opens Android's own install screen; the first time, Android asks you to allow
+  BearerMail to install apps. Debug builds never check.
+- **Automatic releases.** Every push to `main` (except docs-only changes) runs
+  `.github/workflows/auto-release.yml`: if the current `VERSION_NAME` has no tag yet it is tagged
+  as is, otherwise the patch number is bumped and committed (`chore(release): 0.0.31`). Then the
+  existing `release.yml` builds, signs and publishes the release, which the app then offers. The
+  four signing secrets in `docs/RELEASING.md` must be set, and every APK you install must be signed
+  with that same key — Android refuses an update signed with a different one.
 
 ## Server needed
 

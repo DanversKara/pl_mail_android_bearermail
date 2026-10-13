@@ -305,4 +305,9 @@
     <string name="plan_heading">Looks like a plan</string>
     <string name="plan_add">Add to calendar</string>
     <string name="plan_no_time">time not stated</string>
+    <!-- BearerMail: one-time codes found in a message -->
+    <string name="code_heading">Verification code</string>
+    <string name="code_copy">Copy</string>
+    <string name="code_copied_short">Copied</string>
+    <string name="code_copied">Code copied</string>
 </resources>

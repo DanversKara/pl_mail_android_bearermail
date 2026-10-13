@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import de.plmail.core.data.NewMessage
+import de.plmail.core.data.OtpDetector
 
 /**
  * One conversation, as it sits in the shade.
@@ -35,30 +36,51 @@ internal fun conversationNotification(
             .setConversationTitle(message.subject ?: context.getString(R.string.no_subject))
             .addMessage(message.preview, message.receivedAt, sender)
 
-    return NotificationCompat.Builder(context, channelId)
-        .setSmallIcon(R.drawable.ic_notification_mail)
-        .setStyle(style)
-        .setContentTitle(message.sender)
-        .setContentText(message.subject ?: context.getString(R.string.no_subject))
-        .setWhen(message.receivedAt)
-        .setShowWhen(true)
-        .setCategory(NotificationCompat.CATEGORY_EMAIL)
-        .setGroup(group)
-        .setAutoCancel(true)
-        .setContentIntent(destinations.openConversation(message.accountKey, message.threadId))
-        // Dismissing one conversation must not leave the account's summary
-        // behind with nothing under it, which is what happens if nobody
-        // tidies up -- see NotificationActions.
-        .setDeleteIntent(NotificationActions.dismissed(context, message.accountKey, notificationId))
-        .addAction(
+    // BearerMail: a one-time code in the subject or preview gets a "Copy code" button, first in
+    // the row so it is the one the thumb lands on.
+    val code = OtpDetector.detect(message.subject, message.preview)
+
+    val builder =
+        NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_notification_mail)
+            .setStyle(style)
+            .setContentTitle(message.sender)
+            .setContentText(message.subject ?: context.getString(R.string.no_subject))
+            .setWhen(message.receivedAt)
+            .setShowWhen(true)
+            .setCategory(NotificationCompat.CATEGORY_EMAIL)
+            .setGroup(group)
+            .setAutoCancel(true)
+            .setContentIntent(destinations.openConversation(message.accountKey, message.threadId))
+            // Dismissing one conversation must not leave the account's summary
+            // behind with nothing under it, which is what happens if nobody
+            // tidies up -- see NotificationActions.
+            .setDeleteIntent(
+                NotificationActions.dismissed(context, message.accountKey, notificationId)
+            )
+
+    // Android draws three actions at most. With a code, Copy takes Mark read's place: opening the
+    // mail or archiving it reads it anyway, and Reply must stay reachable.
+    if (code != null) {
+        builder.addAction(
             NotificationCompat.Action.Builder(
-                    R.drawable.ic_notification_archive,
-                    context.getString(R.string.action_archive),
-                    NotificationActions.archive(context, message, notificationId),
+                    R.drawable.ic_notification_copy,
+                    context.getString(R.string.action_copy_code, code),
+                    CopyCodeReceiver.intent(context, code, notificationId),
                 )
                 .build()
         )
-        .addAction(
+    }
+    builder.addAction(
+        NotificationCompat.Action.Builder(
+                R.drawable.ic_notification_archive,
+                context.getString(R.string.action_archive),
+                NotificationActions.archive(context, message, notificationId),
+            )
+            .build()
+    )
+    if (code == null) {
+        builder.addAction(
             NotificationCompat.Action.Builder(
                     R.drawable.ic_notification_read,
                     context.getString(R.string.action_mark_read),
@@ -66,8 +88,9 @@ internal fun conversationNotification(
                 )
                 .build()
         )
-        .addAction(inlineReplyAction(context, message))
-        .build()
+    }
+
+    return builder.addAction(inlineReplyAction(context, message)).build()
 }
 
 /**

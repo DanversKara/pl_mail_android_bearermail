@@ -1,0 +1,65 @@
+name: Record screenshots
+
+# Re-baselines the Roborazzi screenshots on CI's own runner, the same machine
+# that verifies them, for a change that alters a screen on purpose.
+#
+# Runs only on a branch other than main, and only when the pushed commit's
+# message contains [record-screenshots]. The new images are committed back to
+# the branch (review them in the PR diff), then CI is started on that commit:
+# a push made with GITHUB_TOKEN does not start workflows on its own.
+
+on:
+    push:
+        branches-ignore: [main]
+
+permissions:
+    contents: write
+    actions: write
+
+concurrency:
+    group: record-screenshots-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    record:
+        if: ${{ contains(github.event.head_commit.message, '[record-screenshots]') }}
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up JDK 21
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '21'
+
+            - name: Set up Gradle
+              uses: gradle/actions/setup-gradle@v4
+
+            - name: Record
+              run: ./gradlew recordRoborazziDebug
+
+            - name: Commit the new baselines
+              id: commit
+              run: |
+                  set -euo pipefail
+                  git add -A -- '*/src/test/screenshots/*.png'
+                  if git diff --cached --quiet; then
+                      echo "Screenshots unchanged."
+                      echo "changed=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  git diff --cached --stat
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git commit -m "test: re-record screenshot baselines"
+                  git push origin "HEAD:$GITHUB_REF_NAME"
+                  echo "changed=true" >> "$GITHUB_OUTPUT"
+
+            - name: Run CI on the new commit
+              if: steps.commit.outputs.changed == 'true'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"

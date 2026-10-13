@@ -65,6 +65,13 @@ jobs:
             # Only when something failed, and only the reports: a green build's
             # reports are noise, and uploading a whole build directory would
             # cost more than the failure it is meant to explain.
+            # Lint prints only its first failure to the log and keeps the rest
+            # in a report inside the artifact. Print every one here, so a red
+            # build says what to fix without downloading anything.
+            - name: Print lint findings
+              if: failure()
+              run: find . -path '*/lint_intermediate_text_report/*' -name 'lint-results-*.txt' -exec cat {} + || true
+
             - name: Upload test and lint reports
               if: failure()
               uses: actions/upload-artifact@v4

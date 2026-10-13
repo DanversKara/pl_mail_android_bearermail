@@ -100,8 +100,9 @@ class QuickAliasViewModel @Inject constructor(private val compose: ComposeReposi
                 it.copy(
                     accounts = accounts,
                     accountKey =
-                        preferredAccount?.takeIf { key -> accounts.any { a -> a.accountKey == key } }
-                            ?: accounts.firstOrNull()?.accountKey,
+                        preferredAccount?.takeIf { key ->
+                            accounts.any { a -> a.accountKey == key }
+                        } ?: accounts.firstOrNull()?.accountKey,
                 )
             }
         }
@@ -121,8 +122,8 @@ class QuickAliasViewModel @Inject constructor(private val compose: ComposeReposi
         _state.update { it.copy(isWorking = true, error = null) }
         viewModelScope.launch {
             runCatching {
-                    compose.createAlias(account.accountKey, localPart, label.ifBlank { null })
-                }
+                compose.createAlias(account.accountKey, localPart, label.ifBlank { null })
+            }
                 .onSuccess { identity ->
                     _state.update { it.copy(isWorking = false, created = identity) }
                 }
@@ -171,7 +172,8 @@ fun QuickAliasDialog(
         val created = state.created ?: return@LaunchedEffect
         if (!reported) {
             reported = true
-            context.getSystemService(ClipboardManager::class.java)
+            context
+                .getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText("BearerMail alias", created.email))
             onCreated(created)
         }
@@ -199,7 +201,8 @@ fun QuickAliasDialog(
                     )
                     TextButton(
                         onClick = {
-                            context.getSystemService(ClipboardManager::class.java)
+                            context
+                                .getSystemService(ClipboardManager::class.java)
                                 ?.setPrimaryClip(
                                     ClipData.newPlainText("BearerMail alias", created.email)
                                 )
@@ -213,66 +216,72 @@ fun QuickAliasDialog(
                     }
                 }
             } else {
-            Column(verticalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.small)) {
-                if (state.accounts.size > 1) {
-                    Row(
-                        Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.tiny),
-                    ) {
-                        state.accounts.forEach { account ->
-                            FilterChip(
-                                selected = account.accountKey == state.account?.accountKey,
-                                onClick = { viewModel.chooseAccount(account.accountKey) },
-                                label = { Text(account.domain) },
-                            )
+                Column(verticalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.small)) {
+                    if (state.accounts.size > 1) {
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(PlMailTheme.spacing.tiny),
+                        ) {
+                            state.accounts.forEach { account ->
+                                FilterChip(
+                                    selected = account.accountKey == state.account?.accountKey,
+                                    onClick = { viewModel.chooseAccount(account.accountKey) },
+                                    label = { Text(account.domain) },
+                                )
+                            }
                         }
                     }
-                }
 
-                OutlinedTextField(
-                    value = local,
-                    onValueChange = { local = it.lowercase().filter { c -> !c.isWhitespace() } },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.alias_address)) },
-                    suffix = { state.account?.let { Text("@${it.domain}") } },
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            capitalization = KeyboardCapitalization.None,
-                            autoCorrectEnabled = false,
-                        ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                TextButton(onClick = { local = viewModel.random(label) }) {
-                    Icon(Icons.Filled.Casino, contentDescription = null)
-                    Text(
-                        stringResource(R.string.alias_random),
-                        modifier = Modifier.padding(start = 8.dp),
+                    OutlinedTextField(
+                        value = local,
+                        onValueChange = {
+                            local = it.lowercase().filter { c -> !c.isWhitespace() }
+                        },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.alias_address)) },
+                        suffix = { state.account?.let { Text("@${it.domain}") } },
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                capitalization = KeyboardCapitalization.None,
+                                autoCorrectEnabled = false,
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
                     )
+
+                    TextButton(onClick = { local = viewModel.random(label) }) {
+                        Icon(Icons.Filled.Casino, contentDescription = null)
+                        Text(
+                            stringResource(R.string.alias_random),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.alias_label)) },
+                        placeholder = { Text(stringResource(R.string.alias_label_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Text(
+                        stringResource(R.string.alias_explain),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PlMailTheme.colors.inkMuted,
+                    )
+
+                    state.error?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PlMailTheme.colors.danger,
+                        )
+                    }
+
+                    if (state.isWorking) CircularProgressIndicator()
                 }
-
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.alias_label)) },
-                    placeholder = { Text(stringResource(R.string.alias_label_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Text(
-                    stringResource(R.string.alias_explain),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = PlMailTheme.colors.inkMuted,
-                )
-
-                state.error?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = PlMailTheme.colors.danger)
-                }
-
-                if (state.isWorking) CircularProgressIndicator()
-            }
             }
         },
         confirmButton = {

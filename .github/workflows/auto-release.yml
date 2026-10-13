@@ -1,0 +1,95 @@
+name: Auto release
+
+# BearerMail: every push to main becomes a release the app's built-in updater
+# can offer.
+#
+# The release itself is still release.yml (tests, signed APKs, GitHub
+# Release); this only decides the version and starts it. When main's
+# VERSION_NAME has not been released yet it is tagged as it is, so a hand bump
+# ("chore: 0.1.0") still sets the version. When it has, the patch number is
+# bumped, committed to main and tagged.
+#
+# A tag pushed with GITHUB_TOKEN does not start other workflows on its own
+# (GitHub's guard against loops), so release.yml is started explicitly with
+# workflow_dispatch on the new tag, which is allowed.
+
+on:
+    push:
+        branches: [main]
+        # Prose cannot change the APK; no release for it.
+        paths-ignore:
+            - 'docs/**'
+            - '**/*.md'
+            - '**/*.dist'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+    actions: write
+
+# One at a time, never cancelled: two runs racing would pick the same version.
+concurrency:
+    group: auto-release
+    cancel-in-progress: false
+
+jobs:
+    tag:
+        runs-on: ubuntu-latest
+        # The bump commit this workflow pushes does not start it again (it is
+        # pushed with GITHUB_TOKEN), but say so explicitly as well.
+        if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  ref: main
+                  fetch-depth: 0
+
+            - name: Pick the version
+              id: version
+              run: |
+                  set -euo pipefail
+
+                  file=build-logic/convention/src/main/kotlin/AndroidApplicationConventionPlugin.kt
+                  current="$(sed -n 's/^private const val VERSION_NAME = "\([^"]*\)"$/\1/p' "$file")"
+                  if [ -z "$current" ]; then
+                      echo "::error::Could not read VERSION_NAME from $file"
+                      exit 1
+                  fi
+
+                  git fetch --tags --force
+
+                  if git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+                      # Already released: next patch. versionCode allows two
+                      # digits per part, so 0.0.99 moves on to 0.1.0.
+                      IFS=. read -r major minor patch <<< "${current%%-*}"
+                      patch=$((patch + 1))
+                      if [ "$patch" -gt 99 ]; then
+                          patch=0
+                          minor=$((minor + 1))
+                      fi
+                      if [ "$minor" -gt 99 ]; then
+                          minor=0
+                          major=$((major + 1))
+                      fi
+                      next="$major.$minor.$patch"
+
+                      sed -i "s/^private const val VERSION_NAME = \".*\"$/private const val VERSION_NAME = \"$next\"/" "$file"
+                      git config user.name "github-actions[bot]"
+                      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                      git commit -am "chore(release): $next"
+                      git push origin HEAD:main
+                  else
+                      next="$current"
+                  fi
+
+                  git tag "v$next"
+                  git push origin "v$next"
+                  echo "tag=v$next" >> "$GITHUB_OUTPUT"
+                  echo "Releasing v$next."
+
+            - name: Start the release build
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "${{ steps.version.outputs.tag }}"

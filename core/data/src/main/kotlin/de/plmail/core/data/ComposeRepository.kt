@@ -143,8 +143,8 @@ constructor(
     }
 
     /**
-     * Creates a new sending address on [accountKey] and returns it once the identity list has
-     * been re-read.
+     * Creates a new sending address on [accountKey] and returns it once the identity list has been
+     * re-read.
      *
      * BearerMail: on the self-hosted server the alias is written to the mail server's alias map in
      * the same request, so it can *receive* within seconds — an address made up at a shop counter
@@ -153,7 +153,11 @@ constructor(
      * [localPart] is what goes before the `@`; the domain is taken from the account's primary
      * identity so a typo cannot create an alias on someone else's domain.
      */
-    suspend fun createAlias(accountKey: String, localPart: String, displayName: String?): SendIdentity {
+    suspend fun createAlias(
+        accountKey: String,
+        localPart: String,
+        displayName: String?,
+    ): SendIdentity {
         val account =
             database.accounts().byUid(accountKey)
                 ?: throw IllegalStateException("That account is no longer on this phone.")
@@ -161,8 +165,9 @@ constructor(
 
         val known = database.identities().forAccount(accountKey)
         val domain =
-            known.firstNotNullOfOrNull { it.email.substringAfter('@', "").takeIf(String::isNotBlank) }
-                ?: throw IllegalStateException("This account has no address to take a domain from.")
+            known.firstNotNullOfOrNull {
+                it.email.substringAfter('@', "").takeIf(String::isNotBlank)
+            } ?: throw IllegalStateException("This account has no address to take a domain from.")
 
         val local = localPart.trim().lowercase()
         require(ALIAS_LOCAL_PART.matches(local)) {
@@ -790,12 +795,9 @@ fun randomAliasLocalPart(prefix: String? = null): String {
     val random = java.security.SecureRandom()
     val tail = (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
     val head =
-        prefix
-            ?.lowercase()
-            ?.replace(Regex("[^a-z0-9]+"), "-")
-            ?.trim('-')
-            ?.take(20)
-            ?.takeIf { it.isNotBlank() }
+        prefix?.lowercase()?.replace(Regex("[^a-z0-9]+"), "-")?.trim('-')?.take(20)?.takeIf {
+            it.isNotBlank()
+        }
     return if (head == null) tail else "$head.$tail"
 }
 

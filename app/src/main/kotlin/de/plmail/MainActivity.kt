@@ -54,6 +54,7 @@ import de.plmail.feature.settings.SwipeScreen
 import de.plmail.notifications.NotificationRequest
 import de.plmail.notifications.RequestNotificationPermission
 import de.plmail.notifications.notificationRequest
+import de.plmail.update.UpdatePrompt
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -98,8 +99,8 @@ class MainActivity : ComponentActivity() {
     private var pendingNotification by mutableStateOf<NotificationRequest?>(null)
 
     /**
-     * BearerMail: files shared to the "BearerMail Drive" share target, waiting to be uploaded.
-     * The share target is an activity-alias of this activity, told apart by its component name.
+     * BearerMail: files shared to the "BearerMail Drive" share target, waiting to be uploaded. The
+     * share target is an activity-alias of this activity, told apart by its component name.
      */
     private var pendingDriveUpload by mutableStateOf<List<String>>(emptyList())
 
@@ -157,6 +158,8 @@ class MainActivity : ComponentActivity() {
                     driveUpload = pendingDriveUpload,
                     onDriveUploadHandled = { pendingDriveUpload = emptyList() },
                 )
+                // BearerMail: offers a newer GitHub release, if there is one.
+                UpdatePrompt()
             }
         }
     }
@@ -195,9 +198,12 @@ class MainActivity : ComponentActivity() {
         // BearerMail: a share aimed at "BearerMail Drive" uploads the files to
         // Drive instead of opening the composer.
         if (intent?.component?.className == DRIVE_SHARE_ALIAS) {
-            ShareIntake.read(intent)?.streams?.takeIf { it.isNotEmpty() }?.let {
-                pendingDriveUpload = it
-            }
+            ShareIntake.read(intent)
+                ?.streams
+                ?.takeIf { it.isNotEmpty() }
+                ?.let {
+                    pendingDriveUpload = it
+                }
             return
         }
 

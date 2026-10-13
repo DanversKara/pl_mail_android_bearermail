@@ -24,12 +24,12 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Forum
@@ -153,8 +153,6 @@ fun LabelSidebar(
      * boundary exists to prevent.
      */
     onCalendar: (() -> Unit)?,
-    onDrive: (() -> Unit)? = null,
-    onNewAlias: (() -> Unit)? = null,
     onPush: () -> Unit,
     onNotifications: () -> Unit,
     onDiagnostics: () -> Unit,
@@ -162,6 +160,8 @@ fun LabelSidebar(
     onGestures: () -> Unit,
     onAccounts: () -> Unit,
     modifier: Modifier = Modifier,
+    onDrive: (() -> Unit)? = null,
+    onNewAlias: (() -> Unit)? = null,
 ) {
     // The user's sidebar density, where they have chosen one that differs from the
     // overall setting. Wrapping the whole drawer rather than its rows: the group

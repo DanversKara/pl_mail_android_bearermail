@@ -20,3 +20,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.coroutines.core)
 }
+
+// No unit tests in this module yet, and Gradle 9 fails a test task that finds
+// none. Remove this once the first test lands.
+tasks.withType<Test>().configureEach { failOnNoDiscoveredTests = false }

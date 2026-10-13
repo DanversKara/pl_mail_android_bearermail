@@ -38,6 +38,12 @@
             android:name=".InlineReplyReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- BearerMail: "Copy code" on a notification with a one-time code. Leaves the row in place. -->
+        <receiver
+            android:name=".CopyCodeReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -15,7 +15,9 @@ import java.time.format.DateTimeParseException
 import java.time.format.FormatStyle
 
 /** Everything on the composer screen. */
-/** BearerMail: a file that was too big to attach, now in Drive, waiting to be linked in the body. */
+/**
+ * BearerMail: a file that was too big to attach, now in Drive, waiting to be linked in the body.
+ */
 data class DriveLinkInsert(val name: String, val url: String, val sizeBytes: Long)
 
 data class ComposeUiState(
@@ -199,5 +201,5 @@ internal fun Long.asFileSize(): String =
     when {
         this < 1_024 -> "$this B"
         this < 1_024 * 1_024 -> "${this / 1_024} KB"
-        else -> "%.1f MB".format(this / (1_024.0 * 1_024.0))
+        else -> "%.1f MB".format(java.util.Locale.ROOT, this / (1_024.0 * 1_024.0))
     }

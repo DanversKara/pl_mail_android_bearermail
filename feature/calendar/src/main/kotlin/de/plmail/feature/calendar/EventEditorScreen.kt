@@ -43,7 +43,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
-import de.plmail.feature.drive.DriveLinkPicker
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +63,7 @@ import de.plmail.core.database.CalendarEntity
 import de.plmail.core.designsystem.PaneTone
 import de.plmail.core.designsystem.PlMailPane
 import de.plmail.core.designsystem.PlMailTheme
+import de.plmail.feature.drive.DriveLinkPicker
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -134,7 +134,8 @@ internal fun EventEditorScreen(
                     val line = "$name: $url"
                     it.copy(
                         description =
-                            if (it.description.isBlank()) line else it.description.trimEnd() + "\n" + line
+                            if (it.description.isBlank()) line
+                            else it.description.trimEnd() + "\n" + line
                     )
                 }
             },

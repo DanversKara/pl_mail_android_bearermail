@@ -9,4 +9,19 @@
 
     <string name="calendar_app_name">BearerMail Kalender</string>
     <string name="share_to_drive">BearerMail Drive</string>
+    <!-- BearerMail: updates from GitHub Releases -->
+    <string name="update_title">BearerMail %1$s ist verfügbar</string>
+    <string name="update_body">Version %1$s (%2$s) ist bereit. Jetzt herunterladen und installieren? Ihre E-Mails und Einstellungen bleiben erhalten.</string>
+    <string name="update_now">Aktualisieren</string>
+    <string name="update_later">Später</string>
+    <string name="update_skip">Diese Version überspringen</string>
+    <string name="update_downloading">%1$s wird heruntergeladen…</string>
+    <string name="update_permission_title">BearerMail Updates erlauben</string>
+    <string name="update_permission_body">Android fragt einmal, ob BearerMail Apps installieren darf. Schalten Sie \"Aus dieser Quelle zulassen\" ein und kehren Sie zurück – das Update geht dann weiter.</string>
+    <string name="update_permission_open">Einstellungen öffnen</string>
+    <string name="update_failed">Update fehlgeschlagen</string>
+    <string name="update_failed_body">Das Update konnte nicht heruntergeladen oder installiert werden. Versuchen Sie es erneut oder laden Sie es von der Release-Seite.</string>
+    <string name="update_failed_signature">Dieses Update ist mit einem anderen Schlüssel signiert als die installierte App. Deinstallieren Sie BearerMail und installieren Sie die Release-APK einmal von Hand.</string>
+    <string name="update_retry">Erneut versuchen</string>
+    <string name="update_open_page">Release-Seite</string>
 </resources>

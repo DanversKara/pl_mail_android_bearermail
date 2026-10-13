@@ -26,6 +26,9 @@
     <string name="action_archive">Archive</string>
     <string name="action_mark_read">Mark read</string>
     <string name="action_reply">Reply</string>
+    <!-- BearerMail: copies the one-time code found in the mail, e.g. "Copy 482913" -->
+    <string name="action_copy_code">Copy %1$s</string>
+    <string name="code_copied">Code copied</string>
     <string name="action_try_again">Try again</string>
 
     <!--
