@@ -8,6 +8,9 @@ all credit for the app itself goes to its author. The original README follows un
 What this fork adds (Drive, share to Drive, Drive links, on-the-spot aliases, the BearerMail name
 and its own install id) and how to build it: **[BEARERMAIL.md](BEARERMAIL.md)**.
 
+📖 **Read the BearerMail Handbook / Guide at [docs.bearermail.com](https://docs.bearermail.com)**:
+installing, pairing, the app's features, updates, and troubleshooting.
+
 > Not the official app. For plMail itself, go to karatektus. Report problems with the additions
 > here, not upstream.
 
