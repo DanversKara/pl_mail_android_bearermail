@@ -84,7 +84,7 @@ constructor(
      * moment it was started.
      */
     @ApplicationScope private val scope: CoroutineScope,
-    repages: RepageSignal,
+    private val repages: RepageSignal,
 ) : ReachableAccounts {
 
     private val _failures = MutableStateFlow<List<SourceFailure>>(emptyList())
@@ -210,7 +210,15 @@ constructor(
             // install's life, on the sync that first brings back a classified
             // conversation, and a pager built before that is rebuilt when the
             // user next switches view.
-            if (category == MailCategory.PRIMARY && !database.threads().hasCategories()) {
+            //
+            // The same where the user has asked for one list: Primary is then
+            // the whole inbox, unfiltered, as the web's single list is. Read per
+            // account because it is kept per account row; it is the same answer
+            // on every one of them.
+            if (
+                category == MailCategory.PRIMARY &&
+                    (!database.threads().hasCategories() || !database.wantsInboxTabs(accountKey))
+            ) {
                 return@feed inbox
             }
 
@@ -239,7 +247,10 @@ constructor(
      */
     fun tab(view: MailView.Tab, pageSize: Int = PAGE_SIZE): Flow<PagingData<ThreadEntity>> =
         feed(view.feedId, pageSize, skipAccountsWithoutFilter = true) { accountKey, _ ->
-            if (database.enabledTabKeys(accountKey)?.contains(view.key) != true) {
+            if (
+                !database.wantsInboxTabs(accountKey) ||
+                    database.enabledTabKeys(accountKey)?.contains(view.key) != true
+            ) {
                 return@feed null
             }
 
@@ -358,7 +369,10 @@ constructor(
 
         // Written before the first page, so the sidebar and the per-account
         // banner have names to show even while the first query is in flight.
-        mail.replaceAccounts(server, session)
+        // The user switching the inbox between tabs and one list on the web
+        // changes what Primary holds, so a Primary on screen is re-paged under
+        // its new filter rather than left holding the old one's rows.
+        mail.replaceAccounts(server, session).forEach(repages::repage)
 
         // And the label bindings, because everything else needs them: the inbox
         // filter below, and every move action, which is expressed as adding or
@@ -478,7 +492,10 @@ constructor(
                     return
                 }
 
-            mail.replaceAccounts(server, session)
+            // The user switching the inbox between tabs and one list on the web
+            // changes what Primary holds, so a Primary on screen is re-paged under
+            // its new filter rather than left holding the old one's rows.
+            mail.replaceAccounts(server, session).forEach(repages::repage)
             refreshBindings(client, server, session)
 
             // Stamped only where the session answered -- the failure path above

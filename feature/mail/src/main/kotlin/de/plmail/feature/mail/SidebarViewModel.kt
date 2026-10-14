@@ -106,6 +106,17 @@ constructor(
         )
 
     /**
+     * Whether the user wants the inbox in tabs at all. True until told otherwise, so a saved tab is
+     * not thrown away on the frame before the accounts have been read.
+     */
+    val wantsTabs: StateFlow<Boolean> =
+        tabs.wantsTabs.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = true,
+        )
+
+    /**
      * Which tabs are worth a row, by key, as [CategoryDigest.populated] decides.
      *
      * Primary alone to begin with, which is the set that is always true: it is drawn whatever the

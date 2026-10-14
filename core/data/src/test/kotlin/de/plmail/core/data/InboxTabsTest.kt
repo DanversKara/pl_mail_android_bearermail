@@ -126,6 +126,84 @@ class InboxTabsTest {
         assertEquals(emptyList(), database.entryIds(MailCategory.FORUMS.feedId))
     }
 
+    // -- One list (the Session's appearance `inboxTabs: false`) -------------
+
+    /**
+     * Where the reader wants one list, Primary holds every inbox conversation, as the web's does.
+     */
+    @Test
+    fun `on one list every inbox conversation is projected into primary`() = runTest {
+        database.seedAccount()
+        database.seedInbox()
+        database.seedTabs(own = listOf("c12" to "Shipping"))
+        oneList()
+        database.seedThread(
+            "t1",
+            category = MailCategory.PROMOTIONS.wire,
+            inboxTab = "c12",
+            isInInbox = true,
+        )
+        database.seedCursor(MailCategory.PRIMARY.feedId)
+        database.seedCursor(tabFeedId("c12"))
+
+        FeedProjection(database, emptyOutbox()).reconcile(testAccountKey, listOf("t1"))
+
+        assertEquals(1, database.entryIds(MailCategory.PRIMARY.feedId).size)
+        assertEquals(emptyList(), database.entryIds(tabFeedId("c12")))
+    }
+
+    /**
+     * One list has no tabs to draw, to announce mail in, or to move mail into — and the sidebar
+     * reads that as "no categories", which is what draws the Inbox row and titles Primary "Inbox".
+     */
+    @Test
+    fun `on one list nothing divides the inbox`() = runTest {
+        database.seedAccount()
+        database.seedTabs(own = listOf("c12" to "Shipping"))
+        database.seedThread(
+            "t1",
+            category = MailCategory.PROMOTIONS.wire,
+            isNew = true,
+            isInInbox = true,
+            sender = "Shop",
+        )
+        oneList()
+
+        val transport = serving(api = "unused")
+        val labels =
+            LabelRepository(
+                database,
+                testClients(transport),
+                MailRepository(database),
+                AccountsRepository(
+                    database,
+                    de.plmail.core.datastore.AccountPrefsStore(InMemoryPreferences()),
+                    testClients(transport),
+                    de.plmail.core.datastore.CredentialStore(InMemoryPreferences(), PlainCipher),
+                ),
+            )
+
+        assertTrue(CategoryDigest(database).arrivals.first().isEmpty())
+        assertEquals(emptyList(), repository(transport).movable.first())
+        assertEquals(false, labels.observeHasCategories().first())
+    }
+
+    /** The answer comes off the Session, and a change in it is reported so Primary is re-paged. */
+    @Test
+    fun `the session's answer is kept on the accounts and a change is reported`() = runTest {
+        val mail = MailRepository(database)
+        val tabbed = session(inboxTabs = null)
+        val single = session(inboxTabs = false)
+
+        assertEquals(emptyList(), mail.replaceAccounts(TEST_SERVER, tabbed), "a new account")
+        assertEquals(true, database.accounts().byUid(testAccountKey)?.wantsInboxTabs)
+
+        assertEquals(listOf(testAccountKey), mail.replaceAccounts(TEST_SERVER, single))
+        assertEquals(false, database.accounts().byUid(testAccountKey)?.wantsInboxTabs)
+
+        assertEquals(emptyList(), mail.replaceAccounts(TEST_SERVER, single), "nothing changed")
+    }
+
     // -- Moving a conversation into a tab -----------------------------------
 
     /**
@@ -300,6 +378,25 @@ class InboxTabsTest {
         database.seedEntry(MailCategory.PROMOTIONS.feedId, "t1")
     }
 
+    /** What the Session's `inboxTabs: false` leaves on the account row. */
+    private suspend fun oneList() {
+        val account = database.accounts().byUid(testAccountKey)!!
+        database.accounts().upsert(listOf(account.copy(wantsInboxTabs = false)))
+    }
+
+    private fun session(inboxTabs: Boolean?): de.plmail.jmap.protocol.Session {
+        val hint = inboxTabs?.let { ""","inboxTabs":$it""" }.orEmpty()
+
+        return SESSION_JSON.decodeFromString(
+            de.plmail.jmap.protocol.Session.serializer(),
+            """
+                {"capabilities":{"urn:plmail:params:jmap:appearance":{"themes":[]$hint}},
+                 "accounts":{"$TEST_ACCOUNT_ID":{"name":"someone@example.com"}},
+                 "apiUrl":"a","downloadUrl":"d","uploadUrl":"u"}
+                """,
+        )
+    }
+
     private fun uid(threadId: String) = StoreKey.objectKey(testAccountKey, threadId)
 
     private suspend fun actions(transport: RecordingTransport): MailActions =
@@ -341,6 +438,8 @@ class InboxTabsTest {
         }
 
     private companion object {
+        val SESSION_JSON = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
         /** [TEST_SESSION] with the account advertising the inbox tabs. */
         val TABBED_SESSION =
             """

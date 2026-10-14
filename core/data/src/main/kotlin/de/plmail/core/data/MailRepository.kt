@@ -46,14 +46,23 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
      *
      * The existing sync cursors are deliberately *not* touched. They live on the same row, and
      * rewriting them here would silently re-page every account on every launch.
+     *
+     * Returns the accounts whose "one list or tabs" answer just changed, because that changes what
+     * Primary holds and nothing about a single conversation says so — see
+     * [de.plmail.core.database.AccountEntity.wantsInboxTabs]. The caller re-pages them.
      */
-    suspend fun replaceAccounts(server: String, session: Session) {
+    suspend fun replaceAccounts(server: String, session: Session): List<String> {
         val accounts =
             session.accountIds.mapIndexedNotNull { index, id ->
-                session.account(id)?.toEntity(server, id.value, sortIndex = index)
+                session
+                    .account(id)
+                    ?.toEntity(server, id.value, sortIndex = index)
+                    // A user-level answer, written onto every account so each path
+                    // that has an account in hand has it too.
+                    ?.copy(wantsInboxTabs = session.wantsInboxTabs)
             }
 
-        database.withTransaction {
+        return database.withTransaction {
             val existing = database.accounts().all().associateBy { it.uid }
 
             database
@@ -77,6 +86,12 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
                 )
 
             database.accounts().deleteMissing(accounts.map { it.uid })
+
+            accounts
+                .filter { fresh ->
+                    existing[fresh.uid]?.let { it.wantsInboxTabs != fresh.wantsInboxTabs } == true
+                }
+                .map { it.uid }
         }
     }
 

@@ -86,6 +86,16 @@ data class AccountEntity(
      * `InboxTab/get`, which is a handful of rows.
      */
     val inboxTabState: String? = null,
+    /**
+     * Whether the user wants the inbox in tabs, off the Session's appearance capability.
+     *
+     * A user-level choice kept on every account row, because every row is rewritten from the same
+     * Session and the paths that need it — the projection, the pagers, the notification gate —
+     * already hold an account. False means one list: no tab rows, no bundles above Primary, and
+     * Primary holding every inbox conversation, exactly as on a server that classifies nothing.
+     * True by default, which is what a server older than the switch means.
+     */
+    val wantsInboxTabs: Boolean = true,
     val lastSyncedAt: Long? = null,
     /**
      * The last failure, kept so the diagnostics screen can show it. Users self-host: when something

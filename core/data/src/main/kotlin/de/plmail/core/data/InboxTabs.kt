@@ -1,5 +1,6 @@
 package de.plmail.core.data
 
+import de.plmail.core.database.AccountEntity
 import de.plmail.core.database.InboxTabEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
@@ -15,6 +16,7 @@ import de.plmail.jmap.protocol.StateToken
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -105,6 +107,46 @@ private fun List<InboxTabEntity>.enabledKeys(): Set<String> = filter {
     .mapTo(mutableSetOf()) { it.tabId }
 
 /**
+ * Whether the user wants this account's inbox in tabs — the Session's `inboxTabs` hint.
+ *
+ * True for an account the cache does not hold, which is what every server older than the switch
+ * means.
+ */
+internal suspend fun PlMailDatabase.wantsInboxTabs(accountKey: String): Boolean =
+    accounts().byUid(accountKey)?.wantsInboxTabs ?: true
+
+/**
+ * Whether the user wants the inbox in tabs, from the account rows the Session wrote.
+ *
+ * Every row carries the same user-level answer; `all` rather than `first` only so that an account
+ * written by an older Session cannot turn tabs back on. No accounts at all is "yes", the default.
+ */
+internal fun List<AccountEntity>.wantInboxTabs(): Boolean = all { it.wantsInboxTabs }
+
+/**
+ * The feed an inbox conversation is listed in, as the tab strip divides the inbox — or Primary
+ * where it is not divided.
+ *
+ * The one rule the projection and the local half of every mail action place a row by, so a row a
+ * sync puts in a list is the row an archive takes out of it:
+ * - [wantsTabs] false is the user's "one list": Primary holds every inbox conversation, as the
+ *   web's single list does, whatever each one's category says.
+ * - Otherwise the tab [tabKeyOf] names, against the account's [enabled] tabs.
+ * - And where it names none on a server that has never classified anything ([classifies] false),
+ *   Primary again, because there Primary *is* the inbox — see [MailView].
+ */
+internal fun ThreadEntity.inboxFeedId(
+    enabled: Set<String>?,
+    classifies: Boolean,
+    wantsTabs: Boolean,
+): String? =
+    when {
+        !wantsTabs -> MailCategory.PRIMARY.feedId
+        else ->
+            tabKey(enabled)?.let(::tabFeedId) ?: MailCategory.PRIMARY.feedId.takeIf { !classifies }
+    }
+
+/**
  * Refreshes one account's tabs. A seam rather than the repository, for the reason
  * [ReachableAccounts] is one: the push path needs this one method and none of the rest.
  */
@@ -144,6 +186,15 @@ constructor(
         database.inboxTabs().observeAll().map { rows -> rows.distinctBy { it.tabId } }
 
     /**
+     * Whether the user wants the inbox in tabs at all — the Session's `inboxTabs` hint.
+     *
+     * False is the web's "one list": nothing in the app divides the inbox then, and nothing offers
+     * to move mail between tabs either.
+     */
+    val wantsTabs: Flow<Boolean> =
+        database.accounts().observeAll().map { it.wantInboxTabs() }.distinctUntilChanged()
+
+    /**
      * The tabs to draw, in order: the enabled ones the server listed, or the five built-ins where
      * it lists none.
      */
@@ -158,7 +209,9 @@ constructor(
      * What "Move to" offers. Not [strip]: on a server without the extension there is no `Thread/set
      * { inboxTab }` to send, so there is nothing to move a conversation into.
      */
-    val movable: Flow<List<MailTab>> = cached.map { it.toStrip() }.distinctUntilChanged()
+    val movable: Flow<List<MailTab>> =
+        combine(cached, wantsTabs) { rows, wanted -> if (wanted) rows.toStrip() else emptyList() }
+            .distinctUntilChanged()
 
     /**
      * Brings one account's tabs up to date from its stored state.

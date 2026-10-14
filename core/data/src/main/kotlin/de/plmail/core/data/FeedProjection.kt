@@ -70,6 +70,10 @@ constructor(
         // Read once for the batch, beside `classifies` and for the same reason.
         val tabs = database.enabledTabKeys(accountKey)
 
+        // And whether the user wants tabs at all. Where they want one list,
+        // Primary holds the whole inbox, as the web's single list does.
+        val wantsTabs = database.wantsInboxTabs(accountKey)
+
         database.withTransaction {
             val live =
                 database
@@ -83,7 +87,7 @@ constructor(
             if (live.isEmpty()) return@withTransaction
 
             threadIds.forEach { threadId ->
-                project(accountKey, threadId, live, inboxKey, pending, classifies, tabs)
+                project(accountKey, threadId, live, inboxKey, pending, classifies, tabs, wantsTabs)
             }
         }
     }
@@ -96,6 +100,7 @@ constructor(
         pending: Set<String>,
         classifies: Boolean,
         tabs: Set<String>?,
+        wantsTabs: Boolean,
     ) {
         val uid = StoreKey.objectKey(accountKey, threadId)
 
@@ -117,7 +122,7 @@ constructor(
             return
         }
 
-        val targets = targetFeeds(thread, inboxKey, classifies, tabs)
+        val targets = targetFeeds(thread, inboxKey, classifies, tabs, wantsTabs)
 
         live.forEach { (feedId, cursor) ->
             if (feedId !in targets) {
@@ -176,12 +181,17 @@ constructor(
      * reader's own tab where one of their filters filed the conversation, Primary for a category
      * they switched off. On a server without the extension [tabs] is null and that is the category,
      * exactly as before — the same rule `FeedRepository.category` chooses its filter by.
+     *
+     * **Where the user wants one list** ([wantsTabs] false) Primary holds the whole inbox, as it
+     * does on a server that classifies nothing. The rule is [inboxFeedId], shared with the local
+     * half of every mail action.
      */
     private fun targetFeeds(
         thread: ThreadEntity,
         inboxKey: String?,
         classifies: Boolean,
         tabs: Set<String>?,
+        wantsTabs: Boolean,
     ): Set<String> {
         val carried = thread.labelKeys.split(",").filter { it.isNotBlank() }
         val feeds = carried.mapTo(mutableSetOf(), ::labelFeedId)
@@ -189,12 +199,7 @@ constructor(
         if (inboxKey != null && inboxKey in carried) {
             feeds += Feed.UNIFIED_INBOX.id
 
-            val tab = thread.tabKey(tabs)
-
-            when {
-                tab != null -> feeds += tabFeedId(tab)
-                !classifies -> feeds += MailCategory.PRIMARY.feedId
-            }
+            thread.inboxFeedId(tabs, classifies, wantsTabs)?.let { feeds += it }
         }
 
         return feeds

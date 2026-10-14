@@ -155,17 +155,22 @@ sealed interface MailView {
          *
          * Falls back to [START] for anything that no longer resolves — a label somebody deleted on
          * the web, a category this build has stopped knowing about, a tab of the reader's own they
-         * deleted or one that has not been read off the cache yet. Restoring to Primary is the one
-         * answer that is always valid, and the alternative is a list paging a mailbox the server
-         * has forgotten and reporting it as an unreachable account.
+         * deleted or one that has not been read off the cache yet.
+         *
+         * [tabbed] false is the user's "one list": no tab is a destination then, so a saved tab or
+         * category other than Primary restores to Primary, which holds the whole inbox. Restoring
+         * to Primary is the one answer that is always valid, and the alternative is a list paging a
+         * mailbox the server has forgotten and reporting it as an unreachable account.
          */
         fun restore(
             key: String?,
             labels: List<Label>,
             tabs: List<MailTab> = emptyList(),
+            tabbed: Boolean = true,
         ): MailView =
             when {
                 key == null || key == RETIRED_INBOX_KEY -> START
+                !tabbed && (key.startsWith(CATEGORY_PREFIX) || key.startsWith(TAB_PREFIX)) -> START
                 key.startsWith(CATEGORY_PREFIX) ->
                     MailCategory.fromWire(key.removePrefix(CATEGORY_PREFIX))
                         // A built-in the reader has since switched off on the web is

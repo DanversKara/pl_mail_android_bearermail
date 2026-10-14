@@ -68,6 +68,7 @@ fun MailShell(
     val tabs by viewModel.tabs.collectAsStateWithLifecycle()
     val populatedTabs by viewModel.populatedTabs.collectAsStateWithLifecycle()
     val newTabs by viewModel.newTabs.collectAsStateWithLifecycle()
+    val wantsTabs by viewModel.wantsTabs.collectAsStateWithLifecycle()
 
     // The key rather than the MailView, because a Labelled view carries a Label,
     // and a Label carries its bindings and its counts -- both of which change
@@ -89,7 +90,7 @@ fun MailShell(
     // row navigating -- would be the app remembering the wrong thing.
     var rearranging by remember { mutableStateOf(false) }
 
-    val selected = MailView.restore(selectedKey, labels, tabs)
+    val selected = MailView.restore(selectedKey, labels, tabs, tabbed = wantsTabs)
 
     val isWide =
         currentWindowAdaptiveInfoV2()

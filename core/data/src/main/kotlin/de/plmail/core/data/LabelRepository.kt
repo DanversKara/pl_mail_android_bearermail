@@ -11,6 +11,8 @@ import de.plmail.jmap.protocol.RequestBuilder
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -46,8 +48,20 @@ constructor(
      * one that does not, which is the behaviour that matters — five permanently empty destinations
      * would be worse than none, and this app has to keep working against a plMail older than the
      * extension.
+     *
+     * **And whether the user wants them.** The web lets somebody switch the tabs off and read the
+     * inbox as one list; the categories are still served then, because mail is still filed in the
+     * background, so the cache alone would go on saying yes. Where the user said no this answers
+     * no, and everything that reads it — the drawer, the title over Primary, the notification
+     * switches — falls back to the one-list shape a server without a classifier has.
      */
-    fun observeHasCategories(): Flow<Boolean> = database.threads().observeHasCategories()
+    fun observeHasCategories(): Flow<Boolean> =
+        combine(database.threads().observeHasCategories(), database.accounts().observeAll()) {
+                classifies,
+                accounts ->
+                classifies && accounts.wantInboxTabs()
+            }
+            .distinctUntilChanged()
 
     /**
      * The same list, once, keyed for lookup.

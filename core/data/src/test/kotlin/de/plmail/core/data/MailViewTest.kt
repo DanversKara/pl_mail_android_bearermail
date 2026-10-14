@@ -114,6 +114,19 @@ class MailViewTest {
         assertEquals(view, MailView.restore(view.toKey(), emptyList(), MailTab.BUILT_IN + shipping))
     }
 
+    /** On one list no tab is a destination, so every saved tab restores to Primary. */
+    @Test
+    fun `on one list a saved tab restores to primary`() {
+        val shipping = MailTab(key = "c12", name = "Shipping")
+
+        listOf("category:promotions", "tab:c12").forEach {
+            assertEquals(
+                MailView.START,
+                MailView.restore(it, emptyList(), MailTab.BUILT_IN + shipping, tabbed = false),
+            )
+        }
+    }
+
     /** One the reader deleted on the web, or one not read off the cache yet, is Primary. */
     @Test
     fun `an own tab that is not listed restores to primary`() {

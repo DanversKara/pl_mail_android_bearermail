@@ -102,7 +102,15 @@ class CategoryDigest @Inject constructor(private val database: PlMailDatabase) {
      * Its own rows carry the marker instead — see `ShownThreads`, which is what retires them.
      */
     val arrivals: Flow<List<CategoryArrivals>> =
-        combine(database.threads().observeNew(), tabRows, ::digest).distinctUntilChanged()
+        combine(database.threads().observeNew(), tabRows, database.accounts().observeAll()) {
+                new,
+                tabs,
+                accounts ->
+                // One list has no "elsewhere" for mail to have landed in: every
+                // inbox conversation is already on the list underneath.
+                if (accounts.wantInboxTabs()) digest(new, tabs) else emptyList()
+            }
+            .distinctUntilChanged()
 
     /** Which tabs carry a dot, by key, which is [arrivals] asked as a yes or no. */
     val hasNew: Flow<Set<String>> =

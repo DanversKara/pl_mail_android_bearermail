@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 9,
-    "identityHash": "48363cb30f1ac20ec47e5e99b49ff840",
+    "identityHash": "61212426bc3c8177797ea1a115fbe31f",
     "entities": [
       {
         "tableName": "accounts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `serverId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `name` TEXT NOT NULL, `isPersonal` INTEGER NOT NULL, `isReadOnly` INTEGER NOT NULL, `sortIndex` INTEGER NOT NULL, `emailState` TEXT, `threadState` TEXT, `mailboxState` TEXT, `calendarState` TEXT, `calendarEventState` TEXT, `inboxTabState` TEXT, `lastSyncedAt` INTEGER, `lastSyncError` TEXT, PRIMARY KEY(`uid`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `serverId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `name` TEXT NOT NULL, `isPersonal` INTEGER NOT NULL, `isReadOnly` INTEGER NOT NULL, `sortIndex` INTEGER NOT NULL, `emailState` TEXT, `threadState` TEXT, `mailboxState` TEXT, `calendarState` TEXT, `calendarEventState` TEXT, `inboxTabState` TEXT, `wantsInboxTabs` INTEGER NOT NULL, `lastSyncedAt` INTEGER, `lastSyncError` TEXT, PRIMARY KEY(`uid`))",
         "fields": [
           {
             "fieldPath": "uid",
@@ -79,6 +79,12 @@
             "fieldPath": "inboxTabState",
             "columnName": "inboxTabState",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "wantsInboxTabs",
+            "columnName": "wantsInboxTabs",
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "lastSyncedAt",
@@ -1209,7 +1215,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '48363cb30f1ac20ec47e5e99b49ff840')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '61212426bc3c8177797ea1a115fbe31f')"
     ]
   }
 }

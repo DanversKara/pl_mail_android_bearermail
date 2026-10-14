@@ -163,4 +163,30 @@ class InboxTabMethodsTest {
         assertTrue("InboxTab" in NewPushSubscription.DEFAULT_TYPES)
         assertTrue("InboxTab" in de.plmail.jmap.client.EventSourceClient.DEFAULT_TYPES)
     }
+
+    /**
+     * The "one list" switch rides on the appearance capability, and only an explicit false turns
+     * the tabs off: a server older than the switch says nothing, and every inbox there was tabbed.
+     */
+    @Test
+    fun `the one-list switch is read off the appearance capability`() {
+        fun session(appearance: String) =
+            json.decodeFromString(
+                Session.serializer(),
+                """{"capabilities":{"urn:plmail:params:jmap:appearance":$appearance},
+                   "apiUrl":"a","downloadUrl":"d","uploadUrl":"u"}""",
+            )
+
+        assertFalse(session("""{"inboxTabs":false}""").wantsInboxTabs)
+        assertTrue(session("""{"inboxTabs":true}""").wantsInboxTabs)
+        assertTrue(session("""{}""").wantsInboxTabs)
+        assertTrue(
+            json
+                .decodeFromString(
+                    Session.serializer(),
+                    """{"apiUrl":"a","downloadUrl":"d","uploadUrl":"u"}""",
+                )
+                .wantsInboxTabs
+        )
+    }
 }

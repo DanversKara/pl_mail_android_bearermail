@@ -159,6 +159,16 @@ data class Session(
         get() = capabilities[Capability.APPEARANCE]?.let(AppearanceCapability::from)
 
     /**
+     * Whether the user wants the inbox in tabs — see [AppearanceCapability.inboxTabs].
+     *
+     * True unless the server says false. Absent is a server older than the switch, where every
+     * inbox was tabbed, and reading silence as "one list" would take the tabs away from everybody
+     * on it.
+     */
+    val wantsInboxTabs: Boolean
+        get() = appearance?.inboxTabs != false
+
+    /**
      * How much of one account this server has fetched so far.
      *
      * Null when the account publishes no sync capability. Absence is the signal, as with calendars
@@ -398,6 +408,16 @@ data class AppearanceCapability(
      * has to round.
      */
     val ranges: Map<String, ClosedRange> = emptyMap(),
+    /**
+     * Whether this person wants the inbox in tabs at all, or null where the server does not say.
+     *
+     * Not an appearance property — `Appearance/get` does not carry it and `Appearance/set` cannot
+     * change it — but published beside the hint for the same reason the hint is here: it is one
+     * user-level choice about how the lists are drawn, and `Thread.category` is served either way,
+     * so the category alone cannot tell a client that tabs were switched off. A hint like [hint],
+     * and as stale as the Session it came in.
+     */
+    val inboxTabs: Boolean? = null,
 ) {
     /** The bounds for one numeric knob, or null when this server does not publish it. */
     fun range(property: String): ClosedRange? = ranges[property]
@@ -426,6 +446,7 @@ data class AppearanceCapability(
                 densities = strings("densities"),
                 unreadEmphases = strings("unreadEmphases"),
                 fontFamilies = strings("fontFamilies"),
+                inboxTabs = (json["inboxTabs"] as? JsonPrimitive)?.booleanOrNull,
                 ranges =
                     (json["ranges"] as? JsonObject)
                         .orEmpty()

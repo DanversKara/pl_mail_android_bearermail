@@ -389,15 +389,21 @@ constructor(
     private suspend fun clearFromInbox(threadUid: String) {
         database.feed().clearThread(Feed.UNIFIED_INBOX.id, threadUid)
 
-        // From the row's own stored placement, decided by the same tabKeyOf the
+        // From the row's own stored placement, decided by the same rule the
         // projection places it by. A second source for "which tab is this in"
         // would eventually put a row in one list and take it out of another.
         val thread = database.threads().byUid(threadUid) ?: return
 
-        thread.tabKey(database.enabledTabKeys(thread.accountKey))?.let {
-            database.feed().clearThread(tabFeedId(it), threadUid)
-        }
+        tabFeedOf(thread)?.let { database.feed().clearThread(it, threadUid) }
     }
+
+    /** The tab list an inbox conversation sits in, by [inboxFeedId] — the projection's rule. */
+    private suspend fun tabFeedOf(thread: ThreadEntity): String? =
+        thread.inboxFeedId(
+            enabled = database.enabledTabKeys(thread.accountKey),
+            classifies = database.threads().hasCategories(),
+            wantsTabs = database.wantsInboxTabs(thread.accountKey),
+        )
 
     /**
      * Puts a conversation back into the unified inbox's list.
@@ -417,7 +423,7 @@ constructor(
         val feeds =
             listOfNotNull(
                 Feed.UNIFIED_INBOX.id,
-                thread.tabKey(database.enabledTabKeys(thread.accountKey))?.let(::tabFeedId),
+                tabFeedOf(thread),
             )
 
         database.feed().upsertEntries(feeds.map { feedId -> entryFor(feedId, target, thread) })
