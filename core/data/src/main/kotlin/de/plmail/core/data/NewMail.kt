@@ -89,6 +89,17 @@ internal fun newArrivals(
      * announced every category as Primary.
      */
     serverClassifies: Boolean,
+    /**
+     * Thread id to `Thread.inboxTab`, off the same `Thread/get` as [threadCategories]. Empty on a
+     * server without the inbox-tabs extension.
+     */
+    threadInboxTabs: Map<String, String?> = emptyMap(),
+    /** The tabs the reader has switched on, or null where the server serves none. */
+    enabledTabs: Set<String>? = null,
+    /**
+     * Whether the reader wants the inbox in tabs at all. False is one list, and all of it Primary.
+     */
+    inboxTabs: Boolean = true,
 ): List<NewMessage> =
     emails
         .filter { de.plmail.core.database.StoreKey.objectKey(accountKey, it.id.value) !in known }
@@ -100,6 +111,9 @@ internal fun newArrivals(
                     threadCategory = email.threadId?.value?.let { threadCategories[it] },
                     bindingKeys = bindingKeys,
                     serverClassifies = serverClassifies,
+                    threadInboxTab = email.threadId?.value?.let { threadInboxTabs[it] },
+                    enabledTabs = enabledTabs,
+                    inboxTabs = inboxTabs,
                 )
                 .any(prefs::allows)
         }

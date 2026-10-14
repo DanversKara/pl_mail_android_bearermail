@@ -275,6 +275,14 @@ constructor(
         // down one catch-up.
         val classifies = database.threads().hasCategories()
 
+        // And the reader's tabs, so a notification is raised under the tab the
+        // web shows the conversation in -- their own "Shipping", or Primary for a
+        // category they switched off -- rather than under its built-in category.
+        // Read once per hydration for the same reason; both are null and true on
+        // a server without the extension, which is the old behaviour exactly.
+        val enabledTabs = database.enabledTabKeys(accountKey)
+        val wantsTabs = database.wantsInboxTabs(accountKey)
+
         ids.chunked(HYDRATION_CHUNK).forEach { chunk ->
             val request = RequestBuilder()
             val get = request.add(EmailGet(accountId, ids = chunk))
@@ -329,6 +337,11 @@ constructor(
                         // mail lands in would be the harder bug to believe.
                         threadCategories = conversations.associate { it.id.value to it.category },
                         serverClassifies = classifies,
+                        // Off the same Thread/get: the request this path already
+                        // makes carries `inboxTab` beside `category`.
+                        threadInboxTabs = conversations.associate { it.id.value to it.inboxTab },
+                        enabledTabs = enabledTabs,
+                        inboxTabs = wantsTabs,
                     )
                 }
 

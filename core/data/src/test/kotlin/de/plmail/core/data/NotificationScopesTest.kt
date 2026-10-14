@@ -93,4 +93,16 @@ class NotificationScopesTest {
         assertFalse("inbox" in NEVER_NOTIFIABLE_ROLES)
         assertFalse(userMade in NEVER_NOTIFIABLE_ROLES)
     }
+
+    /**
+     * A tab of the reader's own is keyed by its tab key, starts off, and a built-in is its
+     * category.
+     */
+    @Test
+    fun `an own tab has a scope of its own`() {
+        assertEquals("tab:c12", NotifyScope.Tab("c12").key)
+        assertFalse(NotifyScope.Tab("c12").isOnByDefault)
+        assertEquals(NotifyScope.Tab("c12"), NotifyScope.ofTab("c12"))
+        assertEquals(NotifyScope.Category(MailCategory.SOCIAL), NotifyScope.ofTab("social"))
+    }
 }
