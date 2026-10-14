@@ -219,6 +219,12 @@ data class DraftEmail(
     val references: List<String>? = null,
     val attachments: List<DraftAttachment> = emptyList(),
     val keywords: List<Keyword> = listOf(Keyword.DRAFT, Keyword.SEEN),
+    /**
+     * The identity the draft is written from — a plMail extension, see
+     * [de.plmail.jmap.protocol.Session.draftsKeepIdentity]. Null leaves the key out, which is what
+     * a server that does not know it has to be sent.
+     */
+    val identityId: String? = null,
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         put(
@@ -234,6 +240,7 @@ data class DraftEmail(
         putAddresses("replyTo", replyTo)
 
         subject?.let { put("subject", it) }
+        identityId?.let { put("identityId", it) }
 
         // A reply that omits these starts a new conversation instead of
         // continuing one — the single most visible way a compose screen can be

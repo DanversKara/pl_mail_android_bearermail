@@ -203,7 +203,10 @@ constructor(
                 EmailGet(
                     accountId = AccountId(account.accountId),
                     ids = listOf(EmailId(emailId)),
-                    properties = EmailGet.READER_PROPERTIES,
+                    // With `replyFrom`: every caller of this is about to write
+                    // an answer, a forward or the draft itself, and that is
+                    // the server saying who it is from.
+                    properties = EmailGet.REPLY_PROPERTIES,
                     fetchTextBodyValues = true,
                     fetchHtmlBodyValues = true,
                 )
@@ -218,22 +221,59 @@ constructor(
      * Its attachments come back as blob ids rather than as files to pick again, which is what makes
      * "undo send, change a word, send" cost nothing and re-upload nothing.
      */
-    suspend fun loadDraft(accountKey: String, emailId: String): ComposeDraft? {
+    suspend fun loadDraft(accountKey: String, emailId: String): ComposeDraft? =
+        reopen(accountKey, emailId)?.draft
+
+    /**
+     * [loadDraft], with the sender the draft is on when that is not one of the listed identities.
+     *
+     * The server names the identity a draft is written from in `replyFrom`, and that is taken
+     * first: it is the only way a draft sent from a catch-all address — held, called back with
+     * undo, reopened — comes back on that address, since no entry of `Identity/get` matches it.
+     * [ReopenedDraft.sender] carries it for the picker, which would otherwise have no row for the
+     * id the draft names.
+     */
+    suspend fun reopen(accountKey: String, emailId: String): ReopenedDraft? {
         val email = original(accountKey, emailId) ?: return null
         val known = database.identities().forAccount(accountKey)
 
-        // Matched on the address the draft already carries rather than taking
-        // the first of the account's identities. Now that there is one identity
-        // per sendable alias, "the first" is the primary — so reopening a draft
-        // written from an alias and saving it again would silently move it back
-        // to the main address.
+        // Without the server's answer: matched on the address the draft
+        // already carries rather than taking the first of the account's
+        // identities. Now that there is one identity per sendable alias, "the
+        // first" is the primary — so reopening a draft written from an alias
+        // and saving it again would silently move it back to the main address.
         val from = email.from.firstOrNull()?.email?.trim()?.lowercase()
+        val named = email.replyFrom
         val identity =
-            known.firstOrNull { it.email.trim().lowercase() == from }?.identityId
+            named?.id?.value
+                ?: known.firstOrNull { it.email.trim().lowercase() == from }?.identityId
                 ?: known.firstOrNull()?.identityId
                 ?: return null
 
-        return ComposeDraft(
+        val sender =
+            named
+                ?.takeIf { known.none { listed -> listed.identityId == it.id.value } }
+                ?.let {
+                    SendIdentity(
+                        accountKey = accountKey,
+                        accountName = database.accounts().byUid(accountKey)?.name.orEmpty(),
+                        identityId = it.id.value,
+                        name = it.name,
+                        email = it.email,
+                        htmlSignature = it.htmlSignature,
+                    )
+                }
+
+        return ReopenedDraft(draft(accountKey, emailId, identity, email), sender)
+    }
+
+    private fun draft(
+        accountKey: String,
+        emailId: String,
+        identity: String,
+        email: Email,
+    ): ComposeDraft =
+        ComposeDraft(
             accountKey = accountKey,
             identityId = identity,
             to = email.to,
@@ -247,7 +287,6 @@ constructor(
             emailId = emailId,
             savedAttachments = email.attachments.toStaged(),
         )
-    }
 
     /**
      * Writes the draft to the server and returns it carrying its id.
@@ -610,6 +649,20 @@ constructor(
         )
     }
 
+    /**
+     * Whether a save may name the draft's identity. See
+     * [de.plmail.jmap.protocol.Session.draftsKeepIdentity].
+     *
+     * A session that cannot be read counts as no. The save is about to make its own request and
+     * will report an unreachable server in its own words; what must not happen is a guess that
+     * turns a save an older server would have accepted into one it refuses.
+     */
+    private suspend fun keepsIdentity(client: JmapClient, accountId: AccountId): Boolean =
+        runCatching {
+            client.session().draftsKeepIdentity(accountId)
+        }
+        .getOrDefault(false)
+
     private suspend fun create(
         client: JmapClient,
         accountId: AccountId,
@@ -621,7 +674,11 @@ constructor(
             request.add(
                 EmailSet(
                     accountId = accountId,
-                    create = mapOf(CREATION_ID to draft.toWire(attachments)),
+                    create =
+                        mapOf(
+                            CREATION_ID to
+                                draft.toWire(attachments, keepsIdentity(client, accountId))
+                        ),
                 )
             )
 
@@ -648,7 +705,11 @@ constructor(
             request.add(
                 EmailSet(
                     accountId = accountId,
-                    update = mapOf(EmailId(draft.emailId!!) to draft.toPatch(attachments)),
+                    update =
+                        mapOf(
+                            EmailId(draft.emailId!!) to
+                                draft.toPatch(attachments, keepsIdentity(client, accountId))
+                        ),
                 )
             )
 
@@ -802,6 +863,13 @@ fun randomAliasLocalPart(prefix: String? = null): String {
 }
 
 /**
+ * A draft read back from the server, and the entry its From row needs when the picker has none.
+ *
+ * [sender] is null whenever [draft] names a listed identity, which is nearly always.
+ */
+data class ReopenedDraft(val draft: ComposeDraft, val sender: SendIdentity? = null)
+
+/**
  * Attachment parts as things the composer can show and re-send.
  *
  * Inline parts are dropped: a `cid:` image belongs to the body that references it, and listing it
@@ -822,8 +890,19 @@ internal fun List<de.plmail.jmap.mail.EmailBodyPart>.toStaged(): List<StagedAtta
         )
     }
 
-/** The full object, for a create. */
-internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail =
+/**
+ * The full object, for a create.
+ *
+ * [withIdentity] names the identity the draft is written from, so the draft is stored from that
+ * address and reopens on it — here or on another device. Without it the sender lived only in the
+ * composer until the send, and a reply autosaved from an alias came back from Drafts on the primary
+ * address. Only for a server that says it stores it; see
+ * [de.plmail.jmap.protocol.Session.draftsKeepIdentity].
+ */
+internal fun ComposeDraft.toWire(
+    attachments: List<DraftAttachment>,
+    withIdentity: Boolean = false,
+): DraftEmail =
     DraftEmail(
         // Empty rather than the Drafts binding: the server files a create into
         // Drafts itself and ignores this key entirely, so naming a binding here
@@ -838,6 +917,7 @@ internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail
         inReplyTo = inReplyTo,
         references = references,
         attachments = attachments,
+        identityId = identityId.takeIf { withIdentity && it.isNotBlank() },
     )
 
 /**
@@ -848,17 +928,23 @@ internal fun ComposeDraft.toWire(attachments: List<DraftAttachment>): DraftEmail
  * whole-value, so sending it unchanged would be a dozen blob ids per keystroke for no effect. An
  * *empty* list is different and is sent: that is how the last attachment is removed.
  */
-internal fun ComposeDraft.toPatch(attachments: List<DraftAttachment>?): EmailPatch =
-    EmailPatch.build {
-        addresses("to", to)
-        addresses("cc", cc)
-        addresses("bcc", bcc)
-        text("subject", subject)
-        html(bodyHtml)
-        inReplyTo?.let { strings("inReplyTo", it) }
-        references?.let { strings("references", it) }
-        attachments?.let { attachments(it) }
-    }
+internal fun ComposeDraft.toPatch(
+    attachments: List<DraftAttachment>?,
+    withIdentity: Boolean = false,
+): EmailPatch = EmailPatch.build {
+    // Every save, not only the one after the From menu closed: the patch
+    // is the whole of what the composer owns, and a save that left the
+    // sender out would be the one that lost a race with another device.
+    if (withIdentity && identityId.isNotBlank()) text("identityId", identityId)
+    addresses("to", to)
+    addresses("cc", cc)
+    addresses("bcc", bcc)
+    text("subject", subject)
+    html(bodyHtml)
+    inReplyTo?.let { strings("inReplyTo", it) }
+    references?.let { strings("references", it) }
+    attachments?.let { attachments(it) }
+}
 
 /** Compares two drafts by everything that would need saving. */
 internal fun ComposeDraft.sameContentAs(other: ComposeDraft): Boolean =
