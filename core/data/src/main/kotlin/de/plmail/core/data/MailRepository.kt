@@ -68,6 +68,7 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
                                 emailState = it.emailState,
                                 threadState = it.threadState,
                                 mailboxState = it.mailboxState,
+                                inboxTabState = it.inboxTabState,
                                 lastSyncedAt = it.lastSyncedAt,
                                 lastSyncError = it.lastSyncError,
                             )
@@ -96,6 +97,31 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
 
             database.mailboxes().upsert(fresh)
             database.mailboxes().delete(stale)
+        }
+    }
+
+    /**
+     * Replaces one account's inbox tabs, and the state they were read at.
+     *
+     * A full replace for the reason [replaceMailboxes] is one: a tab the reader deleted on the web
+     * has to leave the strip. An empty list with a null state is what an account on a server
+     * without the extension is given, and it is what puts the app back on the five built-ins.
+     */
+    suspend fun replaceInboxTabs(
+        accountKey: String,
+        tabs: List<de.plmail.jmap.mail.InboxTab>,
+        state: String?,
+    ) {
+        val fresh = tabs.map { it.toEntity(accountKey) }
+
+        database.withTransaction {
+            val stale =
+                database.inboxTabs().forAccount(accountKey).map { it.uid } -
+                    fresh.map { it.uid }.toSet()
+
+            database.inboxTabs().upsert(fresh)
+            database.inboxTabs().delete(stale)
+            database.accounts().setInboxTabState(accountKey, state)
         }
     }
 

@@ -12,12 +12,14 @@ import de.plmail.core.data.CategoryDigest
 import de.plmail.core.data.Connectivity
 import de.plmail.core.data.DeltaSync
 import de.plmail.core.data.FeedRepository
+import de.plmail.core.data.InboxTabRepository
 import de.plmail.core.data.Label
 import de.plmail.core.data.LabelRepository
 import de.plmail.core.data.LabelSelection
 import de.plmail.core.data.MailAction
 import de.plmail.core.data.MailActions
 import de.plmail.core.data.MailRepository
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 import de.plmail.core.data.Outbox
 import de.plmail.core.data.RecentMoves
@@ -101,6 +103,7 @@ constructor(
     private val digest: CategoryDigest,
     private val shownThreads: ShownThreads,
     private val recentMoves: RecentMoves,
+    private val inboxTabs: InboxTabRepository,
     swipeActions: SwipeActionsRepository,
     connectivity: Connectivity,
     outbox: Outbox,
@@ -292,6 +295,17 @@ constructor(
             initialValue = SwipeActions(),
         )
 
+    /**
+     * The tabs a conversation can be moved into, for "Move to" and for the snackbar that names
+     * them. Empty on a server without the extension, where there is no move to offer.
+     */
+    val tabs: StateFlow<List<MailTab>> =
+        inboxTabs.movable.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = emptyList(),
+        )
+
     private val _moveSheet = MutableStateFlow<MoveSheetState?>(null)
     val moveSheet: StateFlow<MoveSheetState?> = _moveSheet.asStateFlow()
 
@@ -310,9 +324,16 @@ constructor(
             val applied = labelRepository.appliedTo(known, targets)
 
             val recent = recentMoves.keys.first()
+            // Read rather than taken from [tabs], which is only collected while
+            // something on screen is watching it.
+            val movable = inboxTabs.movable.first()
 
             _moveSheet.update {
-                MoveSheetState(targets, moveDestinations(view, known, targets, applied), recent)
+                MoveSheetState(
+                    targets,
+                    moveDestinations(view, known, targets, applied, movable),
+                    recent,
+                )
             }
         }
     }

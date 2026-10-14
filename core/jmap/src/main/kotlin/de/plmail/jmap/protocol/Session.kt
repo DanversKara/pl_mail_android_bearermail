@@ -105,6 +105,16 @@ data class Session(
                 as? JsonPrimitive)
             ?.booleanOrNull == true
 
+    /**
+     * Whether this account serves the reader's own inbox tabs — see [Capability.INBOX_TABS].
+     *
+     * Per account, because that is where the server puts it. Every account of one user answers
+     * `InboxTab/get` with the same list, so asking the first one that says yes would do; asking
+     * each is what keeps the state token the push names in the account it belongs to.
+     */
+    fun supportsInboxTabs(id: AccountId): Boolean =
+        account(id)?.accountCapabilities?.containsKey(Capability.INBOX_TABS) == true
+
     /** Whether this server exposes calendars at all. */
     val supportsCalendars: Boolean
         get() = capabilities.containsKey(Capability.CALENDARS)

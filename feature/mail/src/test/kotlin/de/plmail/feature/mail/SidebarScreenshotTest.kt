@@ -25,6 +25,7 @@ import de.plmail.core.data.CategoryArrivals
 import de.plmail.core.data.Label
 import de.plmail.core.data.LabelBinding
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 import de.plmail.core.data.SidebarSections
 import de.plmail.core.database.ThreadEntity
@@ -326,14 +327,15 @@ class SidebarScreenshotTest {
         LabelSidebar(
             sections = sections,
             showCategories = showCategories,
-            populatedCategories =
+            tabs = MailTab.BUILT_IN,
+            populatedTabs =
                 setOf(
-                    MailCategory.PRIMARY,
-                    MailCategory.SOCIAL,
-                    MailCategory.PROMOTIONS,
-                    MailCategory.UPDATES,
+                    MailCategory.PRIMARY.wire,
+                    MailCategory.SOCIAL.wire,
+                    MailCategory.PROMOTIONS.wire,
+                    MailCategory.UPDATES.wire,
                 ),
-            newCategories = setOf(MailCategory.PROMOTIONS, MailCategory.UPDATES),
+            newTabs = setOf(MailCategory.PROMOTIONS.wire, MailCategory.UPDATES.wire),
             selected = MailView.START,
             onSelect = {},
             onCreate = {},
@@ -467,13 +469,13 @@ class SidebarScreenshotTest {
     private val arrivals =
         listOf(
             CategoryArrivals(
-                category = MailCategory.PROMOTIONS,
+                tab = MailTab(MailCategory.PROMOTIONS.wire, builtIn = MailCategory.PROMOTIONS),
                 count = 4,
                 senders = listOf("Rail Europe", "Duolingo", "Thalia"),
                 moreSenders = 1,
             ),
             CategoryArrivals(
-                category = MailCategory.UPDATES,
+                tab = MailTab(MailCategory.UPDATES.wire, builtIn = MailCategory.UPDATES),
                 count = 2,
                 senders = listOf("GitHub", "Deutsche Bahn"),
                 moreSenders = 0,

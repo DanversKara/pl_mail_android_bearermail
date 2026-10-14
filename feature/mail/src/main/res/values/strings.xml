@@ -166,6 +166,8 @@
         <item quantity="one">The new label is added to this conversation.</item>
         <item quantity="other">The new label is added to the %1$d selected conversations.</item>
     </plurals>
+    <!-- Over the inbox tabs in "Move to", so a tab and a label with one name stay apart. -->
+    <string name="move_to_tab">Inbox tab</string>
     <string name="move_to">Move to</string>
     <plurals name="moved_to">
         <item quantity="one">1 conversation moved to %2$s</item>

@@ -88,6 +88,7 @@ fun MailPane(
     val labels by viewModel.labels.collectAsStateWithLifecycle()
     val labelSheet by viewModel.labelSheet.collectAsStateWithLifecycle()
     val moveSheet by viewModel.moveSheet.collectAsStateWithLifecycle()
+    val tabs by viewModel.tabs.collectAsStateWithLifecycle()
     val snackbars = remember { SnackbarHostState() }
 
     UndoSnackbar(
@@ -95,6 +96,7 @@ fun MailPane(
         snackbars = snackbars,
         onUndo = viewModel::undo,
         onShown = viewModel::announcementShown,
+        tabs = tabs,
     )
 
     // A conversation chosen somewhere this screen cannot see -- a notification
@@ -286,6 +288,8 @@ private val MailAction.leavesTheList: Boolean
             this == MailAction.Trash ||
             this == MailAction.MarkSpam ||
             this is MailAction.MoveTo ||
+            // Every tab move is made from a tab, and leaves it.
+            this is MailAction.MoveToTab ||
             this == MailAction.MoveToInbox ||
             (this is MailAction.Snooze && until != null)
 

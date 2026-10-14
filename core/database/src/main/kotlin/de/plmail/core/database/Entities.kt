@@ -78,6 +78,14 @@ data class AccountEntity(
      */
     val calendarState: String? = null,
     val calendarEventState: String? = null,
+    /**
+     * The `InboxTab` state the cached tabs were read at, or null when this account has none.
+     *
+     * Null is also what an account on a server without the inbox-tabs extension keeps for ever, and
+     * what a `cannotCalculateChanges` puts back: either way the next refresh is a full
+     * `InboxTab/get`, which is a handful of rows.
+     */
+    val inboxTabState: String? = null,
     val lastSyncedAt: Long? = null,
     /**
      * The last failure, kept so the diagnostics screen can show it. Users self-host: when something
@@ -173,6 +181,16 @@ data class ThreadEntity(
      * does not have.
      */
     val category: String? = null,
+    /**
+     * The inbox tab the web shows this conversation in, off `Thread.inboxTab`, or null.
+     *
+     * Beside [category] rather than instead of it, because the two answer different servers. A
+     * plMail with the inbox-tabs extension sends this — the reader's own tab where one of their
+     * filters filed the conversation, Primary for a category they switched off — and one without it
+     * leaves this null everywhere, where [category] is still the whole answer. Which of the two a
+     * row is placed by is decided in one function, `tabKeyOf`, against the tabs the account has.
+     */
+    val inboxTab: String? = null,
     /**
      * Whether this conversation is still **new**: the server's own marker, not a local guess.
      *
@@ -536,4 +554,30 @@ data class IdentityEntity(
      */
     val htmlSignature: String = "",
     val sortIndex: Int = 0,
+)
+
+/**
+ * One of the reader's inbox tabs, as one account's `InboxTab/get` answered.
+ *
+ * Per account although the tabs are the user's: every account answers with the same list, but the
+ * state token that list was read at is per account, and so is the push that says it moved. Kept the
+ * way [MailboxEntity] keeps a label's bindings, and collapsed by [tabId] when read.
+ *
+ * Only ever written for an account whose session advertises the extension. An account with no rows
+ * here is one whose server predates it, and that absence is what tells the app to draw the five
+ * built-in categories off [ThreadEntity.category] as it always has.
+ */
+@Entity(tableName = "inbox_tabs", indices = [Index("accountKey")])
+data class InboxTabEntity(
+    @PrimaryKey val uid: String,
+    val accountKey: String,
+    /** The tab key — `primary`, `promotions`, `c12`. Never a display name. */
+    val tabId: String,
+    /** The reader's name for a tab of their own; null for a built-in, which the app names. */
+    val name: String? = null,
+    /** The built-in category this tab is, as the wire token, or null for the reader's own. */
+    val builtIn: String? = null,
+    /** False for a built-in the reader switched off on the web. Never drawn in the strip. */
+    val isEnabled: Boolean = true,
+    val sortOrder: Int = 0,
 )

@@ -11,10 +11,13 @@ import de.plmail.core.datastore.CredentialStore
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.mail.EmailFilter
 import de.plmail.jmap.methods.IdentityGet
+import de.plmail.jmap.methods.InboxTabGet
 import de.plmail.jmap.methods.MailboxGet
 import de.plmail.jmap.protocol.AccountId
+import de.plmail.jmap.protocol.Capability
 import de.plmail.jmap.protocol.MailboxId
 import de.plmail.jmap.protocol.RequestBuilder
+import de.plmail.jmap.protocol.Session
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -211,9 +214,40 @@ constructor(
                 return@feed inbox
             }
 
-            val inCategory = EmailFilter.ThreadCategory(category.wire)
+            // The reader's arrangement where the server has one, because that is
+            // what the web lists under this tab: without it Promotions would go on
+            // holding the mail one of their filters filed in a tab of their own,
+            // and Primary would lose a category they switched off. The tabs are
+            // read from the cache, which the directory refresh fills before a
+            // pager is built.
+            val inCategory =
+                if (database.enabledTabKeys(accountKey) != null)
+                    EmailFilter.ThreadInboxTab(category.wire)
+                else EmailFilter.ThreadCategory(category.wire)
 
             inbox?.let { EmailFilter.And(listOf(it, inCategory)) } ?: inCategory
+        }
+
+    /**
+     * One of the inbox tabs the reader made on the web, merged across accounts.
+     *
+     * [category] with `threadInboxTab` as the only possible condition: a tab of the reader's own
+     * exists only on a server with the extension, and there is no category to fall back to. An
+     * account with no cached tabs is dropped from the merge rather than queried unfiltered, for the
+     * reason [labelled] drops one without a binding — the alternative is that account's whole inbox
+     * under a tab called "Shipping".
+     */
+    fun tab(view: MailView.Tab, pageSize: Int = PAGE_SIZE): Flow<PagingData<ThreadEntity>> =
+        feed(view.feedId, pageSize, skipAccountsWithoutFilter = true) { accountKey, _ ->
+            if (database.enabledTabKeys(accountKey)?.contains(view.key) != true) {
+                return@feed null
+            }
+
+            val inTab = EmailFilter.ThreadInboxTab(view.key)
+
+            database.mailboxes().byRole(accountKey, INBOX_ROLE)?.let {
+                EmailFilter.And(listOf(EmailFilter.InMailbox(MailboxId(it.mailboxId)), inTab))
+            } ?: inTab
         }
 
     /**
@@ -237,6 +271,7 @@ constructor(
         when (view) {
             is MailView.Category -> category(view.category, pageSize)
             is MailView.Labelled -> labelled(view.label, pageSize)
+            is MailView.Tab -> tab(view, pageSize)
         }
 
     private fun feed(
@@ -329,7 +364,7 @@ constructor(
         // filter below, and every move action, which is expressed as adding or
         // removing a binding id that differs per account. Without this the list
         // silently pages the whole mailbox and archiving silently does nothing.
-        refreshBindings(client, server, session.accountIds.map { AccountId(it.value) })
+        refreshBindings(client, server, session)
 
         // This *was* the directory refresh, so the throttle counts it. Without
         // this the very next view switch after pairing -- which is now a cached
@@ -444,7 +479,7 @@ constructor(
                 }
 
             mail.replaceAccounts(server, session)
-            refreshBindings(client, server, session.accountIds.map { AccountId(it.value) })
+            refreshBindings(client, server, session)
 
             // Stamped only where the session answered -- the failure path above
             // returns without setting it, so a server that is down is retried on
@@ -454,17 +489,21 @@ constructor(
         }
     }
 
-    /** Mailboxes and identities, per account, each account's failure its own. */
-    private suspend fun refreshBindings(
-        client: JmapClient,
-        server: String,
-        accountIds: List<AccountId>,
-    ) {
-        accountIds.forEach { accountId ->
+    /** Mailboxes, identities and inbox tabs, per account, each account's failure its own. */
+    private suspend fun refreshBindings(client: JmapClient, server: String, session: Session) {
+        session.accountIds.forEach { accountId ->
             val accountKey = StoreKey.account(server, accountId.value)
 
+            // Asked of the session rather than tried: a server that predates the
+            // extension refuses a request declaring it with `unknownCapability`,
+            // which would take the mailboxes in the same batch down with it.
+            val hasTabs = session.supportsInboxTabs(accountId)
+
             runCatching {
-                val request = RequestBuilder()
+                val request =
+                    RequestBuilder(
+                        using = if (hasTabs) Capability.USING_INBOX_TABS else Capability.USING_MAIL
+                    )
                 val mailboxes = request.add(MailboxGet(accountId))
                 // In the same batch rather than its own round trip.
                 // Identities are what the composer's From row is drawn from,
@@ -472,10 +511,27 @@ constructor(
                 // have nothing to send as -- against a server on a domestic
                 // uplink, one request is the resource worth saving.
                 val identities = request.add(IdentityGet(accountId))
+                // And the tabs, for the same reason and the sidebar's sake: they
+                // are drawn beside the labels, and a strip that arrived one round
+                // trip after them would redraw the top of the drawer.
+                val tabs = if (hasTabs) request.add(InboxTabGet(accountId)) else null
                 val results = client.send(request)
 
                 mail.replaceMailboxes(accountKey, results.result(mailboxes).list)
                 mail.replaceIdentities(accountKey, results.result(identities).list)
+
+                // An account that stopped advertising the extension -- a server
+                // rolled back -- goes back to the five built-ins rather than
+                // keeping tabs it can no longer query. One whose InboxTab/get
+                // failed on its own keeps the tabs it had: the strip is not worth
+                // the mailboxes above it, or the banner below.
+                if (tabs == null) {
+                    mail.replaceInboxTabs(accountKey, emptyList(), state = null)
+                } else {
+                    results.resultOrNull(tabs)?.let {
+                        mail.replaceInboxTabs(accountKey, it.list, it.state)
+                    }
+                }
             }
                 // This account just answered two methods, which is the whole of
                 // what a "could not reach it" banner claims it cannot do. Said

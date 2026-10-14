@@ -65,8 +65,9 @@ fun MailShell(
     val labels by viewModel.labels.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
     val hasCategories by viewModel.hasCategories.collectAsStateWithLifecycle()
-    val populatedCategories by viewModel.populatedCategories.collectAsStateWithLifecycle()
-    val newCategories by viewModel.newCategories.collectAsStateWithLifecycle()
+    val tabs by viewModel.tabs.collectAsStateWithLifecycle()
+    val populatedTabs by viewModel.populatedTabs.collectAsStateWithLifecycle()
+    val newTabs by viewModel.newTabs.collectAsStateWithLifecycle()
 
     // The key rather than the MailView, because a Labelled view carries a Label,
     // and a Label carries its bindings and its counts -- both of which change
@@ -88,7 +89,7 @@ fun MailShell(
     // row navigating -- would be the app remembering the wrong thing.
     var rearranging by remember { mutableStateOf(false) }
 
-    val selected = MailView.restore(selectedKey, labels)
+    val selected = MailView.restore(selectedKey, labels, tabs)
 
     val isWide =
         currentWindowAdaptiveInfoV2()
@@ -113,8 +114,9 @@ fun MailShell(
             LabelSidebar(
                 sections = sections,
                 showCategories = hasCategories,
-                populatedCategories = populatedCategories,
-                newCategories = newCategories,
+                tabs = tabs,
+                populatedTabs = populatedTabs,
+                newTabs = newTabs,
                 selected = selected,
                 onSelect = { view ->
                     selectedKey = view.toKey()

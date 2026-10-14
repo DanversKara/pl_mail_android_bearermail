@@ -56,7 +56,7 @@ class CategoryDigestTest {
 
         val bundle = digest.arrivals.first().single()
 
-        assertEquals(MailCategory.PROMOTIONS, bundle.category)
+        assertEquals(MailCategory.PROMOTIONS, bundle.tab.builtIn)
         assertEquals(2, bundle.count)
         assertEquals(listOf("Duolingo", "Rail Europe"), bundle.senders.sorted())
         assertEquals(0, bundle.moreSenders)
@@ -98,7 +98,10 @@ class CategoryDigestTest {
     fun `mail read elsewhere is still new until its row has been shown`() = runTest {
         arrived("t1", MailCategory.PROMOTIONS, sender = "Rail Europe", isUnread = false)
 
-        assertEquals(listOf(MailCategory.PROMOTIONS), digest.arrivals.first().map { it.category })
+        assertEquals(
+            listOf(MailCategory.PROMOTIONS),
+            digest.arrivals.first().map { it.tab.builtIn },
+        )
     }
 
     /**
@@ -154,7 +157,7 @@ class CategoryDigestTest {
 
         assertEquals(
             listOf(MailCategory.SOCIAL, MailCategory.UPDATES, MailCategory.FORUMS),
-            digest.arrivals.first().map { it.category },
+            digest.arrivals.first().map { it.tab.builtIn },
         )
     }
 
@@ -182,7 +185,7 @@ class CategoryDigestTest {
     fun `a category holding only old mail is still a place to go`() = runTest {
         arrived("t1", MailCategory.PROMOTIONS, sender = "Rail Europe", isNew = false)
 
-        assertTrue(MailCategory.PROMOTIONS in digest.populated.first())
+        assertTrue(MailCategory.PROMOTIONS.wire in digest.populated.first())
     }
 
     /**
@@ -191,7 +194,7 @@ class CategoryDigestTest {
      */
     @Test
     fun `primary is offered even with nothing cached`() = runTest {
-        assertEquals(setOf(MailCategory.PRIMARY), digest.populated.first())
+        assertEquals(setOf(MailCategory.PRIMARY.wire), digest.populated.first())
     }
 
     @Test
@@ -200,8 +203,8 @@ class CategoryDigestTest {
 
         val offered = digest.populated.first()
 
-        assertTrue(MailCategory.PROMOTIONS in offered)
-        assertTrue(MailCategory.FORUMS !in offered)
+        assertTrue(MailCategory.PROMOTIONS.wire in offered)
+        assertTrue(MailCategory.FORUMS.wire !in offered)
     }
 
     /** A conversation the inbox no longer holds takes its tab with it. */
@@ -209,7 +212,83 @@ class CategoryDigestTest {
     fun `a category is not offered for mail that has left the inbox`() = runTest {
         database.seedThread("t1", category = MailCategory.PROMOTIONS.wire, isInInbox = false)
 
-        assertTrue(MailCategory.PROMOTIONS !in digest.populated.first())
+        assertTrue(MailCategory.PROMOTIONS.wire !in digest.populated.first())
+    }
+
+    // --- The reader's own tabs (urn:plmail:params:jmap:inboxtabs) ---------------
+
+    /**
+     * Mail one of the reader's filters filed in a tab of their own is announced *there*, and not in
+     * the built-in category it also carries — the web lists it under "Shipping" and nowhere else.
+     */
+    @Test
+    fun `mail filed in an own tab is announced under that tab`() = runTest {
+        database.seedTabs(own = listOf("c12" to "Shipping"))
+        database.seedThread(
+            "t1",
+            category = MailCategory.PROMOTIONS.wire,
+            inboxTab = "c12",
+            isNew = true,
+            isInInbox = true,
+            sender = "DHL",
+        )
+
+        val bundle = digest.arrivals.first().single()
+
+        assertEquals("c12", bundle.tab.key)
+        assertEquals("Shipping", bundle.tab.name)
+        assertEquals(setOf("c12"), digest.hasNew.first())
+        assertEquals(setOf(MailCategory.PRIMARY.wire, "c12"), digest.populated.first())
+    }
+
+    /**
+     * A category the reader switched off is listed under Primary on the web, so it has no tab of
+     * its own here either — and Primary never gets a bundle.
+     */
+    @Test
+    fun `a switched-off category is folded into primary`() = runTest {
+        database.seedTabs(switchedOff = setOf(MailCategory.FORUMS))
+        arrived("t1", MailCategory.FORUMS, sender = "Mailing list")
+
+        assertTrue(digest.arrivals.first().isEmpty())
+        assertEquals(setOf(MailCategory.PRIMARY.wire), digest.populated.first())
+    }
+
+    /**
+     * A tab deleted on the web since the conversation was last read falls back as the server
+     * re-resolves it: to the category, which is still a tab.
+     */
+    @Test
+    fun `a conversation in a tab that is gone falls back to its category`() = runTest {
+        database.seedTabs()
+        database.seedThread(
+            "t1",
+            category = MailCategory.UPDATES.wire,
+            inboxTab = "c99",
+            isNew = true,
+            isInInbox = true,
+            sender = "Bank",
+        )
+
+        assertEquals(listOf(MailCategory.UPDATES), digest.arrivals.first().map { it.tab.builtIn })
+    }
+
+    /** The bundles follow the reader's order, not the five's, once the server says what it is. */
+    @Test
+    fun `bundles follow the reader's arrangement`() = runTest {
+        database.seedTabs(own = listOf("c12" to "Shipping"))
+        // Shipping after the five, as seeded; Social before it.
+        arrived("t1", MailCategory.SOCIAL, sender = "A")
+        database.seedThread(
+            "t2",
+            inboxTab = "c12",
+            category = MailCategory.PROMOTIONS.wire,
+            isNew = true,
+            isInInbox = true,
+            sender = "B",
+        )
+
+        assertEquals(listOf("social", "c12"), digest.arrivals.first().map { it.tab.key })
     }
 
     /**

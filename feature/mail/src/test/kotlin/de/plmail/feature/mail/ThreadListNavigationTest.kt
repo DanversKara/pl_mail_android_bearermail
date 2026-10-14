@@ -10,6 +10,8 @@ import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import de.plmail.core.data.CategoryArrivals
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
+import de.plmail.core.data.MailView
 import de.plmail.core.database.ThreadEntity
 import de.plmail.core.designsystem.PlMailTheme
 import kotlin.test.assertEquals
@@ -43,7 +45,7 @@ class ThreadListNavigationTest {
 
     @Test
     fun `tapping a bundle asks to go there rather than changing the list underneath`() {
-        val opened = mutableListOf<MailCategory>()
+        val opened = mutableListOf<MailView>()
 
         compose.setContent {
             PlMailTheme {
@@ -79,7 +81,7 @@ class ThreadListNavigationTest {
         // reads a sentence rather than four fragments.
         compose.onNodeWithContentDescription("Promotions", substring = true).performClick()
 
-        assertEquals(listOf(MailCategory.PROMOTIONS), opened)
+        assertEquals(listOf<MailView>(MailView.Category(MailCategory.PROMOTIONS)), opened)
     }
 
     /**
@@ -95,7 +97,7 @@ class ThreadListNavigationTest {
     private val arrivals =
         listOf(
             CategoryArrivals(
-                category = MailCategory.PROMOTIONS,
+                tab = MailTab(MailCategory.PROMOTIONS.wire, builtIn = MailCategory.PROMOTIONS),
                 count = 4,
                 senders = listOf("Rail Europe"),
                 moreSenders = 0,

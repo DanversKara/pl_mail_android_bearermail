@@ -126,6 +126,7 @@
         <item quantity="one">Das neue Label wird dieser Unterhaltung hinzugefügt.</item>
         <item quantity="other">Das neue Label wird den %1$d ausgewählten Unterhaltungen hinzugefügt.</item>
     </plurals>
+    <string name="move_to_tab">Posteingangs-Tab</string>
     <string name="move_to">Verschieben nach</string>
     <plurals name="moved_to">
         <item quantity="one">1 Unterhaltung nach %2$s verschoben</item>

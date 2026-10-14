@@ -32,6 +32,17 @@ object Capability {
      */
     const val SYNC = "urn:plmail:params:jmap:sync"
 
+    /**
+     * The inbox tabs as the reader arranged them on the web: `InboxTab/get` and `/changes`,
+     * `Thread.inboxTab`, the `threadInboxTab` filter and `Thread/set { inboxTab }`.
+     *
+     * Advertised on **every account** rather than only at the top level, though the tabs are the
+     * user's: `Thread.inboxTab` is account-scoped and so is the change log a push is sent from. Its
+     * absence is the signal that the server predates the extension, and the app then draws the five
+     * built-in categories off `Thread.category` exactly as it did before.
+     */
+    const val INBOX_TABS = "urn:plmail:params:jmap:inboxtabs"
+
     /** The usual declaration for a mail request. */
     val USING_MAIL = listOf(CORE, MAIL)
 
@@ -47,6 +58,15 @@ object Capability {
      * leniency that stops being true on the instance where the extension is switched off.
      */
     val USING_CONTACTS = listOf(CORE, CONTACTS)
+
+    /**
+     * For the `InboxTab` methods and a `Thread/set` that files a conversation in a tab.
+     *
+     * Only ever sent to an account that advertises [INBOX_TABS]: a server older than the extension
+     * would refuse the whole request with `unknownCapability`, so a request that might reach one
+     * declares [USING_MAIL] and does not call these methods at all.
+     */
+    val USING_INBOX_TABS = listOf(CORE, MAIL, INBOX_TABS)
 
     /** For `Appearance/get` and `Appearance/set`. Per user, so no mail capability is involved. */
     val USING_APPEARANCE = listOf(CORE, APPEARANCE)

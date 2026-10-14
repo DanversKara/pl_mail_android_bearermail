@@ -38,7 +38,9 @@ import de.plmail.core.data.ActionTarget
 import de.plmail.core.data.Label
 import de.plmail.core.data.LabelSelection
 import de.plmail.core.data.MailAction
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
+import de.plmail.core.designsystem.PlMailDivider
 import de.plmail.core.designsystem.PlMailTheme
 
 /**
@@ -54,6 +56,9 @@ sealed interface MoveDestination {
     data class Inbox(override val action: MailAction) : MoveDestination
 
     data class To(val label: Label, override val action: MailAction) : MoveDestination
+
+    /** One of the inbox tabs. Only from a tab, and only on a server that serves the reader's. */
+    data class ToTab(val tab: MailTab, override val action: MailAction) : MoveDestination
 
     data object Spam : MoveDestination {
         override val action: MailAction
@@ -83,12 +88,20 @@ sealed interface MoveDestination {
  * is a provider operation, and it is the server that carries the move out (`Thread/set` `moveTo`) —
  * a server too old for that refuses, and the app says so rather than detaching Trash as though it
  * were a tag. Back to the Inbox from the bin stays the restore that every server has.
+ *
+ * **From an inbox tab, the other tabs lead the list** — the web's drag onto a tab, which is the
+ * only way to move a conversation between them there. [tabs] are the ones the reader has switched
+ * on, and empty on a server without `urn:plmail:params:jmap:inboxtabs`, which has no way to carry
+ * the move out. Only from a tab, because a tab is an inbox idea: filing mail from Sent or a label
+ * into Promotions would change where it lands the day it returns to the inbox and nothing the user
+ * can see today. The tab being looked at is left off, as the list being looked at is.
  */
 fun moveDestinations(
     view: MailView,
     labels: List<Label>,
     targets: List<ActionTarget>,
     selection: LabelSelection,
+    tabs: List<MailTab> = emptyList(),
 ): List<MoveDestination> {
     val viewed = view.browsedLabel
     val isBin = viewed?.role == ROLE_TRASH || viewed?.role == ROLE_JUNK
@@ -99,7 +112,20 @@ fun moveDestinations(
     val leavesInbox = leaving == null && !isBin
     val accounts = targets.map { it.accountKey }.toSet()
 
+    val viewedTab =
+        when (view) {
+            is MailView.Category -> view.category.wire
+            is MailView.Tab -> view.key
+            is MailView.Labelled -> null
+        }
+
     return buildList {
+        if (viewedTab != null) {
+            tabs
+                .filter { it.key != viewedTab }
+                .forEach { add(MoveDestination.ToTab(it, MailAction.MoveToTab(it.key, viewedTab))) }
+        }
+
         when {
             isBin -> add(MoveDestination.Inbox(MailAction.MoveToInbox))
             // Not from the Inbox itself, and not from a list that only stands
@@ -192,36 +218,35 @@ fun MoveSheet(
                 )
             }
 
-            LazyColumn(modifier = Modifier.heightIn(max = MOVE_LIST_MAX)) {
-                items(items = shown, key = { it.key() }) { destination ->
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth()
-                                .clickable { onPick(destination.action) }
-                                .heightIn(min = theme.spacing.touchTarget)
-                                .padding(horizontal = theme.spacing.gutter),
-                        horizontalArrangement = Arrangement.spacedBy(theme.spacing.medium),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector =
-                                when (destination) {
-                                    is MoveDestination.Inbox -> Icons.Outlined.Inbox
-                                    is MoveDestination.To -> Icons.AutoMirrored.Outlined.Label
-                                    MoveDestination.Spam -> Icons.Outlined.Report
-                                    MoveDestination.Trash -> Icons.Outlined.Delete
-                                },
-                            contentDescription = null,
-                            tint = theme.colors.inkSoft,
-                        )
+            // The tabs as a section of their own, above everything else, because a
+            // tab and a label can share a name -- "Shipping" twice in one list,
+            // with nothing to say which one files the mail and which labels it.
+            val (tabRows, rest) = shown.partition { it is MoveDestination.ToTab }
 
+            LazyColumn(modifier = Modifier.heightIn(max = MOVE_LIST_MAX)) {
+                if (tabRows.isNotEmpty()) {
+                    item(key = "heading:tabs") {
                         Text(
-                            text = names.getValue(destination),
-                            color = theme.colors.ink,
-                            maxLines = 1,
-                            overflow = TextOverflow.MiddleEllipsis,
+                            text = stringResource(R.string.move_to_tab),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = theme.colors.inkMuted,
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = theme.spacing.gutter,
+                                    vertical = theme.spacing.small,
+                                ),
                         )
                     }
+
+                    items(items = tabRows, key = { it.key() }) { destination ->
+                        DestinationRow(destination, names.getValue(destination), onPick)
+                    }
+
+                    if (rest.isNotEmpty()) item(key = "rule:tabs") { PlMailDivider() }
+                }
+
+                items(items = rest, key = { it.key() }) { destination ->
+                    DestinationRow(destination, names.getValue(destination), onPick)
                 }
             }
         }
@@ -231,11 +256,52 @@ fun MoveSheet(
     LaunchedEffect(targets) { if (targets.isEmpty()) onDismiss() }
 }
 
+/** One place a conversation can go: its glyph and its name, and one tap to send it there. */
+@Composable
+private fun DestinationRow(
+    destination: MoveDestination,
+    name: String,
+    onPick: (MailAction) -> Unit,
+) {
+    val theme = PlMailTheme.values
+
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .clickable { onPick(destination.action) }
+                .heightIn(min = theme.spacing.touchTarget)
+                .padding(horizontal = theme.spacing.gutter),
+        horizontalArrangement = Arrangement.spacedBy(theme.spacing.medium),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector =
+                when (destination) {
+                    is MoveDestination.Inbox -> Icons.Outlined.Inbox
+                    is MoveDestination.To -> Icons.AutoMirrored.Outlined.Label
+                    is MoveDestination.ToTab -> destination.tab.icon()
+                    MoveDestination.Spam -> Icons.Outlined.Report
+                    MoveDestination.Trash -> Icons.Outlined.Delete
+                },
+            contentDescription = null,
+            tint = theme.colors.inkSoft,
+        )
+
+        Text(
+            text = name,
+            color = theme.colors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.MiddleEllipsis,
+        )
+    }
+}
+
 @Composable
 private fun MoveDestination.name(): String =
     when (this) {
         is MoveDestination.Inbox -> stringResource(R.string.role_inbox)
         is MoveDestination.To -> label.displayName()
+        is MoveDestination.ToTab -> tab.displayName()
         MoveDestination.Spam -> stringResource(R.string.role_junk)
         MoveDestination.Trash -> stringResource(R.string.role_trash)
     }
@@ -274,6 +340,7 @@ private fun MoveDestination.key(): String =
     when (this) {
         is MoveDestination.Inbox -> "role:inbox"
         is MoveDestination.To -> "label:${label.key}"
+        is MoveDestination.ToTab -> "tab:${tab.key}"
         MoveDestination.Spam -> "role:junk"
         MoveDestination.Trash -> "role:trash"
     }

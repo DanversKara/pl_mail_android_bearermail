@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.Report
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Swipe
+import androidx.compose.material.icons.outlined.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.plmail.core.data.Label
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 import de.plmail.core.data.SidebarSections
 import de.plmail.core.designsystem.PlMailDivider
@@ -116,23 +118,31 @@ fun LabelSidebar(
      */
     showCategories: Boolean,
     /**
-     * Which categories hold mail, as the local cache sees it.
+     * The inbox tabs, in the order the strip draws them.
+     *
+     * The reader's own arrangement where the server serves it — switched-off built-ins left out,
+     * their own tabs in among the five where they put them — and the five built-ins in their usual
+     * order where it does not. See [de.plmail.core.data.InboxTabRepository.strip].
+     */
+    tabs: List<MailTab>,
+    /**
+     * Which tabs hold mail, by key, as the local cache sees it.
      *
      * The web's own rule, and worth copying exactly so the phone and the browser show the same tabs
-     * rather than each being defensibly different: Primary is always drawn, a category is drawn
-     * while it holds a conversation, and the one being *read* survives its own emptying until the
-     * user navigates away — otherwise archiving the last promotion pulls the list out from under
-     * the person reading it.
+     * rather than each being defensibly different: Primary is always drawn, a tab is drawn while it
+     * holds a conversation, and the one being *read* survives its own emptying until the user
+     * navigates away — otherwise archiving the last promotion pulls the list out from under the
+     * person reading it. The reader's own tabs obey the same rule, as they do on the web.
      */
-    populatedCategories: Set<MailCategory>,
+    populatedTabs: Set<String>,
     /**
-     * Which categories have mail that has arrived and never been looked at.
+     * Which tabs have mail that has arrived and never been looked at, by key.
      *
      * Drawn as a dot rather than a number, for the reason the rows carry no count: the device can
      * honestly say *that* something arrived without being able to say how much the server thinks
      * there is. The same signal [de.plmail.core.data.CategoryDigest] puts at the top of Primary.
      */
-    newCategories: Set<MailCategory>,
+    newTabs: Set<String>,
     selected: MailView,
     onSelect: (MailView) -> Unit,
     onCreate: () -> Unit,
@@ -168,8 +178,9 @@ fun LabelSidebar(
         SidebarContent(
             sections = sections,
             showCategories = showCategories,
-            populatedCategories = populatedCategories,
-            newCategories = newCategories,
+            tabs = tabs,
+            populatedTabs = populatedTabs,
+            newTabs = newTabs,
             selected = selected,
             onSelect = onSelect,
             onCreate = onCreate,
@@ -192,8 +203,9 @@ fun LabelSidebar(
 private fun SidebarContent(
     sections: SidebarSections,
     showCategories: Boolean,
-    populatedCategories: Set<MailCategory>,
-    newCategories: Set<MailCategory>,
+    tabs: List<MailTab>,
+    populatedTabs: Set<String>,
+    newTabs: Set<String>,
     selected: MailView,
     onSelect: (MailView) -> Unit,
     onCreate: () -> Unit,
@@ -231,24 +243,23 @@ private fun SidebarContent(
         // was reorganised to stop opening on.
         if (showCategories) {
             items(
-                items =
-                    MailCategory.entries.filter {
-                        it in populatedCategories || selected == MailView.Category(it)
-                    },
-                key = { "category:${it.wire}" },
-            ) { category ->
+                items = tabs.filter { it.key in populatedTabs || selected == it.view },
+                // The built-ins keep the keys they have always had, so a server
+                // gaining the extension does not recompose the rows it already drew.
+                key = { tab -> tab.builtIn?.let { "category:${it.wire}" } ?: "tab:${tab.key}" },
+            ) { tab ->
                 SidebarRow(
-                    selected = selected == MailView.Category(category),
-                    onClick = { onSelect(MailView.Category(category)) },
-                    icon = category.icon(),
-                    text = category.displayName(),
+                    selected = selected == tab.view,
+                    onClick = { onSelect(tab.view) },
+                    icon = tab.icon(),
+                    text = tab.displayName(),
                     // No count: the only number this device could show is how
                     // many unread of that category it has *paged*, and a badge
                     // that disagreed with the web's would be worse than no badge
                     // — the server publishes no per-category total over JMAP.
                     // What it shows instead is a dot for mail that has arrived
                     // and not been looked at, which is a claim it can keep.
-                    hasNew = category in newCategories,
+                    hasNew = tab.key in newTabs,
                 )
             }
         } else {
@@ -647,6 +658,8 @@ private fun MailView.selects(label: Label): Boolean =
     when (this) {
         is MailView.Labelled -> this.label.key == label.key
         is MailView.Category -> category == MailCategory.PRIMARY && label.role == INBOX_ROLE
+        // A tab of the reader's own is never reached through a label row.
+        is MailView.Tab -> false
     }
 
 /** Nothing to draw yet, which is not the same as an account with no mailboxes. */
@@ -671,6 +684,15 @@ private fun Label.icon(): ImageVector =
         "flagged" -> Icons.Outlined.Star
         else -> Icons.AutoMirrored.Outlined.Label
     }
+
+/**
+ * The glyph for a tab: a built-in's own, and one generic glyph for every tab the reader made.
+ *
+ * Generic rather than chosen per tab, because the web gives the reader's tabs no icon to choose and
+ * a phone that invented one would be decorating their data. A tab outline rather than the label
+ * glyph, so "Shipping" the tab and "Shipping" the label do not look like one thing.
+ */
+internal fun MailTab.icon(): ImageVector = builtIn?.icon() ?: Icons.Outlined.Tab
 
 /** The glyph for a category, matching what Gmail uses for the same five tabs. */
 internal fun MailCategory.icon(): ImageVector =

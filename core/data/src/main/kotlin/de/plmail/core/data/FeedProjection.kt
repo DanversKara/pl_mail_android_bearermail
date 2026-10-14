@@ -65,6 +65,11 @@ constructor(
         // the rows this reads are the ones storeEmails has already committed.
         val classifies = database.threads().hasCategories()
 
+        // The tabs this account has switched on, or null where its server has
+        // none -- which tab a conversation is in depends on them, see tabKeyOf.
+        // Read once for the batch, beside `classifies` and for the same reason.
+        val tabs = database.enabledTabKeys(accountKey)
+
         database.withTransaction {
             val live =
                 database
@@ -78,7 +83,7 @@ constructor(
             if (live.isEmpty()) return@withTransaction
 
             threadIds.forEach { threadId ->
-                project(accountKey, threadId, live, inboxKey, pending, classifies)
+                project(accountKey, threadId, live, inboxKey, pending, classifies, tabs)
             }
         }
     }
@@ -90,6 +95,7 @@ constructor(
         inboxKey: String?,
         pending: Set<String>,
         classifies: Boolean,
+        tabs: Set<String>?,
     ) {
         val uid = StoreKey.objectKey(accountKey, threadId)
 
@@ -111,7 +117,7 @@ constructor(
             return
         }
 
-        val targets = targetFeeds(thread, inboxKey, classifies)
+        val targets = targetFeeds(thread, inboxKey, classifies, tabs)
 
         live.forEach { (feedId, cursor) ->
             if (feedId !in targets) {
@@ -165,11 +171,17 @@ constructor(
      * start destination the app can open on without first asking whether this plMail classifies —
      * see [MailView]. [classifies] is passed in rather than read here because this runs inside the
      * projection's transaction, once per conversation.
+     *
+     * **Which tab is [tabKeyOf]'s answer**, against the [tabs] the account has switched on: the
+     * reader's own tab where one of their filters filed the conversation, Primary for a category
+     * they switched off. On a server without the extension [tabs] is null and that is the category,
+     * exactly as before — the same rule `FeedRepository.category` chooses its filter by.
      */
     private fun targetFeeds(
         thread: ThreadEntity,
         inboxKey: String?,
         classifies: Boolean,
+        tabs: Set<String>?,
     ): Set<String> {
         val carried = thread.labelKeys.split(",").filter { it.isNotBlank() }
         val feeds = carried.mapTo(mutableSetOf(), ::labelFeedId)
@@ -177,10 +189,10 @@ constructor(
         if (inboxKey != null && inboxKey in carried) {
             feeds += Feed.UNIFIED_INBOX.id
 
-            val category = MailCategory.fromWire(thread.category)
+            val tab = thread.tabKey(tabs)
 
             when {
-                category != null -> feeds += category.feedId
+                tab != null -> feeds += tabFeedId(tab)
                 !classifies -> feeds += MailCategory.PRIMARY.feedId
             }
         }

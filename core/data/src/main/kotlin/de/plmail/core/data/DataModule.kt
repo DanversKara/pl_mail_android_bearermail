@@ -73,6 +73,9 @@ abstract class DataModule {
      */
     @Binds @Singleton abstract fun reachableAccounts(real: FeedRepository): ReachableAccounts
 
+    /** The one method of [InboxTabRepository] the push path needs. See [InboxTabRefresh]. */
+    @Binds @Singleton abstract fun inboxTabRefresh(real: InboxTabRepository): InboxTabRefresh
+
     /**
      * The event editor's view of the calendar.
      *

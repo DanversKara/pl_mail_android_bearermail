@@ -293,6 +293,10 @@ fun MailThread.toEntity(
         // moment a thread arrived across two pages with its newest message in
         // the second.
         category = category,
+        // Off the wire as well, for the same reason: which tab a conversation
+        // is in is the server's rule, and the reader's own tabs are only known
+        // to it. Null on a server without the extension; see `tabKeyOf`.
+        inboxTab = inboxTab,
         // The server's own marker, carried through unchanged. Not derived from
         // `isUnread` beside it and not from the received time: newness is
         // "never displayed AND inside the window", and both halves are facts
@@ -365,11 +369,12 @@ private const val UNROLED_SORT_ORDER = 1_000
  * Puts back the facts that live on the conversation rather than on its messages.
  *
  * [MailThread.toEntity] summarises a thread out of the messages it is given, which is what lets a
- * page of mail with no `Thread/get` beside it still leave a usable row behind. Three of that row's
+ * page of mail with no `Thread/get` beside it still leave a usable row behind. Four of that row's
  * columns cannot be summarised from anything, because `Email/get` does not carry them:
- * [ThreadEntity.snoozedUntil], [ThreadEntity.category] and [ThreadEntity.isNew]. A caller that did
- * not fetch the Thread has not learned that they are absent — it has learned nothing about them —
- * and writing the defaults anyway destroys the only local copy.
+ * [ThreadEntity.snoozedUntil], [ThreadEntity.category], [ThreadEntity.inboxTab] and
+ * [ThreadEntity.isNew]. A caller that did not fetch the Thread has not learned that they are absent
+ * — it has learned nothing about them — and writing the defaults anyway destroys the only local
+ * copy.
  *
  * That was not a hypothetical. Snooze was carried forward from the day the column existed; category
  * and isNew were added later and were not, so [BodyPrefetcher] — which runs over the *newest*
@@ -382,5 +387,10 @@ private const val UNROLED_SORT_ORDER = 1_000
  */
 internal fun ThreadEntity.carryConversationFacts(stored: ThreadEntity?): ThreadEntity =
     stored?.let {
-        copy(snoozedUntil = it.snoozedUntil, category = it.category, isNew = it.isNew)
+        copy(
+            snoozedUntil = it.snoozedUntil,
+            category = it.category,
+            inboxTab = it.inboxTab,
+            isNew = it.isNew,
+        )
     } ?: this

@@ -101,6 +101,42 @@ class MailViewTest {
     }
 
     /**
+     * A tab of the reader's own is saved by key and restored against the tabs the server now lists,
+     * under whatever it is now called.
+     */
+    @Test
+    fun `an own tab survives being saved and restored`() {
+        val shipping = MailTab(key = "c12", name = "Shipping", sortOrder = 5)
+        val view = shipping.view
+
+        assertEquals(MailView.Tab("c12", "Shipping"), view)
+        assertEquals("tab.c12", view.feedId)
+        assertEquals(view, MailView.restore(view.toKey(), emptyList(), MailTab.BUILT_IN + shipping))
+    }
+
+    /** One the reader deleted on the web, or one not read off the cache yet, is Primary. */
+    @Test
+    fun `an own tab that is not listed restores to primary`() {
+        assertEquals(MailView.START, MailView.restore("tab:c12", emptyList(), MailTab.BUILT_IN))
+    }
+
+    /**
+     * A built-in the reader switched off on the web lists nothing there, so it is not restored as a
+     * destination here either. With no tabs known at all — the server predates them — every
+     * built-in still restores, as it always did.
+     */
+    @Test
+    fun `a switched-off built-in restores to primary`() {
+        val strip = MailTab.BUILT_IN.filter { it.builtIn != MailCategory.FORUMS }
+
+        assertEquals(MailView.START, MailView.restore("category:forums", emptyList(), strip))
+        assertEquals(
+            MailView.Category(MailCategory.FORUMS),
+            MailView.restore("category:forums", emptyList()),
+        )
+    }
+
+    /**
      * The start destination has two spellings, and both have to answer yes.
      *
      * On a plMail that classifies nothing there are no category rows, so the sidebar draws an Inbox

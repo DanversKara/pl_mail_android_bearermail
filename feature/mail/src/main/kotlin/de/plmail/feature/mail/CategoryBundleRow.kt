@@ -57,7 +57,7 @@ import de.plmail.core.designsystem.PlMailTheme
 @Composable
 internal fun CategoryBundleRow(arrivals: CategoryArrivals, onClick: () -> Unit) {
     val theme = PlMailTheme.values
-    val name = arrivals.category.displayName()
+    val name = arrivals.tab.displayName()
 
     val senders =
         when {
@@ -109,7 +109,7 @@ internal fun CategoryBundleRow(arrivals: CategoryArrivals, onClick: () -> Unit) 
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = arrivals.category.icon(),
+                imageVector = arrivals.tab.icon(),
                 contentDescription = null,
                 tint = theme.colors.accent,
                 modifier = Modifier.size(GLYPH),

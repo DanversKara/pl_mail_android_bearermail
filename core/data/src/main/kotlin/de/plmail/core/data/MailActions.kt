@@ -7,12 +7,14 @@ import de.plmail.core.database.EmailEntity
 import de.plmail.core.database.FeedEntryEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
+import de.plmail.core.database.ThreadEntity
 import de.plmail.jmap.methods.EmailPatch
 import de.plmail.jmap.methods.EmailSet
 import de.plmail.jmap.methods.ThreadPatch
 import de.plmail.jmap.methods.ThreadSet
 import de.plmail.jmap.methods.isUnsupportedMove
 import de.plmail.jmap.protocol.AccountId
+import de.plmail.jmap.protocol.Capability
 import de.plmail.jmap.protocol.EmailId
 import de.plmail.jmap.protocol.JmapError
 import de.plmail.jmap.protocol.MailboxId
@@ -163,8 +165,8 @@ constructor(
     /**
      * [wayBackFrom], with the pre-state read out of the cache.
      *
-     * Only snooze needs the read, and only snooze pays for it: every other action's inverse is a
-     * property of the action itself.
+     * Only snooze and a tab move need the read, and only they pay for it: every other action's
+     * inverse is a property of the action itself.
      */
     private suspend fun wayBack(action: MailAction, targets: List<ActionTarget>): List<UndoStep> {
         val before =
@@ -179,7 +181,21 @@ constructor(
                 emptyMap()
             }
 
-        return wayBackFrom(action, targets, before)
+        // The same argument for a tab move: the way back is where each
+        // conversation was, and the local write is about to overwrite it.
+        val tabs =
+            if (action is MailAction.MoveToTab) {
+                targets.associateWith { target ->
+                    database
+                        .threads()
+                        .byUid(StoreKey.objectKey(target.accountKey, target.threadId))
+                        ?.tabKey(database.enabledTabKeys(target.accountKey))
+                }
+            } else {
+                emptyMap()
+            }
+
+        return wayBackFrom(action, targets, before, tabs)
     }
 
     /**
@@ -296,6 +312,33 @@ constructor(
                         mail.refreshLabelsOf(target.accountKey, target.threadId)
                     }
 
+                    // Out of the tab it was in and into the one it was put in,
+                    // in the same write as the column both are decided from. The
+                    // new tab gets a row only while the conversation is in the
+                    // inbox: a tab is an inbox idea, and filing archived mail in
+                    // one changes where it would land, not what is listed.
+                    is MailAction.MoveToTab -> {
+                        val before = database.threads().byUid(threadUid)
+
+                        if (before != null) {
+                            val tabs = database.enabledTabKeys(target.accountKey)
+
+                            before.tabKey(tabs)?.let {
+                                database.feed().clearThread(tabFeedId(it), threadUid)
+                            }
+
+                            database.threads().setInboxTab(threadUid, action.tab)
+
+                            if (before.isInInbox) {
+                                database
+                                    .feed()
+                                    .upsertEntries(
+                                        listOf(entryFor(tabFeedId(action.tab), target, before))
+                                    )
+                            }
+                        }
+                    }
+
                     is MailAction.Snooze -> {
                         database.threads().setSnoozedUntil(threadUid, action.until)
 
@@ -346,12 +389,14 @@ constructor(
     private suspend fun clearFromInbox(threadUid: String) {
         database.feed().clearThread(Feed.UNIFIED_INBOX.id, threadUid)
 
-        // From the row's own stored category, which is the same value the
+        // From the row's own stored placement, decided by the same tabKeyOf the
         // projection places it by. A second source for "which tab is this in"
         // would eventually put a row in one list and take it out of another.
-        val category = MailCategory.fromWire(database.threads().byUid(threadUid)?.category)
+        val thread = database.threads().byUid(threadUid) ?: return
 
-        category?.let { database.feed().clearThread(it.feedId, threadUid) }
+        thread.tabKey(database.enabledTabKeys(thread.accountKey))?.let {
+            database.feed().clearThread(tabFeedId(it), threadUid)
+        }
     }
 
     /**
@@ -372,32 +417,35 @@ constructor(
         val feeds =
             listOfNotNull(
                 Feed.UNIFIED_INBOX.id,
-                MailCategory.fromWire(thread.category)?.feedId,
+                thread.tabKey(database.enabledTabKeys(thread.accountKey))?.let(::tabFeedId),
             )
 
-        database
-            .feed()
-            .upsertEntries(
-                feeds.map { feedId ->
-                    FeedEntryEntity(
-                        // Exactly the key FeedMediator writes and clearThread
-                        // deletes, and it has to be: a row keyed any other way is
-                        // a second copy of the same conversation the next time
-                        // the list pages, and one nothing can ever remove. This
-                        // was a literal `${Feed…}#$threadUid` for a while -- the
-                        // same constant string for every conversation, so
-                        // restoring two of them left one row that matched
-                        // neither.
-                        uid = "$feedId#$threadUid",
-                        feedId = feedId,
-                        sortDate = thread.latestReceivedAt,
-                        accountKey = target.accountKey,
-                        threadId = target.threadId,
-                        emailId = target.threadId,
-                    )
-                }
-            )
+        database.feed().upsertEntries(feeds.map { feedId -> entryFor(feedId, target, thread) })
     }
+
+    /**
+     * A feed row for one conversation, keyed exactly as [FeedMediator] writes it and `clearThread`
+     * deletes it.
+     */
+    private fun entryFor(
+        feedId: String,
+        target: ActionTarget,
+        thread: ThreadEntity,
+    ): FeedEntryEntity =
+        FeedEntryEntity(
+            // Exactly the key FeedMediator writes and clearThread deletes, and it
+            // has to be: a row keyed any other way is a second copy of the same
+            // conversation the next time the list pages, and one nothing can ever
+            // remove. This was a literal `${Feed…}#$threadUid` for a while -- the
+            // same constant string for every conversation, so restoring two of
+            // them left one row that matched neither.
+            uid = "$feedId#${thread.uid}",
+            feedId = feedId,
+            sortDate = thread.latestReceivedAt,
+            accountKey = target.accountKey,
+            threadId = target.threadId,
+            emailId = target.threadId,
+        )
 
     /** Where this account's snoozed mail is listed, or null if it has never snoozed anything. */
     private suspend fun snoozedFeedId(accountKey: String): String? =
@@ -413,6 +461,7 @@ constructor(
         when (action) {
             is MailAction.Snooze -> sendSnooze(action, targets)
             is MailAction.MoveTo -> sendMove(action, targets)
+            is MailAction.MoveToTab -> sendTab(action, targets)
             else -> sendEmailSet(action, targets)
         }
     }
@@ -611,6 +660,38 @@ constructor(
     }
 
     /**
+     * A tab move, which is `Thread/set { inboxTab }` and declares the extension it belongs to.
+     *
+     * A refusal is reported rather than retried: the key is one the reader no longer has — a
+     * built-in switched off on the web, a tab of their own deleted there — and the server answers
+     * that with `invalidProperties` rather than filing the conversation under Primary. The local
+     * write has already moved the row, so the user is shown the refusal and given the way back.
+     */
+    private suspend fun sendTab(action: MailAction.MoveToTab, targets: List<ActionTarget>) {
+        targets
+            .groupBy { it.accountKey }
+            .forEach { (accountKey, forAccount) ->
+                val account = database.accounts().byUid(accountKey) ?: return@forEach
+                val client = clients.forAccount(accountKey) ?: return@forEach
+
+                val request = RequestBuilder(using = Capability.USING_INBOX_TABS)
+                val handle =
+                    request.add(
+                        ThreadSet.moveToTab(
+                            accountId = AccountId(account.accountId),
+                            threadIds = forAccount.map { ThreadId(it.threadId) },
+                            tab = action.tab,
+                        )
+                    )
+
+                val result = client.send(request).result(handle)
+                val failure = result.notUpdated.values.firstOrNull() ?: return@forEach
+
+                error(failure.description ?: failure.type)
+            }
+    }
+
+    /**
      * The wire form of a snooze time: UTC, seconds, `Z`.
      *
      * Spelled out rather than left to a default formatter. JMAP's UTCDate is a specific shape and a
@@ -724,8 +805,9 @@ constructor(
                 }
             }
 
-            // Handled by sendSnooze, which speaks Thread/set.
-            is MailAction.Snooze -> null
+            // Handled by sendSnooze and sendTab, which speak Thread/set.
+            is MailAction.Snooze,
+            is MailAction.MoveToTab -> null
 
             MailAction.Trash -> null
         }

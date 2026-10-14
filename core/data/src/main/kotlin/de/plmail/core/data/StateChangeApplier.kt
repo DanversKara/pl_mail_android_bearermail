@@ -32,6 +32,14 @@ constructor(
      * ago.
      */
     private val bodies: BodyPrefetcher,
+    /**
+     * What re-reads the inbox tabs when a push says they moved.
+     *
+     * A tab made, renamed, switched off or reordered on the web changes nothing in `Email/changes`,
+     * so without this a phone left open would draw yesterday's strip until somebody switched list.
+     * Defaulted to nothing for the tests that are about mail and not about tabs.
+     */
+    private val tabs: InboxTabRefresh = InboxTabRefresh {},
 ) {
 
     /**
@@ -69,6 +77,15 @@ constructor(
             accounts
                 .filter { it.accountId == accountId }
                 .forEach { account ->
+                    // Before the mail check, which may skip the rest. Compared like
+                    // the Email token is, so a chatty stream does not re-read the
+                    // tabs once per event; swallowed, because the strip is never
+                    // worth failing a mail sync over and the next directory
+                    // refresh reads it anyway.
+                    states[INBOX_TAB_TYPE]
+                        ?.takeIf { it != account.inboxTabState }
+                        ?.let { runCatching { tabs.refresh(account.uid) } }
+
                     val announced = states[EMAIL_TYPE]
 
                     if (announced != null && announced == account.emailState) return@forEach
@@ -87,5 +104,8 @@ constructor(
     private companion object {
         /** The JMAP type name a `StateChange` keys the mail cursor under. */
         const val EMAIL_TYPE = "Email"
+
+        /** The type a change to the reader's inbox tabs is announced under. */
+        const val INBOX_TAB_TYPE = "InboxTab"
     }
 }

@@ -71,7 +71,6 @@ import de.plmail.core.data.ActionTarget
 import de.plmail.core.data.CategoryArrivals
 import de.plmail.core.data.Label
 import de.plmail.core.data.MailAction
-import de.plmail.core.data.MailCategory
 import de.plmail.core.data.MailView
 import de.plmail.core.data.SwipeActions
 import de.plmail.core.data.rowLabels
@@ -423,7 +422,7 @@ fun MailScreen(
                     badgedNew = badgedNew,
                     swipes = swipes,
                     onMove = { thread -> viewModel.openMoveSheet(view, listOf(thread.target())) },
-                    onOpenCategory = { onNavigate(MailView.Category(it)) },
+                    onOpenCategory = onNavigate,
                     onShown = viewModel::threadsShown,
                     onThreadSelected = { thread ->
                         // The badge is spent by *opening* the conversation, not
@@ -551,7 +550,8 @@ internal fun ThreadList(
      * [MailViewModel.badgedNew].
      */
     badgedNew: Set<String>,
-    onOpenCategory: (MailCategory) -> Unit,
+    /** Opens the tab a bundle is about — a built-in category or one of the reader's own. */
+    onOpenCategory: (MailView) -> Unit,
     /**
      * Told which conversations have actually been drawn, so the New marker can be retired.
      *
@@ -641,10 +641,10 @@ internal fun ThreadList(
             // would hold four rows of other people's promotions permanently
             // over the list somebody opened the app to read; scrolling away is
             // what makes this a courtesy rather than a tax.
-            items(items = arrivals, key = { "bundle:${it.category.wire}" }) { bundle ->
+            items(items = arrivals, key = { "bundle:${it.tab.key}" }) { bundle ->
                 CategoryBundleRow(
                     arrivals = bundle,
-                    onClick = { onOpenCategory(bundle.category) },
+                    onClick = { onOpenCategory(bundle.tab.view) },
                 )
             }
 

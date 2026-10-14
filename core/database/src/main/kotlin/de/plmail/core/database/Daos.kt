@@ -49,6 +49,9 @@ interface AccountDao {
     @Query("UPDATE accounts SET threadState = :state WHERE uid = :uid")
     suspend fun setThreadState(uid: String, state: String?)
 
+    @Query("UPDATE accounts SET inboxTabState = :state WHERE uid = :uid")
+    suspend fun setInboxTabState(uid: String, state: String?)
+
     @Query("UPDATE accounts SET calendarState = :state WHERE uid = :uid")
     suspend fun setCalendarState(uid: String, state: String?)
 
@@ -93,6 +96,13 @@ interface AccountDao {
     )
     fun observeCachedWindows(): Flow<List<CachedWindowRow>>
 }
+
+/** What one conversation is placed in a tab by: its own tab, and its built-in category. */
+data class TabPlacementRow(
+    val accountKey: String,
+    val inboxTab: String?,
+    val category: String?,
+)
 
 /** What one account's cache holds: how many messages, and the oldest one's date. */
 data class CachedWindowRow(
@@ -157,10 +167,17 @@ interface ThreadDao {
     @Query("UPDATE threads SET snoozedUntil = :until WHERE uid = :uid")
     suspend fun setSnoozedUntil(uid: String, until: Long?)
 
+    /** Files a conversation in a tab locally, ahead of the `Thread/set` that does it remotely. */
+    @Query("UPDATE threads SET inboxTab = :tab WHERE uid = :uid")
+    suspend fun setInboxTab(uid: String, tab: String?)
+
     @Query("DELETE FROM threads WHERE uid IN (:uids)") suspend fun delete(uids: List<String>)
 
     /**
      * Whether this server classifies mail into inbox categories at all.
+     *
+     * `inboxTab` counts as well as `category`: a conversation one of the reader's filters filed in
+     * a tab of their own may carry no built-in category, and is still classified.
      *
      * What decides whether the sidebar draws the category group. There is no capability to ask for
      * — the categories are a plMail extension on Thread rather than a `using` URN — so the honest
@@ -172,7 +189,9 @@ interface ThreadDao {
      * `LIMIT 1` inside an `EXISTS` rather than a count: the answer is a boolean and the table has a
      * row per cached conversation.
      */
-    @Query("SELECT EXISTS(SELECT 1 FROM threads WHERE category IS NOT NULL LIMIT 1)")
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM threads WHERE category IS NOT NULL OR inboxTab IS NOT NULL LIMIT 1)"
+    )
     fun observeHasCategories(): Flow<Boolean>
 
     /**
@@ -183,29 +202,36 @@ interface ThreadDao {
      * is the safe direction: everything in the inbox counts as Primary until the first sync proves
      * the server classifies, rather than a first run that says nothing at all.
      */
-    @Query("SELECT EXISTS(SELECT 1 FROM threads WHERE category IS NOT NULL LIMIT 1)")
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM threads WHERE category IS NOT NULL OR inboxTab IS NOT NULL LIMIT 1)"
+    )
     suspend fun hasCategories(): Boolean
 
     /**
-     * Which inbox categories hold a conversation at all.
+     * Which tabs hold a conversation at all, as the pairs a tab is decided from.
      *
-     * What decides whether a category is offered as a destination — the same rule the web applies
-     * to its tab strip, so the phone and the browser show the same set rather than each being
-     * defensibly different. Membership rather than unread: a tab with fifty read promotions in it
-     * is a tab, and one with nothing in it is a promise the server cannot keep.
+     * What decides whether a tab is offered as a destination — the same rule the web applies to its
+     * tab strip, so the phone and the browser show the same set rather than each being defensibly
+     * different. Membership rather than unread: a tab with fifty read promotions in it is a tab,
+     * and one with nothing in it is a promise the server cannot keep.
      *
-     * Narrowed by `isInInbox` because a category is an *inbox* idea: the server never unclassifies
-     * mail, so a conversation dragged to Trash keeps saying "promotions" and would otherwise hold a
-     * tab open over an empty list. That used to be a join against the unified-inbox feed, which
-     * stopped being true the moment nothing paged that feed — see [ThreadEntity.isInInbox].
+     * Both columns rather than one, because which of them places a row depends on the tabs its
+     * account has — the reader's own tab where they filed it, Primary for a category they switched
+     * off, the category alone on a server without the extension — and that is `tabKeyOf`'s to
+     * decide, not this query's. The answer is bounded by the number of tabs, not by the mailbox.
+     *
+     * Narrowed by `isInInbox` because a tab is an *inbox* idea: the server never unclassifies mail,
+     * so a conversation dragged to Trash keeps saying "promotions" and would otherwise hold a tab
+     * open over an empty list. That used to be a join against the unified-inbox feed, which stopped
+     * being true the moment nothing paged that feed — see [ThreadEntity.isInInbox].
      */
     @Query(
         """
-        SELECT DISTINCT category FROM threads
-        WHERE category IS NOT NULL AND isInInbox = 1
+        SELECT DISTINCT accountKey, inboxTab, category FROM threads
+        WHERE (category IS NOT NULL OR inboxTab IS NOT NULL) AND isInInbox = 1
         """
     )
-    fun observePopulatedCategories(): Flow<List<String>>
+    fun observeTabPlacements(): Flow<List<TabPlacementRow>>
 
     /**
      * The inbox conversations the server still calls **new**, newest first.
@@ -217,8 +243,8 @@ interface ThreadDao {
      * keeping a private guess that could only agree by coincidence.
      *
      * Joined against the inbox feed rather than read off the thread row alone, for the same reason
-     * [observePopulatedCategories] is: the server never unclassifies mail, so a conversation
-     * dragged to Trash keeps saying "promotions" and would otherwise be announced from the bin.
+     * [observeTabPlacements] is: the server never unclassifies mail, so a conversation dragged to
+     * Trash keeps saying "promotions" and would otherwise be announced from the bin.
      *
      * Not grouped in SQL. The digest needs the senders behind each count as well as the count, and
      * the result is bounded by what is genuinely new rather than by the size of the mailbox.
@@ -226,7 +252,7 @@ interface ThreadDao {
     @Query(
         """
         SELECT * FROM threads
-        WHERE category IS NOT NULL AND isNew = 1 AND isInInbox = 1
+        WHERE (category IS NOT NULL OR inboxTab IS NOT NULL) AND isNew = 1 AND isInInbox = 1
         ORDER BY latestReceivedAt DESC
         """
     )
@@ -738,5 +764,22 @@ interface IdentityDao {
     @Upsert suspend fun upsert(identities: List<IdentityEntity>)
 
     @Query("DELETE FROM identities WHERE accountKey = :accountKey")
+    suspend fun deleteForAccount(accountKey: String)
+}
+
+@Dao
+interface InboxTabDao {
+    /** Every account's tabs, in the reader's order. Collapsed by tab key by the reader of this. */
+    @Query("SELECT * FROM inbox_tabs ORDER BY sortOrder, tabId")
+    fun observeAll(): Flow<List<InboxTabEntity>>
+
+    @Query("SELECT * FROM inbox_tabs WHERE accountKey = :accountKey ORDER BY sortOrder, tabId")
+    suspend fun forAccount(accountKey: String): List<InboxTabEntity>
+
+    @Upsert suspend fun upsert(tabs: List<InboxTabEntity>)
+
+    @Query("DELETE FROM inbox_tabs WHERE uid IN (:uids)") suspend fun delete(uids: List<String>)
+
+    @Query("DELETE FROM inbox_tabs WHERE accountKey = :accountKey")
     suspend fun deleteForAccount(accountKey: String)
 }

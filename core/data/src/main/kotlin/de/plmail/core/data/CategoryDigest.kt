@@ -1,10 +1,12 @@
 package de.plmail.core.data
 
+import de.plmail.core.database.InboxTabEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.ThreadEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -17,7 +19,11 @@ import kotlinx.coroutines.flow.map
  * becoming mail you never find out about.
  */
 data class CategoryArrivals(
-    val category: MailCategory,
+    /**
+     * Where the mail landed: a built-in category, or one of the reader's own tabs on a server that
+     * serves them. One type for both, so the row above Primary does not have to know which.
+     */
+    val tab: MailTab,
     val count: Int,
     /**
      * Who wrote, newest first, already de-duplicated.
@@ -60,52 +66,65 @@ data class CategoryArrivals(
 class CategoryDigest @Inject constructor(private val database: PlMailDatabase) {
 
     /**
-     * Which categories hold a conversation, as the sidebar decides what to draw.
+     * The tabs this device knows about, per account, as the rows that decide placement.
      *
-     * The web's rule, copied so the two surfaces agree: Primary is always in the set, and the other
-     * four are in it while they hold mail. Read state is irrelevant here — a tab with fifty read
-     * promotions is still a tab.
+     * Empty for an account on a server without the extension, which is what [placement] reads as
+     * "the category is the tab".
      */
-    val populated: Flow<Set<MailCategory>> =
-        database
-            .threads()
-            .observePopulatedCategories()
-            .map { tokens ->
-                tokens.mapNotNullTo(mutableSetOf(), MailCategory::fromWire) + MailCategory.PRIMARY
+    private val tabRows: Flow<List<InboxTabEntity>> = database.inboxTabs().observeAll()
+
+    /**
+     * Which tabs hold a conversation, by key, as the sidebar decides what to draw.
+     *
+     * The web's rule, copied so the two surfaces agree: Primary is always in the set, and every
+     * other tab is in it while it holds mail. Read state is irrelevant here — a tab with fifty read
+     * promotions is still a tab.
+     *
+     * Which tab a conversation holds is [tabKeyOf]'s answer — the reader's own tab where they filed
+     * it, Primary for a category they switched off — so a tab is populated on the phone exactly
+     * when it is on the web.
+     */
+    val populated: Flow<Set<String>> =
+        combine(database.threads().observeTabPlacements(), tabRows) { rows, tabs ->
+                val placed = placement(tabs)
+
+                rows.mapNotNullTo(mutableSetOf()) {
+                    tabKeyOf(it.inboxTab, it.category, placed[it.accountKey])
+                } + MailCategory.PRIMARY.wire
             }
             .distinctUntilChanged()
 
     /**
-     * The bundles to show above Primary, in the categories' own order.
+     * The bundles to show above Primary, in the strip's own order.
      *
      * Primary is **excluded by construction**: its mail is the list underneath, and a bundle saying
      * "3 new in Primary" over three unread rows saying the same thing is the app talking to itself.
      * Its own rows carry the marker instead — see `ShownThreads`, which is what retires them.
      */
     val arrivals: Flow<List<CategoryArrivals>> =
-        database.threads().observeNew().map(::digest).distinctUntilChanged()
+        combine(database.threads().observeNew(), tabRows, ::digest).distinctUntilChanged()
 
-    /** Which categories carry a dot, which is [arrivals] asked as a yes or no. */
-    val hasNew: Flow<Set<MailCategory>> =
-        arrivals.map { found -> found.mapTo(mutableSetOf()) { it.category } }.distinctUntilChanged()
+    /** Which tabs carry a dot, by key, which is [arrivals] asked as a yes or no. */
+    val hasNew: Flow<Set<String>> =
+        arrivals.map { found -> found.mapTo(mutableSetOf()) { it.tab.key } }.distinctUntilChanged()
 
-    private fun digest(new: List<ThreadEntity>): List<CategoryArrivals> {
-        val byCategory =
-            new.filter { thread ->
-                    val category = MailCategory.fromWire(thread.category)
+    private fun digest(
+        new: List<ThreadEntity>,
+        tabs: List<InboxTabEntity>,
+    ): List<CategoryArrivals> {
+        val placed = placement(tabs)
 
-                    // A token this build cannot name is dropped rather than
-                    // guessed at: it has no row to be tapped through to.
-                    category != null && category != MailCategory.PRIMARY
-                }
-                .groupBy { it.category }
+        val byTab =
+            new.groupBy { it.tabKey(placed[it.accountKey]) }
+                // A token this build cannot name is dropped rather than guessed
+                // at: it has no row to be tapped through to.
+                .filterKeys { it != null && it != MailCategory.PRIMARY.wire }
 
-        // The enum's order rather than the map's, which is the order the web's
+        // The strip's order rather than the map's, which is the order the web's
         // tab strip and this app's sidebar both use. A digest whose rows moved
         // about between syncs would be a list nobody could learn the shape of.
-        return MailCategory.entries.mapNotNull { category ->
-            val threads =
-                byCategory[category.wire]?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        return strip(tabs).mapNotNull { tab ->
+            val threads = byTab[tab.key]?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
 
             // Distinct before the cap, so "and 2 more" counts people rather than
             // conversations -- three mails from one shop is one sender.
@@ -113,13 +132,31 @@ class CategoryDigest @Inject constructor(private val database: PlMailDatabase) {
                 threads.map { it.participantsSummary }.filter { it.isNotBlank() }.distinct()
 
             CategoryArrivals(
-                category = category,
+                tab = tab,
                 count = threads.size,
                 senders = senders.take(MAX_SENDERS),
                 moreSenders = (senders.size - MAX_SENDERS).coerceAtLeast(0),
             )
         }
     }
+
+    /** Each account's switched-on tab keys. An account with no rows is absent: no extension. */
+    private fun placement(tabs: List<InboxTabEntity>): Map<String, Set<String>> =
+        tabs
+            .groupBy { it.accountKey }
+            .mapValues { (_, rows) ->
+                rows.filter { it.isEnabled }.mapTo(mutableSetOf()) { it.tabId }
+            }
+
+    /** The tabs as the strip draws them, or the five where the server lists none. */
+    private fun strip(tabs: List<InboxTabEntity>): List<MailTab> =
+        if (tabs.isEmpty()) MailTab.BUILT_IN
+        else
+            tabs
+                .distinctBy { it.tabId }
+                .filter { it.isEnabled }
+                .sortedBy { it.sortOrder }
+                .map { it.toMailTab() }
 
     private companion object {
         /** Three names and a count. Past that the row is a paragraph. */
