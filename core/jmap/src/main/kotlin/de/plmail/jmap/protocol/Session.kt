@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 
 /**
  * The Session object (RFC 8620 §2), and the root of everything.
@@ -90,6 +91,19 @@ data class Session(
      */
     fun calendars(id: AccountId): CalendarsCapability? =
         account(id)?.accountCapabilities?.get(Capability.CALENDARS)?.let(CalendarsCapability::from)
+
+    /**
+     * Whether `Email/set` on this account stores the `identityId` a draft names.
+     *
+     * A plMail key inside the standard mail capability. It has to be asked before the key is sent:
+     * a server from before it answers `invalidPatch` to an update naming a property it cannot
+     * change, and the update is an autosave — the subject and body beside the identity would be
+     * refused with it. Absent means no, which is every server older than the key.
+     */
+    fun draftsKeepIdentity(id: AccountId): Boolean =
+        (account(id)?.accountCapabilities?.get(Capability.MAIL)?.get("draftIdentity")
+                as? JsonPrimitive)
+            ?.booleanOrNull == true
 
     /** Whether this server exposes calendars at all. */
     val supportsCalendars: Boolean

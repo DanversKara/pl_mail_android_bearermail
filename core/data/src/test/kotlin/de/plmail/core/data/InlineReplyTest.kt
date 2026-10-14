@@ -4,9 +4,11 @@ import de.plmail.jmap.mail.Email
 import de.plmail.jmap.mail.EmailAddress
 import de.plmail.jmap.mail.EmailBodyPart
 import de.plmail.jmap.mail.EmailBodyValue
+import de.plmail.jmap.mail.Identity
 import de.plmail.jmap.methods.SendHold
 import de.plmail.jmap.methods.SubmissionRecord
 import de.plmail.jmap.protocol.EmailId
+import de.plmail.jmap.protocol.IdentityId
 import de.plmail.jmap.protocol.JmapError
 import java.io.IOException
 import kotlin.test.Test
@@ -151,6 +153,35 @@ class InlineReplyTest {
         // wrong and the answer arrives as a brand-new conversation.
         assertEquals(listOf("m3@example.org"), sent.inReplyTo)
         assertEquals(listOf("m1@example.org", "m3@example.org"), sent.references)
+    }
+
+    @Test
+    fun `mail for a catch-all address is answered from that address`() = runTest {
+        // Nobody sees a From row in the shade. The server names the address the
+        // mail came in for, and that -- not the account's first identity -- is
+        // what the reply is submitted as and signed by.
+        val sender = RecordingSender()
+        val shop = EmailAddress(null, "yo@shop.example")
+        val email =
+            original(to = listOf(shop))
+                .copy(
+                    replyFrom =
+                        Identity(
+                            id = IdentityId("addr-eW9Ac2hvcC5leGFtcGxl"),
+                            name = "Me",
+                            email = "yo@shop.example",
+                            htmlSignature = "<p>The shop</p>",
+                        )
+                )
+
+        replies(email = email, sender = sender).send(myIdentity.accountKey, "e-1", "On its way.")
+
+        val sent = sender.submitted.single()
+
+        assertEquals("addr-eW9Ac2hvcC5leGFtcGxl", sent.identityId)
+        assertEquals(myIdentity.accountKey, sent.accountKey)
+        assertTrue(sent.bodyHtml.contains("The shop"), sent.bodyHtml)
+        assertFalse(sent.bodyHtml.contains("Sent from a phone"), sent.bodyHtml)
     }
 
     @Test

@@ -149,6 +149,17 @@ class EmailGet(
                     "bodyValues",
                 )
 
+        /**
+         * [READER_PROPERTIES] plus `replyFrom`, for the one fetch a reply, a forward or a reopened
+         * draft is built from.
+         *
+         * Not folded into [READER_PROPERTIES]: the value carries a whole identity, signature
+         * included, and the reader and the body prefetcher fetch messages by the dozen without ever
+         * answering one. A server that predates the property ignores the name and the field decodes
+         * as null, so this is asked unconditionally.
+         */
+        val REPLY_PROPERTIES = READER_PROPERTIES + "replyFrom"
+
         /** Fetches exactly the ids an earlier query produced, in one request. */
         fun byReference(
             accountId: AccountId,

@@ -15,8 +15,11 @@ import de.plmail.core.data.ScheduledSends
 import de.plmail.core.data.SendIdentity
 import de.plmail.core.data.SendQueue
 import de.plmail.core.data.StagedAttachment
+import de.plmail.core.data.including
+import de.plmail.core.data.replySender
 import de.plmail.core.database.AgendaRow
 import de.plmail.jmap.mail.DraftComposer
+import de.plmail.jmap.mail.Email
 import de.plmail.jmap.mail.EmailAddress
 import de.plmail.jmap.mail.Signatures
 import java.time.Instant
@@ -414,12 +417,14 @@ constructor(
                     return
                 }
 
-        // Answering from the account the message arrived in, which is almost
-        // always what is meant -- replying to a work mail from a private address
-        // is a mistake the composer should not make on the user's behalf.
+        // Answering from the address the mail was sent to, which the server
+        // names -- an alias, or an address at a catch-all domain that is in
+        // no list of identities and is added to the picker for this message.
+        // Failing that, from the account the message arrived in: replying to
+        // a work mail from a private address is a mistake the composer should
+        // not make on the user's behalf.
         val identity =
-            identities.firstOrNull { it.accountKey == request.accountKey }
-                ?: identities.firstOrNull()
+            answering(original, request.accountKey, identities)
                 ?: run {
                     _state.update { it.copy(error = ComposeError.NoIdentity, isLoading = false) }
                     return
@@ -432,8 +437,9 @@ constructor(
                     if (request.all) DraftComposer.ReplyMode.REPLY_ALL
                     else DraftComposer.ReplyMode.REPLY,
                 // Every address this user can send as, so reply-all does not
-                // copy them in on their own reply.
-                self = identities.map { it.email }.toSet(),
+                // copy them in on their own reply -- the one being answered
+                // from included, which for a catch-all address is in no list.
+                self = (identities + identity).map { it.email }.toSet(),
                 attribution = strings.attribution(original),
             )
 
@@ -473,9 +479,10 @@ constructor(
                     return
                 }
 
+        // The same sender a reply would have: a forward of mail that came in
+        // for an alias goes out from that alias, as it does in the browser.
         val identity =
-            identities.firstOrNull { it.accountKey == request.accountKey }
-                ?: identities.firstOrNull()
+            answering(original, request.accountKey, identities)
                 ?: run {
                     _state.update { it.copy(error = ComposeError.NoIdentity, isLoading = false) }
                     return
@@ -501,6 +508,28 @@ constructor(
                 isLoading = false,
             )
         }
+    }
+
+    /**
+     * Who a reply to, or a forward of, [original] is sent as — and makes sure the picker has a row
+     * for them.
+     *
+     * [Email.replySender] is the server's answer. The fallbacks under it are what this did before
+     * the server gave one, and still what happens against a plMail that does not: the first
+     * identity of the account the message is in, then the first of any.
+     */
+    private fun answering(
+        original: Email,
+        accountKey: String,
+        identities: List<SendIdentity>,
+    ): SendIdentity? {
+        val named = original.replySender(accountKey, identities)
+
+        if (named != null) _state.update { it.copy(identities = it.identities.including(named)) }
+
+        return named
+            ?: identities.firstOrNull { it.accountKey == accountKey }
+            ?: identities.firstOrNull()
     }
 
     /**
@@ -545,18 +574,23 @@ constructor(
     }
 
     private suspend fun startEdit(identities: List<SendIdentity>, request: ComposeRequest.Edit) {
-        val draft =
-            compose.loadDraft(request.accountKey, request.emailId)
+        val reopened =
+            compose.reopen(request.accountKey, request.emailId)
                 ?: run {
                     _state.update {
                         it.copy(error = ComposeError.OriginalUnavailable, isLoading = false)
                     }
                     return
                 }
+        val draft = reopened.draft
 
         _state.update {
             it.copy(
                 draft = draft,
+                // A draft on a catch-all address names an identity the list
+                // does not have; without its row the From line would read
+                // "unknown" over a draft that is perfectly sendable.
+                identities = it.identities.including(reopened.sender),
                 scheduled = liveSchedule(request.accountKey, request.emailId),
                 isLoading = false,
                 isSaved = true,
