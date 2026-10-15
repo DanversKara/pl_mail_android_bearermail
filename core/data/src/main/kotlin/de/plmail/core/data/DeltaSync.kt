@@ -365,6 +365,17 @@ constructor(
             val announcing = claim(accountKey, arrived)
 
             if (announcing.isNotEmpty()) announce.forEach { it.onNewMail(announcing) }
+
+            // BearerMail: mail read or moved on the web takes its notification
+            // off this phone. Not for anything announced in this same page —
+            // that notification is the one just posted.
+            val settled =
+                settledThreads(emails, inbox) - announcing.map { it.threadId }.toSet()
+            if (settled.isNotEmpty()) {
+                announce.forEach { listener ->
+                    runCatching { listener.onMailSettled(accountKey, settled) }
+                }
+            }
         }
 
         return count
