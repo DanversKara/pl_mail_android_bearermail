@@ -43,9 +43,9 @@ interface NewMailListener {
     suspend fun onNewMail(messages: List<NewMessage>)
 
     /**
-     * BearerMail: these conversations were dealt with somewhere else — read on the web or on another
-     * device, archived, or moved out of the inbox — so a notification still showing them is out of
-     * date. Default no-op, so a listener that never posts anything need not care.
+     * BearerMail: these conversations were dealt with somewhere else — read on the web or on
+     * another device, archived, or moved out of the inbox — so a notification still showing them is
+     * out of date. Default no-op, so a listener that never posts anything need not care.
      */
     suspend fun onMailSettled(accountKey: String, threadIds: Set<String>) {}
 }
@@ -53,10 +53,10 @@ interface NewMailListener {
 /**
  * BearerMail: the conversations in a synced page whose notification should go.
  *
- * A conversation counts as settled when every changed message of it in this page is read, or none of
- * them is in the inbox any more. One unread message still in the inbox keeps the notification, which
- * is the conservative direction: a notification left up one sync too long is a smaller mistake than
- * one taken away while there is still something new in it.
+ * A conversation counts as settled when every changed message of it in this page is read, or none
+ * of them is in the inbox any more. One unread message still in the inbox keeps the notification,
+ * which is the conservative direction: a notification left up one sync too long is a smaller
+ * mistake than one taken away while there is still something new in it.
  */
 internal fun settledThreads(
     emails: List<de.plmail.jmap.mail.Email>,

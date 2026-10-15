@@ -369,8 +369,7 @@ constructor(
             // BearerMail: mail read or moved on the web takes its notification
             // off this phone. Not for anything announced in this same page —
             // that notification is the one just posted.
-            val settled =
-                settledThreads(emails, inbox) - announcing.map { it.threadId }.toSet()
+            val settled = settledThreads(emails, inbox) - announcing.map { it.threadId }.toSet()
             if (settled.isNotEmpty()) {
                 announce.forEach { listener ->
                     runCatching { listener.onMailSettled(accountKey, settled) }
