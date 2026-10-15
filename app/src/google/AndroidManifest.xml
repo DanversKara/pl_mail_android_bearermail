@@ -58,6 +58,20 @@
             android:value="false"
             tools:node="replace" />
 
+        <!--
+          BearerMail: firebase-messaging refuses register() once the app has
+          unregistered (switching away from Firebase, or the server turning it
+          off) unless this is set: "API disabled. Please enable it by adding
+          firebase_messaging_installation_id_enabled". Without it a phone that
+          once left Firebase could never come back to it short of clearing the
+          app's storage. Auto-init above stays off, so nothing is registered
+          with Google until somebody picks Firebase in settings.
+        -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true"
+            tools:node="replace" />
+
         <meta-data
             android:name="firebase_analytics_collection_enabled"
             android:value="false"
