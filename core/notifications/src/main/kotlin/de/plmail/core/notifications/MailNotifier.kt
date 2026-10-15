@@ -66,6 +66,23 @@ constructor(
         messages.groupBy { it.accountKey }.forEach { (accountKey, forAccount) -> post(forAccount) }
     }
 
+    /**
+     * BearerMail: takes down the notifications of conversations dealt with elsewhere, then the
+     * account's summary if nothing is left under it — the same tidy-up the shade's own Archive and
+     * Mark read do.
+     */
+    override suspend fun onMailSettled(accountKey: String, threadIds: Set<String>) {
+        if (threadIds.isEmpty()) return
+
+        val ids = threadIds.map { "$accountKey#$it".hashCode() }.toSet()
+        val showing = childrenOf(groupKey(accountKey)).toSet()
+        val toCancel = ids intersect showing
+        if (toCancel.isEmpty()) return
+
+        toCancel.forEach { manager.cancel(it) }
+        tidySummary(context, manager, accountKey)
+    }
+
     private fun post(messages: List<NewMessage>) {
         val first = messages.first()
         val channelId = channels.channelFor(first.accountKey, first.accountName)
