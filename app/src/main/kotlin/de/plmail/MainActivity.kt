@@ -39,6 +39,7 @@ import de.plmail.feature.compose.ScheduledSendsBar
 import de.plmail.feature.compose.SendStatusHost
 import de.plmail.feature.compose.ShareIntake
 import de.plmail.feature.compose.SharedMessage
+import de.plmail.feature.contacts.ContactsScreen
 import de.plmail.feature.drive.DriveScreen
 import de.plmail.feature.mail.MailShell
 import de.plmail.feature.mail.ThreadTarget
@@ -254,6 +255,7 @@ private fun PlMailApp(
     val connection by viewModel.connection.collectAsStateWithLifecycle()
     val hasCalendar by viewModel.hasCalendar.collectAsStateWithLifecycle()
     val hasDrive by viewModel.hasDrive.collectAsStateWithLifecycle()
+    val hasContacts by viewModel.hasContacts.collectAsStateWithLifecycle()
 
     // Search and compose live here rather than inside the mail shell because
     // they are their own feature modules: :feature:mail depending on either
@@ -273,6 +275,7 @@ private fun PlMailApp(
     var isManagingAccounts by rememberSaveable { mutableStateOf(false) }
     var isCalendaring by rememberSaveable { mutableStateOf(false) }
     var isDriving by rememberSaveable { mutableStateOf(false) }
+    var isContacting by rememberSaveable { mutableStateOf(false) }
     var isMakingAlias by rememberSaveable { mutableStateOf(false) }
     // BearerMail: an event editor the calendar should open on arrival — "Add to
     // calendar" from a plan found in a mail.
@@ -404,6 +407,7 @@ private fun PlMailApp(
                             isManagingAccounts -> Screen.ACCOUNTS
                             isCalendaring -> Screen.CALENDAR
                             isDriving -> Screen.DRIVE
+                            isContacting -> Screen.CONTACTS
                             isAdjustingAppearance -> Screen.APPEARANCE
                             isSettingGestures -> Screen.GESTURES
                             isSettingLock -> Screen.APP_LOCK
@@ -426,6 +430,7 @@ private fun PlMailApp(
                             Screen.ACCOUNTS -> isManagingAccounts = false
                             Screen.CALENDAR -> isCalendaring = false
                             Screen.DRIVE -> isDriving = false
+                            Screen.CONTACTS -> isContacting = false
                             Screen.APPEARANCE -> isAdjustingAppearance = false
                             Screen.GESTURES -> isSettingGestures = false
                             Screen.APP_LOCK -> isSettingLock = false
@@ -460,6 +465,12 @@ private fun PlMailApp(
                             incoming = driveUpload,
                             onIncomingHandled = onDriveUploadHandled,
                         )
+                    } else if (screen == Screen.CONTACTS) {
+                        // The contacts module owns its own detail, editor and
+                        // duplicates screens and its own back between them;
+                        // what :app decides is only whether contacts or mail
+                        // is on screen, the same way it does for the calendar.
+                        ContactsScreen(onBack = { isContacting = false })
                     } else if (screen == Screen.APPEARANCE) {
                         AppearanceScreen(onBack = { isAdjustingAppearance = false })
                     } else if (screen == Screen.GESTURES) {
@@ -511,6 +522,10 @@ private fun PlMailApp(
                             // empty one.
                             onCalendar = if (hasCalendar) ({ isCalendaring = true }) else null,
                             onDrive = if (hasDrive) ({ isDriving = true }) else null,
+                            // BearerMail Contacts: null hides the drawer entry
+                            // outright, which is what an instance publishing no
+                            // contacts capability has to look like.
+                            onContacts = if (hasContacts) ({ isContacting = true }) else null,
                             onNewAlias = { isMakingAlias = true },
                             onAddToCalendar =
                                 if (hasCalendar) {
@@ -617,6 +632,7 @@ private enum class Screen {
     MAIL,
     CALENDAR,
     DRIVE,
+    CONTACTS,
     SEARCH,
     DIAGNOSTICS,
     PUSH,

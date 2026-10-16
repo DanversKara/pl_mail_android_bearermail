@@ -56,6 +56,8 @@ fun MailShell(
     onCalendar: (() -> Unit)?,
     /** BearerMail Drive. Null where the server publishes no Drive capability. */
     onDrive: (() -> Unit)? = null,
+    /** BearerMail Contacts. Null where the server publishes no contacts capability. */
+    onContacts: (() -> Unit)? = null,
     /** BearerMail: opens the "new alias" dialog. */
     onNewAlias: (() -> Unit)? = null,
     /** BearerMail: opens the app lock (PIN) settings. */
@@ -173,6 +175,13 @@ fun MailShell(
                     },
                 onDrive =
                     onDrive?.let { open ->
+                        {
+                            scope.launch { drawer.close() }
+                            open()
+                        }
+                    },
+                onContacts =
+                    onContacts?.let { open ->
                         {
                             scope.launch { drawer.close() }
                             open()

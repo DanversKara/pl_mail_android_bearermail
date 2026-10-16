@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Forum
@@ -163,6 +164,8 @@ fun LabelSidebar(
     onAccounts: () -> Unit,
     modifier: Modifier = Modifier,
     onDrive: (() -> Unit)? = null,
+    /** BearerMail Contacts. Null where the server publishes no contacts capability. */
+    onContacts: (() -> Unit)? = null,
     onNewAlias: (() -> Unit)? = null,
     onAppLock: (() -> Unit)? = null,
     onCheckUpdates: (() -> Unit)? = null,
@@ -186,6 +189,7 @@ fun LabelSidebar(
             onImportantChange = onImportantChange,
             onCalendar = onCalendar,
             onDrive = onDrive,
+            onContacts = onContacts,
             onNewAlias = onNewAlias,
             onAppLock = onAppLock,
             onCheckUpdates = onCheckUpdates,
@@ -214,6 +218,7 @@ private fun SidebarContent(
     onImportantChange: (Label, Boolean) -> Unit,
     onCalendar: (() -> Unit)?,
     onDrive: (() -> Unit)?,
+    onContacts: (() -> Unit)?,
     onNewAlias: (() -> Unit)?,
     onAppLock: (() -> Unit)?,
     onCheckUpdates: (() -> Unit)?,
@@ -370,6 +375,18 @@ private fun SidebarContent(
                     onClick = open,
                     icon = Icons.Outlined.Cloud,
                     text = stringResource(R.string.drive),
+                )
+            }
+
+            // BearerMail Contacts: a place, like the calendar and Drive, so it
+            // sits beside them. Null (no contacts capability) hides the entry
+            // outright.
+            onContacts?.let { open ->
+                SidebarRow(
+                    selected = false,
+                    onClick = open,
+                    icon = Icons.Outlined.Contacts,
+                    text = stringResource(R.string.contacts),
                 )
             }
 

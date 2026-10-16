@@ -67,6 +67,7 @@
     <string name="sidebar_important_empty">Tippe auf einen Stern, um ein Label hier oben zu behalten.</string>
     <string name="calendar">Kalender</string>
     <string name="drive">Drive</string>
+    <string name="contacts">Kontakte</string>
     <string name="new_alias">Neuer Alias</string>
     <string name="app_lock">App-Sperre</string>
     <string name="check_updates">Nach Updates suchen</string>
