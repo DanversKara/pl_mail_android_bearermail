@@ -2,6 +2,8 @@ name: Diagnose
 on:
   push:
     branches: [diag/build-errors]
+permissions:
+  contents: write
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -10,20 +12,22 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build and capture errors
+      - name: Format
+        run: |
+          ./gradlew spotlessApply --console=plain > fmt.log 2>&1 || tail -30 fmt.log
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -qam "Apply spotless formatting [skip ci]" && git push
+          fi
+      - name: Build and capture
         run: |
           set +e
           ./gradlew build --continue --console=plain > build.log 2>&1
           code=$?
-          {
-            grep -E "^(e: |w: .*(ktfmt)|.*Test.*FAILED|.*Execution failed for|.*Lint found|.*\.kt:[0-9]+:[0-9]+: |.*Error: |.*lint-results)" build.log | grep -v ' SKIPPED' | head -40; grep -A6 'What went wrong' build.log | head -30
-          } > errs.txt
-          msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' errs.txt | cut -c1-6000)
+          find . -path '*lint_intermediate_text_report*' -name 'lint-results-*.txt' -exec cat {} + > lint.txt 2>/dev/null
+          grep -E '^(e: |.*Test.*FAILED|.*Execution failed for)' build.log | head -20 > errs.txt
+          grep -E '^/home.*(Error|Warning):|^Error:|\[[A-Za-z]+\]$' lint.txt | sed 's#/home/runner/work/[^/]*/[^/]*/##' | sort -u | head -40 >> errs.txt
+          grep -B2 -A12 'spotlessKotlinCheck' build.log | head -30 >> errs.txt
+          msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' errs.txt | cut -c1-9000)
           echo "::error title=GRADLE ERRORS::$msg"
-          ./gradlew :app:dependencies --configuration fossDebugCompileClasspath --console=plain 2>&1 | grep -i -E "glance|datastore" | sort -u | head -20 > deps.txt
-          m2=$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' deps.txt | cut -c1-3000)
-          echo "::error title=GLANCE DEPS::$m2"
-          grep -E '^e: ' build.log | sed 's#file:///home/runner/work/pl_mail_android_bearermail/pl_mail_android_bearermail/##' | head -12 > e12.txt
-          m3=$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' e12.txt | cut -c1-4000)
-          echo "::error title=FIRST ERRORS::$m3"
           exit $code
