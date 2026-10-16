@@ -50,14 +50,15 @@ sealed interface ContactsEvent {
     data class Message(val text: String) : ContactsEvent
 
     /**
-     * A merge completed. [mergeRecordId] is the undo handle — the screen offers it in the
-     * snackbar without a second round trip.
+     * A merge completed. [mergeRecordId] is the undo handle — the screen offers it in the snackbar
+     * without a second round trip.
      */
     data class Merged(val mergeRecordId: String, val keptName: String) : ContactsEvent
 }
 
 @HiltViewModel
-class ContactsViewModel @Inject constructor(private val contacts: ContactsRepository) : ViewModel() {
+class ContactsViewModel @Inject constructor(private val contacts: ContactsRepository) :
+    ViewModel() {
 
     private val _state = MutableStateFlow(ContactsUiState())
     val state: StateFlow<ContactsUiState> = _state.asStateFlow()
@@ -94,15 +95,14 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
     fun setQuery(query: String) {
         _state.update { it.copy(query = query) }
         searchJob?.cancel()
-        searchJob =
-            viewModelScope.launch {
-                delay(SEARCH_DEBOUNCE_MS)
-                runCatching { contacts.list(filter()) }
-                    .onSuccess { list ->
-                        _state.update { it.copy(contacts = list, isLoading = false, loadError = null) }
-                    }
-                    .onFailure { e -> _state.update { it.copy(loadError = readable(e)) } }
-            }
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            runCatching { contacts.list(filter()) }
+                .onSuccess { list ->
+                    _state.update { it.copy(contacts = list, isLoading = false, loadError = null) }
+                }
+                .onFailure { e -> _state.update { it.copy(loadError = readable(e)) } }
+        }
     }
 
     private fun filter(): ContactFilter? =
@@ -113,8 +113,7 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
     fun openDetail(id: ContactId) {
         viewModelScope.launch {
             val cached = _state.value.contacts.firstOrNull { it.id == id }
-            val contact =
-                cached ?: runCatching { contacts.get(id) }.getOrNull()
+            val contact = cached ?: runCatching { contacts.get(id) }.getOrNull()
             if (contact == null) {
                 _events.send(ContactsEvent.Message("That contact is no longer on the server."))
                 refresh()
@@ -136,7 +135,12 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
                 runCatching { contacts.photoBytes(contact) }
                     .onSuccess { bytes ->
                         _state.update { s ->
-                            s.copy(detail = s.detail?.takeIf { d -> d.contact.id == id }?.copy(photo = bytes))
+                            s.copy(
+                                detail =
+                                    s.detail
+                                        ?.takeIf { d -> d.contact.id == id }
+                                        ?.copy(photo = bytes)
+                            )
                         }
                     }
             }
@@ -146,10 +150,12 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
                         _state.update { s ->
                             s.copy(
                                 detail =
-                                    s.detail?.takeIf { d -> d.contact.id == id }?.copy(
-                                        referenceEmails = emails,
-                                        referencesLoading = false,
-                                    )
+                                    s.detail
+                                        ?.takeIf { d -> d.contact.id == id }
+                                        ?.copy(
+                                            referenceEmails = emails,
+                                            referencesLoading = false,
+                                        )
                             )
                         }
                     }
@@ -157,10 +163,12 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
                         _state.update { s ->
                             s.copy(
                                 detail =
-                                    s.detail?.takeIf { d -> d.contact.id == id }?.copy(
-                                        referencesLoading = false,
-                                        referencesError = readable(e),
-                                    )
+                                    s.detail
+                                        ?.takeIf { d -> d.contact.id == id }
+                                        ?.copy(
+                                            referencesLoading = false,
+                                            referencesError = readable(e),
+                                        )
                             )
                         }
                     }
@@ -187,7 +195,12 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
         }
     }
 
-    fun updateContact(id: ContactId, draft: ContactDraft, photo: NewContactPhoto?, removePhoto: Boolean) {
+    fun updateContact(
+        id: ContactId,
+        draft: ContactDraft,
+        photo: NewContactPhoto?,
+        removePhoto: Boolean,
+    ) {
         viewModelScope.launch {
             val withPhoto =
                 when {
@@ -228,7 +241,9 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
                     _state.update { it.copy(duplicates = pairs, duplicatesLoading = false) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(duplicatesLoading = false, duplicatesError = readable(e)) }
+                    _state.update {
+                        it.copy(duplicatesLoading = false, duplicatesError = readable(e))
+                    }
                 }
         }
     }
@@ -266,8 +281,9 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
     // ------------------------------------------------------------------ photos for rows
 
     /** One contact's photo bytes, for list rows — the repository caches them in memory. */
-    suspend fun photoFor(contact: ContactObject): ByteArray? =
-        runCatching { contacts.photoBytes(contact) }.getOrNull()
+    suspend fun photoFor(contact: ContactObject): ByteArray? = runCatching {
+        contacts.photoBytes(contact)
+    }.getOrNull()
 
     // ------------------------------------------------------------------ errors
 

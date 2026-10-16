@@ -12,8 +12,8 @@ import kotlinx.serialization.json.put
  * One address-book entry, as `Contact/get` returns it.
  *
  * Every property but [id] is optional for the same reason `CalendarEvent`'s are: a `properties`
- * filter answers only what was asked for. A round trip through this type is lossy and must never
- * be written back as a create — the editor builds a [ContactDraft] instead.
+ * filter answers only what was asked for. A round trip through this type is lossy and must never be
+ * written back as a create — the editor builds a [ContactDraft] instead.
  */
 @Serializable
 data class ContactObject(
@@ -40,7 +40,8 @@ data class ContactObject(
     val updatedAt: String? = null,
 ) {
     /** The address-book's own primary email, or the first email, for list rows and chips. */
-    fun primaryEmail(): ContactEmailEntry? = emails.firstOrNull { it.isPrimary } ?: emails.firstOrNull()
+    fun primaryEmail(): ContactEmailEntry? =
+        emails.firstOrNull { it.isPrimary } ?: emails.firstOrNull()
 
     /** What a list row draws when there is no photo: initials, never blank. */
     fun initials(): String {
@@ -113,8 +114,8 @@ data class DuplicatePair(
     /** Human-readable, e.g. "same email", "Jr./Sr. — check carefully". */
     val reasons: List<String> = emptyList(),
     /**
-     * True when the server considers the merge safe to do without review. Shared inboxes
-     * (`info@`, `support@`, `noreply@`) are never auto-mergeable, however high the confidence.
+     * True when the server considers the merge safe to do without review. Shared inboxes (`info@`,
+     * `support@`, `noreply@`) are never auto-mergeable, however high the confidence.
      */
     val autoMergeable: Boolean = false,
 )
@@ -124,8 +125,8 @@ data class DuplicatePair(
  *
  * `Contact/set` update is a patch, but the editor always knows the whole contact, so the patch it
  * sends is the whole contact minus the id — with emails/phones/addresses replace-all when present,
- * which they always are from this form. Carrying the whole draft means a caller cannot
- * accidentally send half a contact.
+ * which they always are from this form. Carrying the whole draft means a caller cannot accidentally
+ * send half a contact.
  */
 data class ContactDraft(
     val displayName: String,
@@ -249,6 +250,8 @@ data class ContactDraft(
  */
 sealed interface PhotoChange {
     data object Unchanged : PhotoChange
+
     data class New(val blobId: String) : PhotoChange
+
     data object Removed : PhotoChange
 }

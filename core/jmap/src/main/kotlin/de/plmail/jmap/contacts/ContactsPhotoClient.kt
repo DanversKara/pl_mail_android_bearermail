@@ -15,14 +15,14 @@ import okio.Buffer
 /**
  * Contact photos: upload and download.
  *
- * The JMAP methods name photos by URL; the bytes travel outside JMAP. Upload is a multipart POST
- * to the `apiUrl` the CONTACTS capability advertises (`…/jmap/contacts/photo`), answering
- * `{"blobId": …}`; the blob id is then referenced from `Contact/set` as `photoBlobId`, which the
- * server consumes once. Download is an authorized GET of the `photoUrl` a `Contact/get` returned.
+ * The JMAP methods name photos by URL; the bytes travel outside JMAP. Upload is a multipart POST to
+ * the `apiUrl` the CONTACTS capability advertises (`…/jmap/contacts/photo`), answering `{"blobId":
+ * …}`; the blob id is then referenced from `Contact/set` as `photoBlobId`, which the server
+ * consumes once. Download is an authorized GET of the `photoUrl` a `Contact/get` returned.
  *
  * Every call goes through [JmapClient.authorized], which attaches the same credential the mail
- * calls use and refuses to send it anywhere but this server's own origin — the photo URL must
- * never be handed to an image loader directly.
+ * calls use and refuses to send it anywhere but this server's own origin — the photo URL must never
+ * be handed to an image loader directly.
  */
 class ContactsPhotoClient(private val client: JmapClient) {
 
@@ -71,7 +71,8 @@ class ContactsPhotoClient(private val client: JmapClient) {
                     body = buffer.readByteArray(),
                 )
             )
-        if (response.status == 401) throw JmapError.NotAuthenticated("The server refused the photo upload.")
+        if (response.status == 401)
+            throw JmapError.NotAuthenticated("The server refused the photo upload.")
         if (!response.isSuccess) {
             throw JmapError.RequestRejected(
                 type = "photoUpload",
@@ -80,8 +81,12 @@ class ContactsPhotoClient(private val client: JmapClient) {
             )
         }
 
-        return runCatching { json.decodeFromString<PhotoUploadResult>(response.bodyAsText()).blobId }
-            .getOrElse { throw JmapError.MalformedResponse("The photo upload answered unexpectedly.") }
+        return runCatching {
+                json.decodeFromString<PhotoUploadResult>(response.bodyAsText()).blobId
+            }
+            .getOrElse {
+                throw JmapError.MalformedResponse("The photo upload answered unexpectedly.")
+            }
     }
 
     /**
@@ -94,7 +99,8 @@ class ContactsPhotoClient(private val client: JmapClient) {
         if (photoUrl.isNullOrBlank()) return null
 
         val response = client.authorized(HttpRequest(url = photoUrl, method = "GET"))
-        if (response.status == 401) throw JmapError.NotAuthenticated("The server refused the photo.")
+        if (response.status == 401)
+            throw JmapError.NotAuthenticated("The server refused the photo.")
         if (!response.isSuccess) {
             throw JmapError.RequestRejected(
                 type = "photoDownload",
@@ -113,9 +119,9 @@ class ContactsPhotoClient(private val client: JmapClient) {
     }
 
     /**
-     * The photo endpoint, read from the CONTACTS capability the way DriveClient
-     * reads its own — the session's `apiUrl` is the JMAP API endpoint
-     * (`…/jmap/api`), not the path prefix the photo routes live under.
+     * The photo endpoint, read from the CONTACTS capability the way DriveClient reads its own — the
+     * session's `apiUrl` is the JMAP API endpoint (`…/jmap/api`), not the path prefix the photo
+     * routes live under.
      */
     private suspend fun photoEndpoint(): String = baseUrl() + "/photo"
 
@@ -143,7 +149,4 @@ class ContactsPhotoClient(private val client: JmapClient) {
     }
 }
 
-@Serializable
-private data class PhotoUploadResult(
-    val blobId: String = "",
-)
+@Serializable private data class PhotoUploadResult(val blobId: String = "")

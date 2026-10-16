@@ -57,8 +57,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * One contact: profile header, details, notes, and the REFERENCE EMAILS section — every
- * non-deleted message to or from them (inbox, sent, drafts, trash, labels, starred), newest first.
+ * One contact: profile header, details, notes, and the REFERENCE EMAILS section — every non-deleted
+ * message to or from them (inbox, sent, drafts, trash, labels, starred), newest first.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +81,10 @@ fun ContactDetailScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.contacts_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.contacts_back),
+                        )
                     }
                 },
                 title = { Text(detail?.contact?.displayName ?: "") },
@@ -172,9 +175,10 @@ private fun ContactDetailContent(
                 )
                 val sub =
                     listOfNotNull(
-                        contact.jobTitle?.takeIf { it.isNotBlank() },
-                        contact.company?.takeIf { it.isNotBlank() },
-                    ).joinToString(" · ")
+                            contact.jobTitle?.takeIf { it.isNotBlank() },
+                            contact.company?.takeIf { it.isNotBlank() },
+                        )
+                        .joinToString(" · ")
                 if (sub.isNotEmpty()) {
                     Text(
                         text = sub,
@@ -203,11 +207,13 @@ private fun ContactDetailContent(
             contact.addresses.forEach { AddressRow(it) }
         }
 
-        contact.notes?.takeIf { it.isNotBlank() }?.let { notes ->
-            DetailSection(title = null) {
-                Text(text = notes, style = MaterialTheme.typography.bodyLarge)
+        contact.notes
+            ?.takeIf { it.isNotBlank() }
+            ?.let { notes ->
+                DetailSection(title = null) {
+                    Text(text = notes, style = MaterialTheme.typography.bodyLarge)
+                }
             }
-        }
 
         // REFERENCE EMAILS — every non-deleted message tied to this contact.
         DetailSection(title = stringResource(R.string.contacts_reference_emails)) {
@@ -222,7 +228,8 @@ private fun ContactDetailContent(
                 }
                 detail.referencesError != null -> {
                     Text(
-                        text = stringResource(R.string.contacts_failed, detail.referencesError ?: ""),
+                        text =
+                            stringResource(R.string.contacts_failed, detail.referencesError ?: ""),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -346,9 +353,10 @@ private fun ReferenceEmailRow(email: ReferenceEmail) {
             val from = email.from
             val fromLine =
                 listOfNotNull(
-                    from?.name?.takeIf { it.isNotBlank() },
-                    from?.email?.takeIf { it.isNotBlank() },
-                ).joinToString(" <")
+                        from?.name?.takeIf { it.isNotBlank() },
+                        from?.email?.takeIf { it.isNotBlank() },
+                    )
+                    .joinToString(" <")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(onClick = {}, label = { Text(email.mailbox) })
                 if (fromLine.isNotEmpty()) {
@@ -391,7 +399,7 @@ private fun ReferenceEmailRow(email: ReferenceEmail) {
 }
 
 /** A short, forgiving date — the server sends ISO 8601; anything else shows as-is. */
-private fun shortDate(iso: String): String =
-    runCatching {
-        OffsetDateTime.parse(iso).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-    }.getOrDefault(iso)
+private fun shortDate(iso: String): String = runCatching {
+    OffsetDateTime.parse(iso).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+}
+    .getOrDefault(iso)

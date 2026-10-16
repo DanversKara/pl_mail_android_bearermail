@@ -43,8 +43,8 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 
 /**
- * The month grid on the home screen: title, previous/next month, a + shortcut, and one cell per
- * day with a dot per event in its calendar's color.
+ * The month grid on the home screen: title, previous/next month, a + shortcut, and one cell per day
+ * with a dot per event in its calendar's color.
  *
  * The shown month is per widget instance, kept in Glance preferences — two month widgets can look
  * at two different months, and a reboot keeps them where they were. The grid reads the calendar
@@ -71,8 +71,8 @@ private fun storedMonth(prefs: Preferences): YearMonth =
         ?: YearMonth.now()
 
 /**
- * Steps the widget's own month forward or back. Public with no constructor arguments because
- * Glance instantiates the callback itself when the button is tapped.
+ * Steps the widget's own month forward or back. Public with no constructor arguments because Glance
+ * instantiates the callback itself when the button is tapped.
  */
 class MonthShiftAction : ActionCallback {
     override suspend fun onAction(
@@ -114,13 +114,9 @@ private fun MonthContent(
     val today = LocalDate.now()
     val byDate = rows.groupBy { it.date }
     val prevMonth =
-        actionRunCallback<MonthShiftAction>(
-            actionParametersOf(MonthShiftAction.DeltaKey to -1)
-        )
+        actionRunCallback<MonthShiftAction>(actionParametersOf(MonthShiftAction.DeltaKey to -1))
     val nextMonth =
-        actionRunCallback<MonthShiftAction>(
-            actionParametersOf(MonthShiftAction.DeltaKey to 1)
-        )
+        actionRunCallback<MonthShiftAction>(actionParametersOf(MonthShiftAction.DeltaKey to 1))
 
     val offset = (month.atDay(1).dayOfWeek.value - firstDayOfWeek.value + 7) % 7
     val cells: List<LocalDate?> =
@@ -175,11 +171,12 @@ private fun MonthContent(
                 Text(
                     text = day.getDisplayName(JavaTextStyle.NARROW, locale),
                     modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(
-                        color = WidgetColors.muted,
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center,
-                    ),
+                    style =
+                        TextStyle(
+                            color = WidgetColors.muted,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                        ),
                 )
                 day = day.plus(1)
             }
@@ -199,18 +196,18 @@ private fun MonthContent(
                         val numberColor = if (isToday) WidgetColors.today else WidgetColors.onCard
                         val numberWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
                         Column(
-                            modifier =
-                                GlanceModifier.defaultWeight().clickable(openCalendar),
+                            modifier = GlanceModifier.defaultWeight().clickable(openCalendar),
                             horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
                         ) {
                             Text(
                                 text = date.dayOfMonth.toString(),
-                                style = TextStyle(
-                                    color = numberColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = numberWeight,
-                                    textAlign = TextAlign.Center,
-                                ),
+                                style =
+                                    TextStyle(
+                                        color = numberColor,
+                                        fontSize = 12.sp,
+                                        fontWeight = numberWeight,
+                                        textAlign = TextAlign.Center,
+                                    ),
                             )
                             Row(
                                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
@@ -219,10 +216,11 @@ private fun MonthContent(
                                 events.take(3).forEach { row ->
                                     Text(
                                         text = "•",
-                                        style = TextStyle(
-                                            color = row.glanceColor(),
-                                            fontSize = 8.sp,
-                                        ),
+                                        style =
+                                            TextStyle(
+                                                color = row.glanceColor(),
+                                                fontSize = 8.sp,
+                                            ),
                                     )
                                 }
                             }

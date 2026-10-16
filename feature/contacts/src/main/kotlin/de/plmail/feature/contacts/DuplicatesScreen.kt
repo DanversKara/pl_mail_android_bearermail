@@ -54,8 +54,8 @@ import de.plmail.jmap.contacts.DuplicatePair
 import de.plmail.jmap.protocol.ContactId
 
 /**
- * The duplicate finder: server-computed candidate pairs with confidence and human-readable
- * reasons, a keep-picker per pair, merge, and a 90-day undo.
+ * The duplicate finder: server-computed candidate pairs with confidence and human-readable reasons,
+ * a keep-picker per pair, merge, and a 90-day undo.
  *
  * The pairs are the server's — same normalized email/phone, name+company, fuzzy matches — because
  * the normalization the tiers depend on lives server-side. The client draws them and asks which
@@ -81,7 +81,10 @@ fun DuplicatesScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.contacts_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.contacts_back),
+                        )
                     }
                 },
                 title = { Text(stringResource(R.string.contacts_duplicates)) },
@@ -126,7 +129,8 @@ fun DuplicatesScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(state.duplicates, key = { it.ids.joinToString { id -> id.value } }) { pair ->
+                    items(state.duplicates, key = { it.ids.joinToString { id -> id.value } }) { pair
+                        ->
                         DuplicatePairCard(
                             pair = pair,
                             contacts = state.contacts,
@@ -178,7 +182,8 @@ fun DuplicatesScreen(
                 is ContactsEvent.Merged -> {
                     val result =
                         snackbars.showSnackbar(
-                            message = context.getString(R.string.contacts_merged_into, event.keptName),
+                            message =
+                                context.getString(R.string.contacts_merged_into, event.keptName),
                             actionLabel = context.getString(R.string.contacts_undo),
                         )
                     if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
@@ -200,13 +205,15 @@ private fun DuplicatePairCard(
 ) {
     // Default keep: the most complete contact — the one with a photo wins ties, then the one
     // with more filled fields. The user can still pick the other.
-    var keepId by remember(pair) {
-        mutableStateOf(
-            pair.ids.mapNotNull { id -> contacts.firstOrNull { it.id == id } }
-                .maxByOrNull { (if (it.photoUrl != null) 1000 else 0) + completeness(it) }
-                ?.id
-        )
-    }
+    var keepId by
+        remember(pair) {
+            mutableStateOf(
+                pair.ids
+                    .mapNotNull { id -> contacts.firstOrNull { it.id == id } }
+                    .maxByOrNull { (if (it.photoUrl != null) 1000 else 0) + completeness(it) }
+                    ?.id
+            )
+        }
 
     Card(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -314,9 +321,10 @@ private fun DuplicateCandidateRow(
             Text(text = contact.displayName, style = MaterialTheme.typography.titleSmall)
             val sub =
                 listOfNotNull(
-                    contact.company?.takeIf { it.isNotBlank() },
-                    contact.primaryEmail()?.email?.takeIf { it.isNotBlank() },
-                ).joinToString(" · ")
+                        contact.company?.takeIf { it.isNotBlank() },
+                        contact.primaryEmail()?.email?.takeIf { it.isNotBlank() },
+                    )
+                    .joinToString(" · ")
             if (sub.isNotEmpty()) {
                 Text(
                     text = sub,

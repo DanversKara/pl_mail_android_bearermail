@@ -7,8 +7,8 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
  * Re-renders every placed calendar widget from the current cache.
  *
  * Called after a calendar sync rewrites the cache (via [CalendarSyncedReceiver]) and never on a
- * timer of our own — the appwidget-provider XMLs carry an `updatePeriodMillis` for the rest, so
- * an agenda left overnight still rolls "today" forward without the app being open.
+ * timer of our own — the appwidget-provider XMLs carry an `updatePeriodMillis` for the rest, so an
+ * agenda left overnight still rolls "today" forward without the app being open.
  */
 object CalendarWidgetUpdater {
 

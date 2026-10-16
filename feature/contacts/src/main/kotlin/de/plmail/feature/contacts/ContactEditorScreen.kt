@@ -57,7 +57,6 @@ import de.plmail.jmap.contacts.ContactDraft
 import de.plmail.jmap.contacts.ContactEmailEntry
 import de.plmail.jmap.contacts.ContactObject
 import de.plmail.jmap.contacts.ContactPhoneEntry
-import de.plmail.jmap.protocol.ContactId
 import kotlinx.coroutines.launch
 
 /**
@@ -91,8 +90,7 @@ class FormAddress(
     var postcode by mutableStateOf(postcode)
     var country by mutableStateOf(country)
 
-    fun isBlank(): Boolean =
-        listOf(street, city, region, postcode, country).all { it.isBlank() }
+    fun isBlank(): Boolean = listOf(street, city, region, postcode, country).all { it.isBlank() }
 }
 
 /**
@@ -111,19 +109,30 @@ class ContactFormState(contact: ContactObject?) {
     var notes by mutableStateOf(contact?.notes.orEmpty())
     var tags by mutableStateOf(contact?.tags?.joinToString(", ").orEmpty())
 
-    val emails = mutableStateListOf<FormEntry>().also { list ->
-        contact?.emails?.forEach { list += FormEntry(it.email, it.label, it.isPrimary) }
-        if (list.isEmpty()) list += FormEntry()
-    }
-    val phones = mutableStateListOf<FormEntry>().also { list ->
-        contact?.phones?.forEach { list += FormEntry(it.phone, it.label, it.isPrimary) }
-        if (list.isEmpty()) list += FormEntry()
-    }
-    val addresses = mutableStateListOf<FormAddress>().also { list ->
-        contact?.addresses?.forEach {
-            list += FormAddress(it.label, it.street.orEmpty(), it.city.orEmpty(), it.region.orEmpty(), it.postcode.orEmpty(), it.country.orEmpty())
+    val emails =
+        mutableStateListOf<FormEntry>().also { list ->
+            contact?.emails?.forEach { list += FormEntry(it.email, it.label, it.isPrimary) }
+            if (list.isEmpty()) list += FormEntry()
         }
-    }
+    val phones =
+        mutableStateListOf<FormEntry>().also { list ->
+            contact?.phones?.forEach { list += FormEntry(it.phone, it.label, it.isPrimary) }
+            if (list.isEmpty()) list += FormEntry()
+        }
+    val addresses =
+        mutableStateListOf<FormAddress>().also { list ->
+            contact?.addresses?.forEach {
+                list +=
+                    FormAddress(
+                        it.label,
+                        it.street.orEmpty(),
+                        it.city.orEmpty(),
+                        it.region.orEmpty(),
+                        it.postcode.orEmpty(),
+                        it.country.orEmpty(),
+                    )
+            }
+        }
 
     var nameError by mutableStateOf(false)
 
@@ -131,15 +140,13 @@ class ContactFormState(contact: ContactObject?) {
         nameError = displayName.isBlank()
         if (nameError) return null
 
-        fun List<FormEntry>.toEmailEntries() =
-            filter { it.value.isNotBlank() }
-                .map { ContactEmailEntry(it.value.trim(), it.label, it.isPrimary) }
-                .demoteExtraPrimaries()
+        fun List<FormEntry>.toEmailEntries() = filter {
+            it.value.isNotBlank()
+        }.map { ContactEmailEntry(it.value.trim(), it.label, it.isPrimary) }.demoteExtraPrimaries()
 
-        fun List<FormEntry>.toPhoneEntries() =
-            filter { it.value.isNotBlank() }
-                .map { ContactPhoneEntry(it.value.trim(), it.label, it.isPrimary) }
-                .demoteExtraPrimaries()
+        fun List<FormEntry>.toPhoneEntries() = filter {
+            it.value.isNotBlank()
+        }.map { ContactPhoneEntry(it.value.trim(), it.label, it.isPrimary) }.demoteExtraPrimaries()
 
         return ContactDraft(
             displayName = displayName.trim(),
@@ -153,16 +160,18 @@ class ContactFormState(contact: ContactObject?) {
             emails = emails.toEmailEntries(),
             phones = phones.toPhoneEntries(),
             addresses =
-                addresses.filter { !it.isBlank() }.map {
-                    ContactAddressEntry(
-                        label = it.label,
-                        street = it.street.trim().ifEmpty { null },
-                        city = it.city.trim().ifEmpty { null },
-                        region = it.region.trim().ifEmpty { null },
-                        postcode = it.postcode.trim().ifEmpty { null },
-                        country = it.country.trim().ifEmpty { null },
-                    )
-                },
+                addresses
+                    .filter { !it.isBlank() }
+                    .map {
+                        ContactAddressEntry(
+                            label = it.label,
+                            street = it.street.trim().ifEmpty { null },
+                            city = it.city.trim().ifEmpty { null },
+                            region = it.region.trim().ifEmpty { null },
+                            postcode = it.postcode.trim().ifEmpty { null },
+                            country = it.country.trim().ifEmpty { null },
+                        )
+                    },
         )
     }
 
@@ -224,14 +233,16 @@ fun ContactEditorScreen(
     val photoPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
-            val bytes =
-                runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                }.getOrNull()
+            val bytes = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+                .getOrNull()
             if (bytes == null || bytes.isEmpty()) return@rememberLauncherForActivityResult
             if (bytes.size > 5_000_000) {
                 // Mirrors the repository's own ceiling; the message names the limit.
-                scope.launch { snackbars.showSnackbar(context.getString(R.string.contacts_photo_too_large)) }
+                scope.launch {
+                    snackbars.showSnackbar(context.getString(R.string.contacts_photo_too_large))
+                }
                 return@rememberLauncherForActivityResult
             }
             val type = context.contentResolver.getType(uri) ?: "image/jpeg"
@@ -256,7 +267,10 @@ fun ContactEditorScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = { discarding = true }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.contacts_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.contacts_back),
+                        )
                     }
                 },
                 title = {
@@ -276,8 +290,11 @@ fun ContactEditorScreen(
         snackbarHost = { SnackbarHost(snackbars) },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            modifier =
+                Modifier.fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Photo row.
@@ -309,11 +326,15 @@ fun ContactEditorScreen(
 
             OutlinedTextField(
                 value = form.displayName,
-                onValueChange = { form.displayName = it; form.nameError = false },
+                onValueChange = {
+                    form.displayName = it
+                    form.nameError = false
+                },
                 label = { Text(stringResource(R.string.contacts_display_name)) },
                 isError = form.nameError,
                 supportingText = {
-                    if (form.nameError) Text(stringResource(R.string.contacts_display_name_required))
+                    if (form.nameError)
+                        Text(stringResource(R.string.contacts_display_name_required))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,

@@ -51,8 +51,9 @@ class CalendarAgendaWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val today = LocalDate.now()
-        val rows =
-            runCatching { loadAgendaRows(today, AGENDA_LIMIT, context) }.getOrDefault(emptyList())
+        val rows = runCatching {
+            loadAgendaRows(today, AGENDA_LIMIT, context)
+        }.getOrDefault(emptyList())
 
         provideContent { AgendaContent(context, today, rows) }
     }
@@ -89,22 +90,24 @@ private fun AgendaContent(context: Context, today: LocalDate, rows: List<AgendaR
             Text(
                 text = today.format(java.time.format.DateTimeFormatter.ofPattern("MMMM", locale)),
                 modifier = GlanceModifier.defaultWeight().clickable(openCalendar),
-                style = TextStyle(
-                    color = WidgetColors.onCard,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
+                style =
+                    TextStyle(
+                        color = WidgetColors.onCard,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
             )
             Text(
                 text = "+",
                 modifier =
                     GlanceModifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         .clickable(openCalendar),
-                style = TextStyle(
-                    color = WidgetColors.muted,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
+                style =
+                    TextStyle(
+                        color = WidgetColors.muted,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
             )
         }
 
@@ -151,11 +154,12 @@ private fun DayGroup(
             )
             Text(
                 text = date.dayOfMonth.toString(),
-                style = TextStyle(
-                    color = if (isToday) WidgetColors.today else WidgetColors.onCard,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
+                style =
+                    TextStyle(
+                        color = if (isToday) WidgetColors.today else WidgetColors.onCard,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
             )
         }
 
@@ -164,14 +168,15 @@ private fun DayGroup(
         Column(modifier = GlanceModifier.defaultWeight()) {
             rows.forEach { row ->
                 Row(
-                    modifier = GlanceModifier.fillMaxWidth()
-                        .padding(vertical = 5.dp)
-                        .clickable(openCalendar),
+                    modifier =
+                        GlanceModifier.fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clickable(openCalendar),
                     verticalAlignment = Alignment.Vertical.CenterVertically,
                 ) {
                     Box(
-                        modifier = GlanceModifier.width(4.dp).fillMaxHeight()
-                            .background(row.glanceColor())
+                        modifier =
+                            GlanceModifier.width(4.dp).fillMaxHeight().background(row.glanceColor())
                     ) {}
                     Spacer(modifier = GlanceModifier.width(10.dp))
                     Column(modifier = GlanceModifier.defaultWeight()) {

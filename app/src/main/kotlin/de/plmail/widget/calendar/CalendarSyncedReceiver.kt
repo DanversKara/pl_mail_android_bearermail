@@ -12,9 +12,9 @@ import kotlinx.coroutines.launch
 /**
  * Turns "a calendar sync rewrote the cache" into a widget re-render.
  *
- * The broadcast comes from `:feature:calendar` ([ACTION_CALENDAR_SYNCED]) rather than a direct
- * call because that module must not depend on `:app`, where the widgets live. `exported=false`:
- * only this app can send it — it is an internal nudge, not a public API.
+ * The broadcast comes from `:feature:calendar` ([ACTION_CALENDAR_SYNCED]) rather than a direct call
+ * because that module must not depend on `:app`, where the widgets live. `exported=false`: only
+ * this app can send it — it is an internal nudge, not a public API.
  */
 class CalendarSyncedReceiver : BroadcastReceiver() {
 

@@ -95,8 +95,8 @@ constructor(
     /**
      * BearerMail: whether the connected server publishes the contacts capability, which decides
      * whether the drawer offers Contacts. Same shape as Drive: the entry appears once there is
-     * evidence for it, and an instance without the extension looks like a product with no
-     * contacts rather than a feature that failed to load.
+     * evidence for it, and an instance without the extension looks like a product with no contacts
+     * rather than a feature that failed to load.
      */
     val hasContacts: StateFlow<Boolean> =
         credentials.connection

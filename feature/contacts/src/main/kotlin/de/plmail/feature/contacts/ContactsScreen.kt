@@ -11,11 +11,11 @@ import de.plmail.jmap.contacts.ContactObject
 import de.plmail.jmap.protocol.ContactId
 
 /**
- * BearerMail Contacts on the phone: the address book, detail with reference emails, the editor,
- * and the duplicate finder.
+ * BearerMail Contacts on the phone: the address book, detail with reference emails, the editor, and
+ * the duplicate finder.
  *
- * The module owns its own detail, editor and duplicates screens and its own back between them;
- * what :app decides is only whether contacts or mail is on screen — the same way it does for the
+ * The module owns its own detail, editor and duplicates screens and its own back between them; what
+ * :app decides is only whether contacts or mail is on screen — the same way it does for the
  * calendar. The drawer entry is capability-gated in :app, so this screen is only ever opened where
  * the server publishes the contacts capability.
  */

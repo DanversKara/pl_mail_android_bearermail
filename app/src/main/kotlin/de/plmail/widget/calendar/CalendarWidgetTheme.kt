@@ -9,10 +9,10 @@ import de.plmail.CalendarActivity
 /**
  * Shared look and tap targets for the two calendar widgets.
  *
- * The card is a pale cream in the light theme, after the refreshed Google Calendar widgets the
- * user pointed at — calm rather than branded, so it sits on a wallpaper rather than shouting over
- * it. Both widgets open [CalendarActivity] for every tap: it is `singleTask`, so a tap can never
- * stack a second calendar, and there is no create-event deep link to aim the + button at yet (see
+ * The card is a pale cream in the light theme, after the refreshed Google Calendar widgets the user
+ * pointed at — calm rather than branded, so it sits on a wallpaper rather than shouting over it.
+ * Both widgets open [CalendarActivity] for every tap: it is `singleTask`, so a tap can never stack
+ * a second calendar, and there is no create-event deep link to aim the + button at yet (see
  * todo.md's reminder-tap item) — it opens the calendar, where the editor is one tap away.
  */
 internal fun openCalendarIntent(context: Context): Intent =

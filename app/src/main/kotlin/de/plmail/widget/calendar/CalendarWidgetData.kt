@@ -22,8 +22,8 @@ import kotlinx.coroutines.flow.first
  *
  * A widget update runs in this process but outside any activity: the launcher asks Glance, Glance
  * starts the process if it is not running, and there is no Hilt-injected component on that path.
- * The [EntryPoint] is how a widget reaches the same [CalendarEventDao] the calendar screens use.
- * It mirrors what PushWorker does for the same reason.
+ * The [EntryPoint] is how a widget reaches the same [CalendarEventDao] the calendar screens use. It
+ * mirrors what PushWorker does for the same reason.
  */
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -43,9 +43,9 @@ private const val STATUS_CANCELLED = "cancelled"
  * series is shown struck-through in the app — a widget has no room for that nuance, so it is left
  * out rather than drawn as if it were happening.
  */
-private fun List<AgendaRow>.forWidget(): List<AgendaRow> =
-    filter { it.calendarIsVisible != false && it.status != STATUS_CANCELLED }
-        .distinctBy { it.eventUid ?: (it.eventKey + "@" + it.date + "@" + (it.startLocal ?: "")) }
+private fun List<AgendaRow>.forWidget(): List<AgendaRow> = filter {
+    it.calendarIsVisible != false && it.status != STATUS_CANCELLED
+}.distinctBy { it.eventUid ?: (it.eventKey + "@" + it.date + "@" + (it.startLocal ?: "")) }
 
 /** Everything in [month] for the month grid, earliest first. */
 internal suspend fun loadMonthRows(month: YearMonth, context: Context): List<AgendaRow> =
@@ -74,14 +74,12 @@ internal fun AgendaRow.shortTime(): String? {
 }
 
 /** The calendar's color as a Compose color, or null when it is missing or unparsable. */
-internal fun AgendaRow.colorOrNull(): Color? =
-    calendarColor?.let {
-        runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
-    }
+internal fun AgendaRow.colorOrNull(): Color? = calendarColor?.let {
+    runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
+}
 
 /** The calendar's color as a Glance [ColorProvider], falling back to muted gray. */
 internal fun AgendaRow.glanceColor(): ColorProvider {
     val base = colorOrNull()
-    return if (base != null) ColorProvider(day = base, night = base)
-    else WidgetColors.fallbackEvent
+    return if (base != null) ColorProvider(day = base, night = base) else WidgetColors.fallbackEvent
 }

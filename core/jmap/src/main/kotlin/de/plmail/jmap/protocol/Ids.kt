@@ -106,8 +106,8 @@ value class BlobId(val value: String) {
  * `urn:plmail:params:jmap:contacts`).
  *
  * The server's own id space — small integers rendered as strings — shared by
- * `Contact/referenceEmails`, `Contact/duplicates`, `Contact/merge` and
- * `Contact/mergeUndo`. Never parse it.
+ * `Contact/referenceEmails`, `Contact/duplicates`, `Contact/merge` and `Contact/mergeUndo`. Never
+ * parse it.
  */
 @JvmInline
 @Serializable

@@ -35,8 +35,9 @@ fun ContactPhoto(
     val bitmap =
         remember(bytes) {
             if (bytes == null) null
-            else runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
-                .getOrNull()
+            else
+                runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+                    .getOrNull()
         }
 
     if (bitmap != null) {

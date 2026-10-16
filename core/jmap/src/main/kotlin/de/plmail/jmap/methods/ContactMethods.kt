@@ -192,14 +192,12 @@ data class ContactSetResult(
     val notDestroyed: Map<String, SetError> = emptyMap(),
 ) {
     fun firstFailure(): SetError? =
-        notCreated.values.firstOrNull() ?: notUpdated.values.firstOrNull()
+        notCreated.values.firstOrNull()
+            ?: notUpdated.values.firstOrNull()
             ?: notDestroyed.values.firstOrNull()
 }
 
-@Serializable
-data class ContactCreated(
-    val id: ContactId,
-)
+@Serializable data class ContactCreated(val id: ContactId)
 
 /**
  * `Contact/referenceEmails` — every non-deleted message to or from a contact, newest first.
@@ -245,9 +243,7 @@ data class ContactReferenceEmailsResult(
  * tiers depend on lives server-side next to the data. The client draws them and asks which contact
  * to keep; it never computes its own pairs.
  */
-class ContactDuplicates(
-    private val accountId: AccountId,
-) : JmapMethod<ContactDuplicatesResult> {
+class ContactDuplicates(private val accountId: AccountId) : JmapMethod<ContactDuplicatesResult> {
 
     override val name = "Contact/duplicates"
 
@@ -304,8 +300,8 @@ data class ContactMergeResult(
 )
 
 /**
- * `Contact/mergeUndo` — restore the contacts a merge folded away, from the merge record's
- * snapshot. Valid for 90 days after the merge.
+ * `Contact/mergeUndo` — restore the contacts a merge folded away, from the merge record's snapshot.
+ * Valid for 90 days after the merge.
  */
 class ContactMergeUndo(
     private val accountId: AccountId,
@@ -323,7 +319,4 @@ class ContactMergeUndo(
         json.decodeFromJsonElement(ContactMergeUndoResult.serializer(), arguments)
 }
 
-@Serializable
-data class ContactMergeUndoResult(
-    val accountId: String = "",
-)
+@Serializable data class ContactMergeUndoResult(val accountId: String = "")

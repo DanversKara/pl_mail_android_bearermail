@@ -37,16 +37,12 @@ data class NewContactPhoto(
  * The BearerMail address book: list, search, create, edit, delete, photos, duplicate
  * detection/merging, and the reference-emails tie-in.
  *
- * A thin layer over the `Contact/*` JMAP methods — the address book is small and live-queried,
- * the way Drive is browsed live, so nothing is cached in Room. [ContactDraft] is the whole
- * contact the editor holds; the repository turns it into the `create`/`update` wire shape.
+ * A thin layer over the Contact JMAP methods — the address book is small and live-queried, the way
+ * Drive is browsed live, so nothing is cached in Room. [ContactDraft] is the whole contact the
+ * editor holds; the repository turns it into the `create`/`update` wire shape.
  */
 @Singleton
-class ContactsRepository
-@Inject
-constructor(
-    private val clients: AccountClients,
-) {
+class ContactsRepository @Inject constructor(private val clients: AccountClients) {
 
     /**
      * Whether the connected server publishes the contacts capability. False when not connected or
@@ -54,7 +50,8 @@ constructor(
      */
     suspend fun isAvailable(): Boolean = runCatching {
         clients.current()?.session()?.capabilities?.containsKey(Capability.CONTACTS) == true
-    }.getOrDefault(false)
+    }
+        .getOrDefault(false)
 
     /** The whole address book, or the matches for [filter] — name-sorted, paged as needed. */
     suspend fun list(filter: ContactFilter? = null): List<ContactObject> {
@@ -120,14 +117,20 @@ constructor(
 
         result.firstFailure()?.let { throw JmapError.RequestRejected(it.type, 0, it.description) }
         return result.created[ContactSet.CREATION_ID]?.id
-            ?: throw JmapError.MalformedResponse("The server created no contact and gave no reason.")
+            ?: throw JmapError.MalformedResponse(
+                "The server created no contact and gave no reason."
+            )
     }
 
     /**
      * Replaces a contact with [draft]. Emails/phones/addresses are replace-all on the wire, which
      * is what the editor wants: it always holds the whole contact.
      */
-    suspend fun update(id: ContactId, draft: ContactDraft, photo: NewContactPhoto? = null): ContactId {
+    suspend fun update(
+        id: ContactId,
+        draft: ContactDraft,
+        photo: NewContactPhoto? = null,
+    ): ContactId {
         val withPhoto = draft.withUploadedPhoto(photo)
         val client = client()
         val session = client.session()
@@ -166,8 +169,8 @@ constructor(
     }
 
     /**
-     * Every non-deleted message to or from a contact — inbox, sent, drafts, trash, labels,
-     * starred — newest first. The REFERENCE EMAILS section on the detail screen.
+     * Every non-deleted message to or from a contact — inbox, sent, drafts, trash, labels, starred
+     * — newest first. The REFERENCE EMAILS section on the detail screen.
      */
     suspend fun referenceEmails(id: ContactId, limit: Int = 50): List<ReferenceEmail> {
         val client = client()
@@ -191,8 +194,8 @@ constructor(
     }
 
     /**
-     * Folds [mergeIds] into [keepId]. Returns the merge record id — the detail screen offers
-     * "Undo" from it without a second round trip.
+     * Folds [mergeIds] into [keepId]. Returns the merge record id — the detail screen offers "Undo"
+     * from it without a second round trip.
      */
     suspend fun merge(keepId: ContactId, mergeIds: List<ContactId>): String {
         val client = client()
@@ -229,7 +232,9 @@ constructor(
      */
     suspend fun photoBytes(contact: ContactObject): ByteArray? {
         val url = contact.photoUrl ?: return null
-        photoCache.get(url)?.let { return it }
+        photoCache.get(url)?.let {
+            return it
+        }
 
         val bytes = ContactsPhotoClient(client()).bytes(url) ?: return null
         photoCache.put(url, bytes)
@@ -259,7 +264,8 @@ constructor(
 
     private suspend fun ContactDraft.withUploadedPhoto(photo: NewContactPhoto?): ContactDraft {
         if (photo == null) return this
-        if (photo.bytes.isEmpty()) throw JmapError.RequestRejected("invalidProperties", 0, "That photo is empty.")
+        if (photo.bytes.isEmpty())
+            throw JmapError.RequestRejected("invalidProperties", 0, "That photo is empty.")
         val blobId = uploadPhoto(photo)
         return copy(photo = PhotoChange.New(blobId))
     }

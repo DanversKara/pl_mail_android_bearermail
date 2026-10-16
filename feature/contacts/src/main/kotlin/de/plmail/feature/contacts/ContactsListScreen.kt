@@ -74,7 +74,10 @@ fun ContactsListScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.contacts_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.contacts_back),
+                        )
                     }
                 },
                 title = { Text(stringResource(R.string.contacts)) },
@@ -179,7 +182,8 @@ fun ContactsListScreen(
                 is ContactsEvent.Merged -> {
                     val result =
                         snackbars.showSnackbar(
-                            message = context.getString(R.string.contacts_merged_into, event.keptName),
+                            message =
+                                context.getString(R.string.contacts_merged_into, event.keptName),
                             actionLabel = context.getString(R.string.contacts_undo),
                         )
                     if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
@@ -223,9 +227,10 @@ private fun ContactRow(
             )
             val subtitle =
                 listOfNotNull(
-                    contact.company?.takeIf { it.isNotBlank() },
-                    contact.primaryEmail()?.email?.takeIf { it.isNotBlank() },
-                ).joinToString(" · ")
+                        contact.company?.takeIf { it.isNotBlank() },
+                        contact.primaryEmail()?.email?.takeIf { it.isNotBlank() },
+                    )
+                    .joinToString(" · ")
             if (subtitle.isNotEmpty()) {
                 Text(
                     text = subtitle,
