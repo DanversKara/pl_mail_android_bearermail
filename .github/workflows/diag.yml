@@ -13,10 +13,10 @@ jobs:
       - name: Build and capture errors
         run: |
           set +e
-          ./gradlew test --continue --console=plain > build.log 2>&1
+          ./gradlew build --continue --console=plain > build.log 2>&1
           code=$?
           {
-            grep -E '^(e: |.*Test.*FAILED|.*What went wrong|.*Execution failed for)' build.log | grep -v ' SKIPPED' | head -40; grep -A6 'What went wrong' build.log | head -30
+            grep -E "^(e: |w: .*(ktfmt)|.*Test.*FAILED|.*Execution failed for|.*Lint found|.*\.kt:[0-9]+:[0-9]+: |.*Error: |.*lint-results)" build.log | grep -v ' SKIPPED' | head -40; grep -A6 'What went wrong' build.log | head -30
           } > errs.txt
           msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' errs.txt | cut -c1-6000)
           echo "::error title=GRADLE ERRORS::$msg"
