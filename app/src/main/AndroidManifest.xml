@@ -144,8 +144,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="plmail" android:host="pair" />
-                <!-- plmail://open just brings the app up (used by the DOX BOX launcher
-                     page). Onboarding ignores any link that is not plmail://pair. -->
+            </intent-filter>
+
+            <!--
+              plmail://open just brings the app up (used by the DOX BOX launcher page).
+              A filter of its own, so the pairing filter keeps a single <data> tag.
+              Onboarding ignores any plmail link that is not plmail://pair.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="plmail" android:host="open" />
             </intent-filter>
 
