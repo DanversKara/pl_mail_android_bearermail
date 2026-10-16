@@ -1,3 +1,5 @@
+@file:Suppress("NonObservableLocale")
+
 package de.plmail.widget.calendar
 
 import android.content.Context

@@ -35,7 +35,7 @@ fun ContactsScreen(
         // The editor and the detail both manage their own unsaved-changes and
         // delete confirmations; popping here only moves between destinations.
         if (stack.size > 1) {
-            val leaving = stack.removeLast()
+            val leaving = stack.removeAt(stack.lastIndex)
             if (leaving is ContactsDestination.Detail) viewModel.closeDetail()
             return true
         }

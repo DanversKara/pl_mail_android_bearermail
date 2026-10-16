@@ -2,6 +2,7 @@ package de.plmail.widget.calendar
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.toColorInt
 import androidx.glance.color.ColorProvider
 import androidx.glance.unit.ColorProvider
 import dagger.hilt.EntryPoint
@@ -77,7 +78,7 @@ internal fun AgendaRow.shortTime(): String? {
 
 /** The calendar's color as a Compose color, or null when it is missing or unparsable. */
 internal fun AgendaRow.colorOrNull(): Color? = calendarColor?.let {
-    runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
+    runCatching { Color(it.toColorInt()) }.getOrNull()
 }
 
 /** The calendar's color as a Glance [ColorProvider], falling back to muted gray. */

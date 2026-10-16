@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="contacts">Kontakte</string>
     <string name="contacts_search_hint">Kontakte suchen</string>
     <string name="contacts_empty">Noch keine Kontakte</string>
@@ -12,8 +12,6 @@
     <string name="contacts_delete_button">Löschen</string>
     <string name="contacts_cancel">Abbrechen</string>
     <string name="contacts_save">Speichern</string>
-    <string name="contacts_saved">Kontakt gespeichert</string>
-    <string name="contacts_deleted">Kontakt gelöscht</string>
     <string name="contacts_display_name">Name</string>
     <string name="contacts_display_name_required">Ein Name ist erforderlich</string>
     <string name="contacts_given_name">Vorname</string>
@@ -33,7 +31,6 @@
     <string name="contacts_label_work">Arbeit</string>
     <string name="contacts_label_other">Sonstige</string>
     <string name="contacts_primary">Primär</string>
-    <string name="contacts_photo">Foto</string>
     <string name="contacts_pick_photo">Foto wählen</string>
     <string name="contacts_remove_photo">Foto entfernen</string>
     <string name="contacts_photo_too_large">Das Foto ist größer als 5 MB.</string>
@@ -43,11 +40,9 @@
     <string name="contacts_duplicates_empty">Keine Duplikate gefunden. Gut gepflegt.</string>
     <string name="contacts_keep">Behalten</string>
     <string name="contacts_merge">Zusammenführen</string>
-    <string name="contacts_merged">Kontakte zusammengeführt</string>
     <string name="contacts_merged_into">In %1$s zusammengeführt</string>
     <string name="contacts_undo">Rückgängig</string>
-    <string name="contacts_undone">Zusammenführung rückgängig gemacht</string>
-    <string name="contacts_merge_confirm">%1$d Kontakte in %2$s zusammenführen? 90 Tage lang rückgängig machbar.</string>
+    <string name="contacts_merge_confirm" tools:ignore="PluralsCandidate">%1$d Kontakte in %2$s zusammenführen? 90 Tage lang rückgängig machbar.</string>
     <string name="contacts_caution">Genau prüfen</string>
     <string name="contacts_back">Zurück</string>
     <string name="contacts_close">Schließen</string>

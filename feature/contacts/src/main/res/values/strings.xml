@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="contacts">Contacts</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_empty">No contacts yet</string>
@@ -12,8 +12,6 @@
     <string name="contacts_delete_button">Delete</string>
     <string name="contacts_cancel">Cancel</string>
     <string name="contacts_save">Save</string>
-    <string name="contacts_saved">Contact saved</string>
-    <string name="contacts_deleted">Contact deleted</string>
     <string name="contacts_display_name">Name</string>
     <string name="contacts_display_name_required">A name is required</string>
     <string name="contacts_given_name">First name</string>
@@ -33,7 +31,6 @@
     <string name="contacts_label_work">Work</string>
     <string name="contacts_label_other">Other</string>
     <string name="contacts_primary">Primary</string>
-    <string name="contacts_photo">Photo</string>
     <string name="contacts_pick_photo">Pick photo</string>
     <string name="contacts_remove_photo">Remove photo</string>
     <string name="contacts_photo_too_large">That photo is larger than 5 MB.</string>
@@ -43,11 +40,9 @@
     <string name="contacts_duplicates_empty">No duplicates found. Nicely kept.</string>
     <string name="contacts_keep">Keep</string>
     <string name="contacts_merge">Merge</string>
-    <string name="contacts_merged">Contacts merged</string>
     <string name="contacts_merged_into">Merged into %1$s</string>
     <string name="contacts_undo">Undo</string>
-    <string name="contacts_undone">Merge undone</string>
-    <string name="contacts_merge_confirm">Merge %1$d contacts into %2$s? This can be undone for 90 days.</string>
+    <string name="contacts_merge_confirm" tools:ignore="PluralsCandidate">Merge %1$d contacts into %2$s? This can be undone for 90 days.</string>
     <string name="contacts_caution">Check carefully</string>
     <string name="contacts_back">Back</string>
     <string name="contacts_close">Close</string>
