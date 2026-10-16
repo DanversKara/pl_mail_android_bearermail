@@ -18,7 +18,6 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
-import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
@@ -30,6 +29,7 @@ import androidx.glance.layout.padding
 import androidx.glance.state.GlanceStateDefinition
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -58,7 +58,8 @@ class CalendarMonthWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val month = storedMonth(currentState<Preferences>())
+        val month =
+            storedMonth(getAppWidgetState(context, PreferencesGlanceStateDefinition, id))
         val rows = runCatching { loadMonthRows(month, context) }.getOrDefault(emptyList())
 
         provideContent { MonthContent(context, month, rows) }

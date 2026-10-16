@@ -3,6 +3,7 @@ package de.plmail.widget.calendar
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProvider
+import androidx.glance.unit.ColorProvider
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
