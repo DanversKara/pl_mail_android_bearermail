@@ -53,7 +53,8 @@ class CalendarAgendaWidget : GlanceAppWidget() {
         val today = LocalDate.now()
         val rows = runCatching {
             loadAgendaRows(today, AGENDA_LIMIT, context)
-        }.getOrDefault(emptyList())
+        }
+            .getOrDefault(emptyList())
 
         provideContent { AgendaContent(context, today, rows) }
     }

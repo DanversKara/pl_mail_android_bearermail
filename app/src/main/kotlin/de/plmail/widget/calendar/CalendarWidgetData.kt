@@ -45,7 +45,8 @@ private const val STATUS_CANCELLED = "cancelled"
  */
 private fun List<AgendaRow>.forWidget(): List<AgendaRow> = filter {
     it.calendarIsVisible != false && it.status != STATUS_CANCELLED
-}.distinctBy { it.eventUid ?: (it.eventKey + "@" + it.date + "@" + (it.startLocal ?: "")) }
+}
+    .distinctBy { it.eventUid ?: (it.eventKey + "@" + it.date + "@" + (it.startLocal ?: "")) }
 
 /** Everything in [month] for the month grid, earliest first. */
 internal suspend fun loadMonthRows(month: YearMonth, context: Context): List<AgendaRow> =

@@ -283,7 +283,8 @@ class ContactsViewModel @Inject constructor(private val contacts: ContactsReposi
     /** One contact's photo bytes, for list rows — the repository caches them in memory. */
     suspend fun photoFor(contact: ContactObject): ByteArray? = runCatching {
         contacts.photoBytes(contact)
-    }.getOrNull()
+    }
+        .getOrNull()
 
     // ------------------------------------------------------------------ errors
 

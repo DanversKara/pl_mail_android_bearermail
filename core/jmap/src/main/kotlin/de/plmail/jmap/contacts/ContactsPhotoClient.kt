@@ -82,8 +82,8 @@ class ContactsPhotoClient(private val client: JmapClient) {
         }
 
         return runCatching {
-                json.decodeFromString<PhotoUploadResult>(response.bodyAsText()).blobId
-            }
+            json.decodeFromString<PhotoUploadResult>(response.bodyAsText()).blobId
+        }
             .getOrElse {
                 throw JmapError.MalformedResponse("The photo upload answered unexpectedly.")
             }

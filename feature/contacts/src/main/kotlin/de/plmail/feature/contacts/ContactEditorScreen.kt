@@ -142,11 +142,15 @@ class ContactFormState(contact: ContactObject?) {
 
         fun List<FormEntry>.toEmailEntries() = filter {
             it.value.isNotBlank()
-        }.map { ContactEmailEntry(it.value.trim(), it.label, it.isPrimary) }.demoteExtraPrimaries()
+        }
+            .map { ContactEmailEntry(it.value.trim(), it.label, it.isPrimary) }
+            .demoteExtraPrimaries()
 
         fun List<FormEntry>.toPhoneEntries() = filter {
             it.value.isNotBlank()
-        }.map { ContactPhoneEntry(it.value.trim(), it.label, it.isPrimary) }.demoteExtraPrimaries()
+        }
+            .map { ContactPhoneEntry(it.value.trim(), it.label, it.isPrimary) }
+            .demoteExtraPrimaries()
 
         return ContactDraft(
             displayName = displayName.trim(),
