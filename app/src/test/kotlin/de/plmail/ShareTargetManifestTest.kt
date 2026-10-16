@@ -117,15 +117,39 @@ class ShareTargetManifestTest {
 
     @Test
     fun `the pairing link is still its own filter`() {
-        // Three VIEW filters now sit on one activity. This is what keeps the
-        // mailto one from having quietly replaced the plmail:// one -- they
-        // would look identical in a diff that only counted filters.
+        // Several VIEW filters sit on one activity. This is what keeps the
+        // mailto one -- or the open one below -- from having quietly replaced
+        // the plmail://pair one: they would look identical in a diff that only
+        // counted filters. Found by host, because plmail has more than one.
         val pairing =
-            filters().singleOrNull { "plmail" in it.schemes }
-                ?: error("the plmail:// pairing filter has gone")
+            filters().singleOrNull { "plmail" in it.schemes && "pair" in it.hosts }
+                ?: error("the plmail://pair pairing filter has gone, or is no longer alone")
 
         assertTrue("android.intent.action.VIEW" in pairing.actions)
         assertTrue("android.intent.category.BROWSABLE" in pairing.categories)
+        assertEquals(
+            listOf("pair"),
+            pairing.hosts,
+            "the pairing filter claims only plmail://pair; other hosts get their own filter",
+        )
+    }
+
+    @Test
+    fun `plmail open is its own browsable filter`() {
+        // plmail://open just brings the app up (the DOX BOX launcher page uses
+        // it). Without BROWSABLE Chrome will not hand the link over, and the
+        // launcher falls back to the web page, which is the bug this exists for.
+        val open =
+            filters().singleOrNull { "plmail" in it.schemes && "open" in it.hosts }
+                ?: error("no plmail://open filter: the launcher page cannot open the app")
+
+        assertTrue("android.intent.action.VIEW" in open.actions)
+        assertTrue("android.intent.category.DEFAULT" in open.categories)
+        assertTrue(
+            "android.intent.category.BROWSABLE" in open.categories,
+            "a VIEW filter without BROWSABLE is invisible to every browser: ${open.categories}",
+        )
+        assertEquals(listOf("open"), open.hosts)
     }
 
     @Test
