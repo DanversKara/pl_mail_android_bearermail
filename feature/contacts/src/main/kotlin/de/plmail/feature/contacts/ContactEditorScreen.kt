@@ -1,3 +1,5 @@
+@file:Suppress("LocalContextGetResourceValueCall")
+
 package de.plmail.feature.contacts
 
 import android.net.Uri
@@ -196,9 +198,10 @@ class ContactFormState(contact: ContactObject?) {
                 seen = seen || isPrimary
                 it
             } else {
+                @Suppress("UNCHECKED_CAST")
                 when (it) {
-                    is ContactEmailEntry -> it.copy(isPrimary = false)
-                    is ContactPhoneEntry -> it.copy(isPrimary = false)
+                    is ContactEmailEntry -> it.copy(isPrimary = false) as T
+                    is ContactPhoneEntry -> it.copy(isPrimary = false) as T
                     else -> it
                 }
             }

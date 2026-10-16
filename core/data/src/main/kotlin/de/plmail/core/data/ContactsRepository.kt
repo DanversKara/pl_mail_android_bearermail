@@ -75,7 +75,8 @@ class ContactsRepository @Inject constructor(private val clients: AccountClients
             // An empty page ends the paging whatever `total` said: trusting a
             // total that never arrives is a loop with no way out.
             if (page.ids.isEmpty()) break
-            if (page.total != null && position >= page.total) break
+            val total = page.total
+            if (total != null && position >= total) break
         }
         return contacts
     }

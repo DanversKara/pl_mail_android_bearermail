@@ -1,3 +1,5 @@
+@file:Suppress("LocalContextGetResourceValueCall")
+
 package de.plmail.feature.contacts
 
 import androidx.compose.foundation.clickable
