@@ -59,4 +59,10 @@
     <string name="crash_title">BearerMail wurde unerwartet beendet</string>
     <string name="crash_copy">Kopieren</string>
     <string name="crash_dismiss">Schließen</string>
+    <!-- Startbildschirm-Kalender-Widgets -->
+    <string name="calendar_month_widget_label">Kalender (Monat)</string>
+    <string name="calendar_month_widget_description">Monatsansicht mit Ihren Terminen</string>
+    <string name="calendar_agenda_widget_label">Kalender (Agenda)</string>
+    <string name="calendar_agenda_widget_description">Anstehende Termine, der nächste zuerst</string>
+    <string name="calendar_widget_empty">Nichts steht an</string>
 </resources>

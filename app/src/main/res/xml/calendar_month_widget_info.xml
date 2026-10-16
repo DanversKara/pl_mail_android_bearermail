@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Home-screen month widget: a fixed 6x7 grid, so it wants room. 4x4 cells is
+  the comfortable default; it can shrink to 3x3 and grow freely. The 30-minute
+  update keeps the "today" highlight honest overnight; a calendar sync
+  re-renders it immediately through CalendarSyncedReceiver.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="180dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="4"
+    android:maxResizeWidth="*"
+    android:maxResizeHeight="*"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:description="@string/calendar_month_widget_description" />

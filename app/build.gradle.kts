@@ -158,6 +158,11 @@ dependencies {
     implementation(projects.core.data)
     implementation(projects.core.datastore)
     implementation(projects.core.designsystem)
+    // The home-screen calendar widgets read AgendaRow straight from the DAO via
+    // a Hilt entry point (see de.plmail.widget.calendar). core.data does not
+    // re-export it, so the dependency is declared here rather than reached
+    // for transitively.
+    implementation(projects.core.database)
     // :app is the only module that knows which activity a notification tap
     // reaches, so it is the one that supplies MailDestinations.
     implementation(projects.core.notifications)
@@ -165,6 +170,7 @@ dependencies {
     implementation(projects.feature.mail)
     implementation(projects.feature.calendar)
     implementation(projects.feature.drive)
+    implementation(projects.feature.contacts)
     implementation(projects.feature.compose)
     implementation(projects.feature.search)
     implementation(projects.feature.settings)
@@ -190,6 +196,16 @@ dependencies {
     // aes128gcm, which is exactly what WebPushSender emits, so it needs no
     // server change.
     implementation(libs.unifiedpush.connector)
+
+    // Home-screen calendar widgets (Glance). :app is where they live: the tap
+    // targets are CalendarActivity, the receivers are declared in the app
+    // manifest, and nothing here is push- or Google-specific, so both flavours
+    // get them identically.
+    implementation(libs.androidx.glance.appwidget)
+    // Glance keeps per-widget state (the month widget's shown month) in
+    // DataStore preferences. Declared directly rather than reached for
+    // transitively through Glance.
+    implementation(libs.androidx.datastore.preferences)
 
     // Firebase in the `google` flavour and NOWHERE else.
     //
