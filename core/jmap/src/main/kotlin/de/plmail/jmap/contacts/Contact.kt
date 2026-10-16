@@ -220,11 +220,11 @@ data class ContactDraft(
                         add(
                             buildJsonObject {
                                 put("label", it.label)
-                                it.street.ifBlankAsNull()?.let { v -> put("street", v) }
-                                it.city.ifBlankAsNull()?.let { v -> put("city", v) }
-                                it.region.ifBlankAsNull()?.let { v -> put("region", v) }
-                                it.postcode.ifBlankAsNull()?.let { v -> put("postcode", v) }
-                                it.country.ifBlankAsNull()?.let { v -> put("country", v) }
+                                it.street?.ifBlankAsNull()?.let { v -> put("street", v) }
+                                it.city?.ifBlankAsNull()?.let { v -> put("city", v) }
+                                it.region?.ifBlankAsNull()?.let { v -> put("region", v) }
+                                it.postcode?.ifBlankAsNull()?.let { v -> put("postcode", v) }
+                                it.country?.ifBlankAsNull()?.let { v -> put("country", v) }
                             }
                         )
                     }
