@@ -48,7 +48,17 @@ private const val STATUS_CANCELLED = "cancelled"
 private fun List<AgendaRow>.forWidget(): List<AgendaRow> = filter {
     it.calendarIsVisible != false && it.status != STATUS_CANCELLED
 }
-    .distinctBy { it.eventUid ?: (it.eventKey + "@" + it.date + "@" + (it.startLocal ?: "")) }
+    // One row per occurrence: the same event on the same day at the same time, as
+    // when one meeting sits in two calendars. Keyed by uid ALONE this kept only the
+    // first occurrence of a repeating event — and when uids were blank, only the
+    // first event of all, so the agenda showed a single item.
+    .distinctBy {
+        (it.eventUid?.takeIf(String::isNotBlank) ?: it.eventKey) +
+            "@" +
+            it.date +
+            "@" +
+            (it.startLocal ?: "")
+    }
 
 /** Everything in [month] for the month grid, earliest first. */
 internal suspend fun loadMonthRows(month: YearMonth, context: Context): List<AgendaRow> =
