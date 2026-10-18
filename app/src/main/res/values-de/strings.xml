@@ -65,4 +65,5 @@
     <string name="calendar_agenda_widget_label">Kalender (Agenda)</string>
     <string name="calendar_agenda_widget_description">Anstehende Termine, der nächste zuerst</string>
     <string name="calendar_widget_empty">Nichts steht an</string>
+    <string name="calendar_widget_all_day">Ganztägig</string>
 </resources>

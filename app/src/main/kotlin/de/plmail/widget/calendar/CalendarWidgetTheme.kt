@@ -23,5 +23,7 @@ internal object WidgetColors {
     val onCard = ColorProvider(day = Color(0xFF1F1F1F), night = Color(0xFFE8EAED))
     val muted = ColorProvider(day = Color(0xFF5F6368), night = Color(0xFF9AA0A6))
     val today = ColorProvider(day = Color(0xFF0B57D0), night = Color(0xFFA8C7FA))
+    val onToday = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF062E6F))
+    val onSolid = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFFFFFFFF))
     val fallbackEvent = ColorProvider(day = Color(0xFF5F6368), night = Color(0xFF9AA0A6))
 }

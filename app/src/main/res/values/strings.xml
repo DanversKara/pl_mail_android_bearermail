@@ -68,4 +68,5 @@
     <string name="calendar_agenda_widget_label">Calendar agenda</string>
     <string name="calendar_agenda_widget_description">Upcoming events, soonest first</string>
     <string name="calendar_widget_empty">Nothing coming up</string>
+    <string name="calendar_widget_all_day">All day</string>
 </resources>

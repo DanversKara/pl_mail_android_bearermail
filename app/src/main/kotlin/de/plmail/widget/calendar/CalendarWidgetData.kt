@@ -76,6 +76,39 @@ internal fun AgendaRow.shortTime(): String? {
     )
 }
 
+/** The device's own short time pattern, resolved per call so a locale change is picked up. */
+private fun clockFormat(): DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault())
+
+private fun String?.toLdtOrNull(): LocalDateTime? =
+    this?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() }
+
+/**
+ * "10:00 – 11:00" in the device's time pattern, [allDay] for an all-day event, and just the start
+ * when there is no usable end. This is what Google Calendar's agenda prints under a title.
+ */
+internal fun AgendaRow.timeRange(allDay: String): String {
+    if (isAllDay) return allDay
+    val fmt = clockFormat()
+    val start = startLocal.toLdtOrNull()?.toLocalTime() ?: return ""
+    val end = endLocal.toLdtOrNull()?.toLocalTime()
+    if (end == null || end == start) return start.format(fmt)
+    return "${start.format(fmt)} – ${end.format(fmt)}"
+}
+
+/** True once a timed event has finished, so today's agenda can dim what is already over. */
+internal fun AgendaRow.isPast(now: LocalDateTime): Boolean {
+    if (isAllDay) return false
+    val end = endLocal.toLdtOrNull() ?: startLocal.toLdtOrNull() ?: return false
+    return end.isBefore(now)
+}
+
+/** Soft tint of the calendar's color, for a timed event's chip on the month grid. */
+internal fun AgendaRow.chipTint(): ColorProvider {
+    val base = colorOrNull() ?: Color(0xFF9AA0A6)
+    return ColorProvider(day = base.copy(alpha = 0.30f), night = base.copy(alpha = 0.55f))
+}
+
 /** The calendar's color as a Compose color, or null when it is missing or unparsable. */
 internal fun AgendaRow.colorOrNull(): Color? = calendarColor?.let {
     runCatching { Color(it.toColorInt()) }.getOrNull()
