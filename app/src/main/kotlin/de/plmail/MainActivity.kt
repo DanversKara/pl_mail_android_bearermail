@@ -113,6 +113,9 @@ class MainActivity : ComponentActivity() {
      */
     private var pendingDriveUpload by mutableStateOf<List<String>>(emptyList())
 
+    /** A tap on the notes widget: a note to open, or a new note or list to start. */
+    private var pendingNotesWidget by mutableStateOf<NoteSeed?>(null)
+
     /**
      * The chosen language, laid over this activity's own configuration.
      *
@@ -168,6 +171,8 @@ class MainActivity : ComponentActivity() {
                         onShareHandled = { pendingShare = null },
                         driveUpload = pendingDriveUpload,
                         onDriveUploadHandled = { pendingDriveUpload = emptyList() },
+                        notesWidget = pendingNotesWidget,
+                        onNotesWidgetHandled = { pendingNotesWidget = null },
                     )
                     // BearerMail: offers a newer GitHub release, if there is one. Not
                     // over the lock screen: a dialog is its own window and would sit on top.
@@ -208,6 +213,8 @@ class MainActivity : ComponentActivity() {
         // first conversation is open means "show me that one instead", and a
         // queue would make the second tap open the first mail again.
         pendingNotification = intent?.notificationRequest()
+
+        de.plmail.widget.notes.NotesWidgetIntents.read(intent)?.let { pendingNotesWidget = it }
 
         // Assigned only when there is one, unlike the two above. A share that is
         // waiting for an account must survive whatever else happens to this
@@ -252,6 +259,8 @@ private fun PlMailApp(
     onShareHandled: () -> Unit,
     driveUpload: List<String>,
     onDriveUploadHandled: () -> Unit,
+    notesWidget: NoteSeed?,
+    onNotesWidgetHandled: () -> Unit,
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     val connection by viewModel.connection.collectAsStateWithLifecycle()
@@ -372,6 +381,15 @@ private fun PlMailApp(
                     isSearching = false
                     composing = viewModel.stage(message)
                     onShareHandled()
+                }
+
+                // A tap on the notes widget opens Notes on that note, or on a new one.
+                LaunchedEffect(notesWidget) {
+                    val request = notesWidget ?: return@LaunchedEffect
+                    isSearching = false
+                    pendingNote = request
+                    isNoting = true
+                    onNotesWidgetHandled()
                 }
 
                 // BearerMail: files shared to "BearerMail Drive" open the Drive

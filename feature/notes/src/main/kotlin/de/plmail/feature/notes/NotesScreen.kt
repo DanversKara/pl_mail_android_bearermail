@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.plmail.jmap.methods.NoteDraft
+import de.plmail.jmap.methods.NoteItem
 import de.plmail.jmap.methods.NoteLink
 import de.plmail.jmap.methods.NoteObject
 
@@ -64,6 +65,10 @@ data class NoteSeed(
     val title: String = "",
     val body: String = "",
     val links: List<NoteLink> = emptyList(),
+    /** Start the new note as a checklist (the widget's "New list"). */
+    val checklist: Boolean = false,
+    /** Open this existing note instead of starting one (a tap on a widget card). */
+    val openId: String? = null,
 )
 
 private sealed interface Editing {
@@ -98,12 +103,24 @@ fun NotesScreen(
     val snackbar = remember { SnackbarHostState() }
     val failedMessage = stringResource(R.string.notes_failed)
 
-    LaunchedEffect(seed) {
+    LaunchedEffect(seed, state.loaded) {
         val incoming = seed ?: return@LaunchedEffect
-        editing =
-            Editing.New(
-                NoteDraft(title = incoming.title, body = incoming.body, links = incoming.links)
-            )
+        val openId = incoming.openId
+        if (openId != null) {
+            // Wait for the first read: the note may not be in memory yet on a cold start.
+            if (!state.loaded) return@LaunchedEffect
+            if (viewModel.find(openId) != null) editing = Editing.Existing(openId)
+        } else {
+            editing =
+                Editing.New(
+                    NoteDraft(
+                        title = incoming.title,
+                        body = incoming.body,
+                        links = incoming.links,
+                        items = if (incoming.checklist) listOf(NoteItem()) else emptyList(),
+                    )
+                )
+        }
         onSeedHandled()
     }
     LaunchedEffect(state.failedWrite) {
