@@ -66,4 +66,6 @@
     <string name="calendar_agenda_widget_description">Anstehende Termine, der nächste zuerst</string>
     <string name="calendar_widget_empty">Nichts steht an</string>
     <string name="calendar_widget_all_day">Ganztägig</string>
+    <string name="calendar_widget_today">Heute</string>
+    <string name="calendar_widget_tomorrow">Morgen</string>
 </resources>
