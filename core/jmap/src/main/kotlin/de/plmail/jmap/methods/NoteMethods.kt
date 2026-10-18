@@ -45,6 +45,8 @@ data class NoteObject(
     val archived: Boolean = false,
     val trashed: Boolean = false,
     val links: List<NoteLink> = emptyList(),
+    /** Keep-style labels, case kept as typed, each once. */
+    val labels: List<String> = emptyList(),
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )
@@ -81,6 +83,7 @@ data class NoteDraft(
     val pinned: Boolean = false,
     val archived: Boolean = false,
     val links: List<NoteLink> = emptyList(),
+    val labels: List<String> = emptyList(),
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         put("title", title)
@@ -90,6 +93,10 @@ data class NoteDraft(
         put("pinned", pinned)
         put("archived", archived)
         put("links", linksJson(links))
+        // Only when there are some: a server from before labels refuses the property outright.
+        if (labels.isNotEmpty()) {
+            put("labels", buildJsonArray { labels.forEach { add(JsonPrimitive(it)) } })
+        }
     }
 }
 
@@ -165,6 +172,10 @@ class NoteSet(
 
         fun links(value: List<NoteLink>) {
             fields["links"] = linksJson(value)
+        }
+
+        fun labels(value: List<String>) {
+            fields["labels"] = buildJsonArray { value.forEach { add(JsonPrimitive(it)) } }
         }
 
         fun toJson(): JsonObject = JsonObject(fields)

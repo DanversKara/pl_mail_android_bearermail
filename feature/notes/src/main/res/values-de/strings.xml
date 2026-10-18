@@ -41,4 +41,13 @@
     <string name="notes_linked_add">Notiz hinzufügen</string>
     <string name="notes_untitled">Notiz ohne Titel</string>
     <string name="notes_done_items">Erledigt: %1$d</string>
+    <string name="notes_format">Formatierung</string>
+    <string name="notes_format_bold">Fett</string>
+    <string name="notes_format_italic">Kursiv</string>
+    <string name="notes_format_underline">Unterstrichen</string>
+    <string name="notes_format_heading">Überschrift</string>
+    <string name="notes_format_bullets">Aufzählung</string>
+    <string name="notes_undo">Rückgängig</string>
+    <string name="notes_redo">Wiederholen</string>
+    <string name="notes_labels_hint">Labels, durch Kommas getrennt</string>
 </resources>

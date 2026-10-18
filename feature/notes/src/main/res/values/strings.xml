@@ -41,4 +41,13 @@
     <string name="notes_linked_add">Add note</string>
     <string name="notes_untitled">Untitled note</string>
     <string name="notes_done_items">Done: %1$d</string>
+    <string name="notes_format">Formatting</string>
+    <string name="notes_format_bold">Bold</string>
+    <string name="notes_format_italic">Italic</string>
+    <string name="notes_format_underline">Underline</string>
+    <string name="notes_format_heading">Heading</string>
+    <string name="notes_format_bullets">Bulleted list</string>
+    <string name="notes_undo">Undo</string>
+    <string name="notes_redo">Redo</string>
+    <string name="notes_labels_hint">Labels, separated by commas</string>
 </resources>

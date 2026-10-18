@@ -27,6 +27,10 @@ data class NotesUiState(
     val loaded: Boolean = false,
     val filter: NotesFilter = NotesFilter.NOTES,
     val query: String = "",
+    /** The label the wall is narrowed to, or null for every note. */
+    val label: String? = null,
+    /** Every label in use, for the filter chips. */
+    val labels: List<String> = emptyList(),
     val refreshing: Boolean = false,
     val error: Boolean = false,
     val failedWrite: Boolean = false,
@@ -42,6 +46,7 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
 
     private val filter = MutableStateFlow(NotesFilter.NOTES)
     private val query = MutableStateFlow("")
+    private val label = MutableStateFlow<String?>(null)
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow(false)
     private val failedWrite = MutableStateFlow(false)
@@ -56,15 +61,22 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
         combine(
                 repository.notes,
                 repository.loaded,
-                filter,
-                query,
+                combine(filter, query, label) { f, q, l -> Triple(f, q, l) },
                 combine(refreshing, error, failedWrite) { r, e, f -> Triple(r, e, f) },
-            ) { notes, loaded, filter, query, flags ->
+            ) { notes, loaded, scope, flags ->
+                val (filter, query, label) = scope
                 NotesUiState(
-                    notes = visible(notes, filter, query),
+                    notes = visible(notes, filter, query, label),
                     loaded = loaded,
                     filter = filter,
                     query = query,
+                    label = label,
+                    labels =
+                        notes
+                            .filter { !it.trashed }
+                            .flatMap { it.labels }
+                            .distinctBy { it.lowercase() }
+                            .sortedBy { it.lowercase() },
                     refreshing = flags.first,
                     error = flags.second,
                     failedWrite = flags.third,
@@ -83,6 +95,9 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
     fun setFilter(value: NotesFilter) = filter.update { value }
 
     fun setQuery(value: String) = query.update { value }
+
+    /** Narrows the wall to one label; the same label again shows everything. */
+    fun toggleLabel(value: String) = label.update { if (it.equals(value, ignoreCase = true)) null else value }
 
     fun dismissFailure() = failedWrite.update { false }
 
@@ -139,19 +154,21 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
         all: List<NoteObject>,
         filter: NotesFilter,
         query: String,
+        label: String?,
     ): List<NoteObject> {
         val scoped =
             when (filter) {
                 NotesFilter.NOTES -> all.filter { !it.trashed && !it.archived }
                 NotesFilter.ARCHIVE -> all.filter { !it.trashed && it.archived }
                 NotesFilter.BIN -> all.filter { it.trashed }
-            }
+            }.filter { note -> label == null || note.labels.any { it.equals(label, ignoreCase = true) } }
         val needle = query.trim()
         if (needle.isEmpty()) return scoped
         return scoped.filter { note ->
             note.title.contains(needle, ignoreCase = true) ||
                 note.body.contains(needle, ignoreCase = true) ||
                 note.items.any { it.text.contains(needle, ignoreCase = true) } ||
+                note.labels.any { it.contains(needle, ignoreCase = true) } ||
                 note.links.any { it.title?.contains(needle, ignoreCase = true) == true }
         }
     }

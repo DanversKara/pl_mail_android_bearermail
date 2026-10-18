@@ -2,6 +2,7 @@ package de.plmail.feature.notes
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -200,6 +202,20 @@ fun NotesScreen(
                         )
                     }
             }
+            if (state.labels.isNotEmpty()) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.labels.forEach { name ->
+                        FilterChip(
+                            selected = state.label.equals(name, ignoreCase = true),
+                            onClick = { viewModel.toggleLabel(name) },
+                            label = { Text(name) },
+                        )
+                    }
+                }
+            }
 
             if (state.error && !state.loaded) {
                 Column(
@@ -301,7 +317,7 @@ private fun NoteCard(note: NoteObject, onOpen: () -> Unit, viewModel: NotesViewM
             }
             if (note.body.isNotEmpty()) {
                 Text(
-                    note.body,
+                    noteAnnotated(note.body),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 8,
                     overflow = TextOverflow.Ellipsis,
@@ -351,6 +367,14 @@ private fun NoteCard(note: NoteObject, onOpen: () -> Unit, viewModel: NotesViewM
                     if (note.links.size > 4)
                         Text("+${note.links.size - 4}", style = MaterialTheme.typography.labelSmall)
                 }
+            }
+            if (note.labels.isNotEmpty()) {
+                Text(
+                    note.labels.joinToString("  ·  "),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
