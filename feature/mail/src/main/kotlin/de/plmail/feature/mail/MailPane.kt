@@ -68,6 +68,7 @@ fun MailPane(
     onForward: (accountKey: String, emailId: String) -> Unit,
     /** BearerMail: "Add to calendar" from a plan found in a message. Null hides the card. */
     onAddToCalendar: ((de.plmail.core.data.PlanSuggestion) -> Unit)? = null,
+    onSaveAsNote: ((subject: String, mailId: String) -> Unit)? = null,
     openThread: ThreadTarget? = null,
     onThreadOpened: () -> Unit = {},
     viewModel: MailViewModel = hiltViewModel(),
@@ -177,6 +178,7 @@ fun MailPane(
                             onReply = { emailId, all -> onReply(account, emailId, all) },
                             onForward = { emailId -> onForward(account, emailId) },
                             onAddToCalendar = onAddToCalendar,
+                            onSaveAsNote = onSaveAsNote,
                             onAction = { action ->
                                 viewModel.apply(action, listOf(ActionTarget(account, thread)))
 

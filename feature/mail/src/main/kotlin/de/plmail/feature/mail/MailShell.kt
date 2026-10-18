@@ -58,6 +58,8 @@ fun MailShell(
     onDrive: (() -> Unit)? = null,
     /** BearerMail Contacts. Null where the server publishes no contacts capability. */
     onContacts: (() -> Unit)? = null,
+    /** Keep-style notes. Null where the server publishes no notes capability. */
+    onNotes: (() -> Unit)? = null,
     /** BearerMail: opens the "new alias" dialog. */
     onNewAlias: (() -> Unit)? = null,
     /** BearerMail: opens the app lock (PIN) settings. */
@@ -69,6 +71,8 @@ fun MailShell(
     onForward: (accountKey: String, emailId: String) -> Unit,
     /** BearerMail: "Add to calendar" from a plan found in a message. Null hides the card. */
     onAddToCalendar: ((de.plmail.core.data.PlanSuggestion) -> Unit)? = null,
+    /** Saves a conversation as a note (subject, mail id). Null where there are no notes. */
+    onSaveAsNote: ((subject: String, mailId: String) -> Unit)? = null,
     /** A conversation to open straight away, from a notification tap. */
     openThread: ThreadTarget? = null,
     onThreadOpened: () -> Unit = {},
@@ -187,6 +191,13 @@ fun MailShell(
                             open()
                         }
                     },
+                onNotes =
+                    onNotes?.let { open ->
+                        {
+                            scope.launch { drawer.close() }
+                            open()
+                        }
+                    },
                 onNewAlias =
                     onNewAlias?.let { open ->
                         {
@@ -244,6 +255,7 @@ fun MailShell(
                 onReply = onReply,
                 onForward = onForward,
                 onAddToCalendar = onAddToCalendar,
+                onSaveAsNote = onSaveAsNote,
                 openThread = openThread,
                 onThreadOpened = onThreadOpened,
             )

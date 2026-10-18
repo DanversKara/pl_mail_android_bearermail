@@ -70,3 +70,5 @@ include(":feature:calendar")
 include(":feature:drive")
 
 include(":feature:contacts")
+
+include(":feature:notes")

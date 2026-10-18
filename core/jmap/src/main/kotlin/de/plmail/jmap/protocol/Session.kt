@@ -105,6 +105,10 @@ data class Session(
                 as? JsonPrimitive)
             ?.booleanOrNull == true
 
+    /** Whether this server serves Keep-style notes (`Note/get`, `Note/set`). */
+    val supportsNotes: Boolean
+        get() = capabilities.containsKey(Capability.NOTES)
+
     /** Whether this server exposes calendars at all. */
     val supportsCalendars: Boolean
         get() = capabilities.containsKey(Capability.CALENDARS)

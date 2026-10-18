@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.plmail.core.data.CalendarRepository
 import de.plmail.core.data.ContactsRepository
+import de.plmail.core.data.NotesRepository
 import de.plmail.core.data.DriveRepository
 import de.plmail.core.data.PushTransportManager
 import de.plmail.core.data.SyncWorker
@@ -44,6 +45,7 @@ constructor(
     calendar: CalendarRepository,
     drive: DriveRepository,
     contacts: ContactsRepository,
+    notes: NotesRepository,
     private val pushTransports: PushTransportManager,
     private val shared: SharedAttachmentStore,
     @param:ApplicationContext private val context: Context,
@@ -98,6 +100,15 @@ constructor(
      * evidence for it, and an instance without the extension looks like a product with no contacts
      * rather than a feature that failed to load.
      */
+    val hasNotes: StateFlow<Boolean> =
+        credentials.connection
+            .map { stored -> stored != null && notes.isAvailable() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                initialValue = false,
+            )
+
     val hasContacts: StateFlow<Boolean> =
         credentials.connection
             .map { stored -> stored != null && contacts.isAvailable() }

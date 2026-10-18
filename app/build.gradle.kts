@@ -163,6 +163,7 @@ dependencies {
     // re-export it, so the dependency is declared here rather than reached
     // for transitively.
     implementation(projects.core.database)
+    implementation(projects.core.jmap)
     // :app is the only module that knows which activity a notification tap
     // reaches, so it is the one that supplies MailDestinations.
     implementation(projects.core.notifications)
@@ -171,6 +172,7 @@ dependencies {
     implementation(projects.feature.calendar)
     implementation(projects.feature.drive)
     implementation(projects.feature.contacts)
+    implementation(projects.feature.notes)
     implementation(projects.feature.compose)
     implementation(projects.feature.search)
     implementation(projects.feature.settings)

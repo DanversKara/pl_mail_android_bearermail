@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notes_title">Notes</string>
+    <string name="notes_search">Search notes</string>
+    <string name="notes_filter_notes">Notes</string>
+    <string name="notes_filter_archive">Archive</string>
+    <string name="notes_filter_bin">Bin</string>
+    <string name="notes_empty">Notes you add appear here</string>
+    <string name="notes_empty_archive">Archived notes appear here</string>
+    <string name="notes_empty_bin">The bin is empty</string>
+    <string name="notes_pinned">Pinned</string>
+    <string name="notes_others">Others</string>
+    <string name="notes_new">New note</string>
+    <string name="notes_back">Back</string>
+    <string name="notes_title_hint">Title</string>
+    <string name="notes_body_hint">Note</string>
+    <string name="notes_item_hint">List item</string>
+    <string name="notes_add_item">Add item</string>
+    <string name="notes_show_checkboxes">Show checkboxes</string>
+    <string name="notes_hide_checkboxes">Hide checkboxes</string>
+    <string name="notes_pin">Pin</string>
+    <string name="notes_unpin">Unpin</string>
+    <string name="notes_archive">Archive</string>
+    <string name="notes_unarchive">Unarchive</string>
+    <string name="notes_delete">Delete</string>
+    <string name="notes_restore">Restore</string>
+    <string name="notes_delete_forever">Delete forever</string>
+    <string name="notes_color">Colour</string>
+    <string name="notes_add_link">Link to…</string>
+    <string name="notes_remove_link">Remove link</string>
+    <string name="notes_add_to_calendar">Add to calendar</string>
+    <string name="notes_links">Links</string>
+    <string name="notes_link_event">Events</string>
+    <string name="notes_link_contact">Contacts</string>
+    <string name="notes_link_file">Files</string>
+    <string name="notes_link_search">Search</string>
+    <string name="notes_link_none">Nothing to link here</string>
+    <string name="notes_link_mail">Email</string>
+    <string name="notes_close">Close</string>
+    <string name="notes_error">Couldn\'t reach the server. Pull to retry.</string>
+    <string name="notes_failed">That change didn\'t save</string>
+    <string name="notes_linked_header">Notes</string>
+    <string name="notes_linked_add">Add note</string>
+    <string name="notes_untitled">Untitled note</string>
+    <string name="notes_done_items">%1$d completed</string>
+</resources>

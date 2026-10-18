@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notes_title">Notizen</string>
+    <string name="notes_search">Notizen durchsuchen</string>
+    <string name="notes_filter_notes">Notizen</string>
+    <string name="notes_filter_archive">Archiv</string>
+    <string name="notes_filter_bin">Papierkorb</string>
+    <string name="notes_empty">Hier erscheinen deine Notizen</string>
+    <string name="notes_empty_archive">Hier erscheinen archivierte Notizen</string>
+    <string name="notes_empty_bin">Der Papierkorb ist leer</string>
+    <string name="notes_pinned">Angeheftet</string>
+    <string name="notes_others">Weitere</string>
+    <string name="notes_new">Neue Notiz</string>
+    <string name="notes_back">Zurück</string>
+    <string name="notes_title_hint">Titel</string>
+    <string name="notes_body_hint">Notiz</string>
+    <string name="notes_item_hint">Listeneintrag</string>
+    <string name="notes_add_item">Eintrag hinzufügen</string>
+    <string name="notes_show_checkboxes">Kontrollkästchen anzeigen</string>
+    <string name="notes_hide_checkboxes">Kontrollkästchen ausblenden</string>
+    <string name="notes_pin">Anheften</string>
+    <string name="notes_unpin">Lösen</string>
+    <string name="notes_archive">Archivieren</string>
+    <string name="notes_unarchive">Aus Archiv holen</string>
+    <string name="notes_delete">Löschen</string>
+    <string name="notes_restore">Wiederherstellen</string>
+    <string name="notes_delete_forever">Endgültig löschen</string>
+    <string name="notes_color">Farbe</string>
+    <string name="notes_add_link">Verknüpfen mit …</string>
+    <string name="notes_remove_link">Verknüpfung entfernen</string>
+    <string name="notes_add_to_calendar">Zum Kalender hinzufügen</string>
+    <string name="notes_links">Verknüpfungen</string>
+    <string name="notes_link_event">Termine</string>
+    <string name="notes_link_contact">Kontakte</string>
+    <string name="notes_link_file">Dateien</string>
+    <string name="notes_link_search">Suchen</string>
+    <string name="notes_link_none">Hier gibt es nichts zu verknüpfen</string>
+    <string name="notes_link_mail">E-Mail</string>
+    <string name="notes_close">Schließen</string>
+    <string name="notes_error">Server nicht erreichbar. Zum Wiederholen nach unten ziehen.</string>
+    <string name="notes_failed">Die Änderung wurde nicht gespeichert</string>
+    <string name="notes_linked_header">Notizen</string>
+    <string name="notes_linked_add">Notiz hinzufügen</string>
+    <string name="notes_untitled">Notiz ohne Titel</string>
+    <string name="notes_done_items">%1$d erledigt</string>
+</resources>

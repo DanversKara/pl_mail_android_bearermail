@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Contacts
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Forum
@@ -166,6 +167,8 @@ fun LabelSidebar(
     onDrive: (() -> Unit)? = null,
     /** BearerMail Contacts. Null where the server publishes no contacts capability. */
     onContacts: (() -> Unit)? = null,
+    /** Keep-style notes. Null where the server publishes no notes capability. */
+    onNotes: (() -> Unit)? = null,
     onNewAlias: (() -> Unit)? = null,
     onAppLock: (() -> Unit)? = null,
     onCheckUpdates: (() -> Unit)? = null,
@@ -190,6 +193,7 @@ fun LabelSidebar(
             onCalendar = onCalendar,
             onDrive = onDrive,
             onContacts = onContacts,
+            onNotes = onNotes,
             onNewAlias = onNewAlias,
             onAppLock = onAppLock,
             onCheckUpdates = onCheckUpdates,
@@ -219,6 +223,7 @@ private fun SidebarContent(
     onCalendar: (() -> Unit)?,
     onDrive: (() -> Unit)?,
     onContacts: (() -> Unit)?,
+    onNotes: (() -> Unit)?,
     onNewAlias: (() -> Unit)?,
     onAppLock: (() -> Unit)?,
     onCheckUpdates: (() -> Unit)?,
@@ -387,6 +392,17 @@ private fun SidebarContent(
                     onClick = open,
                     icon = Icons.Outlined.Contacts,
                     text = stringResource(R.string.contacts),
+                )
+            }
+
+            // Notes sit with the other places, and hide outright when the
+            // server has no notes capability.
+            onNotes?.let { open ->
+                SidebarRow(
+                    selected = false,
+                    onClick = open,
+                    icon = Icons.Outlined.Description,
+                    text = stringResource(R.string.notes),
                 )
             }
 

@@ -21,6 +21,7 @@
     <string name="drive_save">Save to phone</string>
     <string name="drive_links">Share link…</string>
     <string name="drive_rename">Rename</string>
+    <string name="drive_notes">Notes</string>
     <string name="drive_move">Move to…</string>
     <string name="drive_delete">Delete</string>
     <string name="drive_cancel">Cancel</string>

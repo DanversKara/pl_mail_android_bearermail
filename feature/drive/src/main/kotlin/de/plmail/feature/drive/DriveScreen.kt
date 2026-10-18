@@ -116,6 +116,7 @@ fun DriveScreen(
     var deletingFolder by remember { mutableStateOf<DriveFolder?>(null) }
     var movingFile by remember { mutableStateOf<DriveFile?>(null) }
     var savingFile by remember { mutableStateOf<DriveFile?>(null) }
+    var notingFile by remember { mutableStateOf<DriveFile?>(null) }
 
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -299,6 +300,7 @@ fun DriveScreen(
                                         saver.launch(file.name)
                                     },
                                     onLinks = { viewModel.manageLinks(file) },
+                                    onNotes = { notingFile = file },
                                     onRename = { renamingFile = file },
                                     onMove = { movingFile = file },
                                     onDelete = { deletingFile = file },
@@ -334,6 +336,17 @@ fun DriveScreen(
                 renamingFolder = null
                 viewModel.renameFolder(folder, it)
             },
+        )
+    }
+
+    // Notes about a file: the linked ones, and a way to add one. Nothing opens on
+    // a server without notes, because the dialog draws only the section.
+    notingFile?.let { file ->
+        de.plmail.feature.notes.LinkedNotesDialog(
+            type = de.plmail.jmap.methods.NoteLink.FILE,
+            id = file.id.toString(),
+            title = file.name,
+            onDismiss = { notingFile = null },
         )
     }
 
@@ -511,6 +524,7 @@ private fun FileRow(
     onSend: () -> Unit,
     onSave: () -> Unit,
     onLinks: () -> Unit,
+    onNotes: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
@@ -574,6 +588,7 @@ private fun FileRow(
                 listOf(
                         R.string.drive_open to onOpen,
                         R.string.drive_links to onLinks,
+                        R.string.drive_notes to onNotes,
                         R.string.drive_send to onSend,
                         R.string.drive_save to onSave,
                         R.string.drive_rename to onRename,

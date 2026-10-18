@@ -41,6 +41,8 @@ import de.plmail.feature.compose.ShareIntake
 import de.plmail.feature.compose.SharedMessage
 import de.plmail.feature.contacts.ContactsScreen
 import de.plmail.feature.drive.DriveScreen
+import de.plmail.feature.notes.NoteSeed
+import de.plmail.feature.notes.NotesScreen
 import de.plmail.feature.mail.MailShell
 import de.plmail.feature.mail.ThreadTarget
 import de.plmail.feature.onboarding.OnboardingScreen
@@ -256,6 +258,7 @@ private fun PlMailApp(
     val hasCalendar by viewModel.hasCalendar.collectAsStateWithLifecycle()
     val hasDrive by viewModel.hasDrive.collectAsStateWithLifecycle()
     val hasContacts by viewModel.hasContacts.collectAsStateWithLifecycle()
+    val hasNotes by viewModel.hasNotes.collectAsStateWithLifecycle()
 
     // Search and compose live here rather than inside the mail shell because
     // they are their own feature modules: :feature:mail depending on either
@@ -276,6 +279,9 @@ private fun PlMailApp(
     var isCalendaring by rememberSaveable { mutableStateOf(false) }
     var isDriving by rememberSaveable { mutableStateOf(false) }
     var isContacting by rememberSaveable { mutableStateOf(false) }
+    var isNoting by rememberSaveable { mutableStateOf(false) }
+    // A note to open on arrival -- "Save as note" from a mail.
+    var pendingNote by remember { mutableStateOf<NoteSeed?>(null) }
     var isMakingAlias by rememberSaveable { mutableStateOf(false) }
     // BearerMail: an event editor the calendar should open on arrival — "Add to
     // calendar" from a plan found in a mail.
@@ -408,6 +414,7 @@ private fun PlMailApp(
                             isCalendaring -> Screen.CALENDAR
                             isDriving -> Screen.DRIVE
                             isContacting -> Screen.CONTACTS
+                            isNoting -> Screen.NOTES
                             isAdjustingAppearance -> Screen.APPEARANCE
                             isSettingGestures -> Screen.GESTURES
                             isSettingLock -> Screen.APP_LOCK
@@ -431,6 +438,7 @@ private fun PlMailApp(
                             Screen.CALENDAR -> isCalendaring = false
                             Screen.DRIVE -> isDriving = false
                             Screen.CONTACTS -> isContacting = false
+                            Screen.NOTES -> isNoting = false
                             Screen.APPEARANCE -> isAdjustingAppearance = false
                             Screen.GESTURES -> isSettingGestures = false
                             Screen.APP_LOCK -> isSettingLock = false
@@ -471,6 +479,47 @@ private fun PlMailApp(
                         // what :app decides is only whether contacts or mail
                         // is on screen, the same way it does for the calendar.
                         ContactsScreen(onBack = { isContacting = false })
+                    } else if (screen == Screen.NOTES) {
+                        // Notes own their editor and its back; what :app adds is
+                        // the two bridges notes cannot build themselves: turning
+                        // a note into a calendar event, and opening the area a
+                        // link points into.
+                        NotesScreen(
+                            onBack = { isNoting = false },
+                            seed = pendingNote,
+                            onSeedHandled = { pendingNote = null },
+                            onAddToCalendar =
+                                if (hasCalendar) {
+                                    { title, description ->
+                                        pendingCalendarEditor =
+                                            EditorRequest.NewFrom(
+                                                startWire =
+                                                    java.time.LocalDateTime.now()
+                                                        .plusHours(1)
+                                                        .withMinute(0)
+                                                        .withSecond(0)
+                                                        .withNano(0)
+                                                        .toString()
+                                                        .take(16),
+                                                title = title,
+                                                location = "",
+                                                description = description,
+                                            )
+                                        isNoting = false
+                                        isCalendaring = true
+                                    }
+                                } else {
+                                    null
+                                },
+                            onOpenLink = { link ->
+                                when (link.type) {
+                                    "event" -> if (hasCalendar) { isNoting = false; isCalendaring = true }
+                                    "contact" -> if (hasContacts) { isNoting = false; isContacting = true }
+                                    "file" -> if (hasDrive) { isNoting = false; isDriving = true }
+                                    else -> Unit
+                                }
+                            },
+                        )
                     } else if (screen == Screen.APPEARANCE) {
                         AppearanceScreen(onBack = { isAdjustingAppearance = false })
                     } else if (screen == Screen.GESTURES) {
@@ -526,6 +575,27 @@ private fun PlMailApp(
                             // outright, which is what an instance publishing no
                             // contacts capability has to look like.
                             onContacts = if (hasContacts) ({ isContacting = true }) else null,
+                            onNotes = if (hasNotes) ({ isNoting = true }) else null,
+                            onSaveAsNote =
+                                if (hasNotes) {
+                                    { subject, mailId ->
+                                        pendingNote =
+                                            NoteSeed(
+                                                title = subject,
+                                                links =
+                                                    listOf(
+                                                        de.plmail.jmap.methods.NoteLink(
+                                                            type = de.plmail.jmap.methods.NoteLink.MAIL,
+                                                            id = mailId,
+                                                            title = subject.ifBlank { null },
+                                                        )
+                                                    ),
+                                            )
+                                        isNoting = true
+                                    }
+                                } else {
+                                    null
+                                },
                             onNewAlias = { isMakingAlias = true },
                             onAddToCalendar =
                                 if (hasCalendar) {
@@ -633,6 +703,7 @@ private enum class Screen {
     CALENDAR,
     DRIVE,
     CONTACTS,
+    NOTES,
     SEARCH,
     DIAGNOSTICS,
     PUSH,

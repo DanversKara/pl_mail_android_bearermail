@@ -1,6 +1,7 @@
 package de.plmail.feature.contacts
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -248,6 +249,16 @@ private fun ContactDetailContent(
                     }
                 }
             }
+        }
+
+        // Notes about this person, and a way to add one. Draws nothing on a
+        // server without notes.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            de.plmail.feature.notes.LinkedNotesSection(
+                type = de.plmail.jmap.methods.NoteLink.CONTACT,
+                id = contact.id.value,
+                title = contact.displayName,
+            )
         }
 
         Spacer(Modifier.height(24.dp))
