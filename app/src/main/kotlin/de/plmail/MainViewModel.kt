@@ -16,10 +16,14 @@ import de.plmail.feature.compose.ComposeRequest
 import de.plmail.feature.compose.SharedAttachmentStore
 import de.plmail.feature.compose.SharedMessage
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -85,14 +89,7 @@ constructor(
      * BearerMail: whether the connected server publishes Drive, which decides whether the drawer
      * offers it. Re-checked whenever the stored connection changes.
      */
-    val hasDrive: StateFlow<Boolean> =
-        credentials.connection
-            .map { stored -> stored != null && drive.isAvailable() }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                initialValue = false,
-            )
+    val hasDrive: StateFlow<Boolean> = capability(credentials) { drive.isAvailable() }
 
     /**
      * BearerMail: whether the connected server publishes the contacts capability, which decides
@@ -100,18 +97,43 @@ constructor(
      * evidence for it, and an instance without the extension looks like a product with no contacts
      * rather than a feature that failed to load.
      */
-    val hasNotes: StateFlow<Boolean> =
-        credentials.connection
-            .map { stored -> stored != null && notes.isAvailable() }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                initialValue = false,
-            )
+    val hasContacts: StateFlow<Boolean> = capability(credentials) { contacts.isAvailable() }
 
-    val hasContacts: StateFlow<Boolean> =
+    /** Whether the connected server serves Keep-style notes; the drawer entry follows it. */
+    val hasNotes: StateFlow<Boolean> = capability(credentials) { notes.isAvailable() }
+
+    /**
+     * A drawer entry's "does the server have this", re-checked whenever the stored connection
+     * changes — and again, with backoff, while it says no.
+     *
+     * Each `isAvailable()` answers false for a missing capability *and* for a session that could
+     * not be fetched (no network yet at launch, the server restarting). Checked once, that second
+     * kind of false stuck for the whole life of the screen: Contacts, Drive or Notes vanished from
+     * the drawer until the app was killed. The re-checks are cheap — the session is cached once it
+     * has been fetched — so a server that truly lacks the feature costs a handful of no-op calls.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun capability(
+        credentials: CredentialStore,
+        check: suspend () -> Boolean,
+    ): StateFlow<Boolean> =
         credentials.connection
-            .map { stored -> stored != null && contacts.isAvailable() }
+            .transformLatest { stored ->
+                if (stored == null) {
+                    emit(false)
+                    return@transformLatest
+                }
+                var available = check()
+                emit(available)
+                var wait = RECHECK_FIRST_MILLIS
+                while (!available && wait <= RECHECK_LAST_MILLIS) {
+                    delay(wait)
+                    available = check()
+                    if (available) emit(true)
+                    wait *= 2
+                }
+            }
+            .distinctUntilChanged()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
@@ -183,5 +205,7 @@ constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L
+        const val RECHECK_FIRST_MILLIS = 2_000L
+        const val RECHECK_LAST_MILLIS = 64_000L
     }
 }

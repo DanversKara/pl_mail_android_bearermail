@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -243,7 +245,10 @@ internal fun NoteEditor(
         },
         bottomBar = {
             if (!trashed) {
-                Column {
+                // A Scaffold's bottomBar is drawn edge to edge: without these the
+                // toolbar sat under the gesture/navigation bar, and under the
+                // keyboard while typing.
+                Column(Modifier.navigationBarsPadding().imePadding()) {
                     if (coloring) {
                         ColorRow(
                             selected = color,
