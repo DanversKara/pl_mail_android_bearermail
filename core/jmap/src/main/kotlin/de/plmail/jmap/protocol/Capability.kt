@@ -22,6 +22,9 @@ object Capability {
     const val CONTACTS = "urn:plmail:params:jmap:contacts"
     const val APPEARANCE = "urn:plmail:params:jmap:appearance"
 
+    /** Keep-style notes: `Note/get` and `Note/set`, per user. Absent on a server without them. */
+    const val NOTES = "urn:plmail:params:jmap:notes"
+
     /**
      * Backfill progress, and the one URN here that is never declared.
      *
@@ -54,6 +57,9 @@ object Capability {
      * leniency that stops being true on the instance where the extension is switched off.
      */
     val USING_CONTACTS = listOf(CORE, CONTACTS)
+
+    /** For `Note/get` and `Note/set`. Per user, so no mail capability is involved. */
+    val USING_NOTES = listOf(CORE, NOTES)
 
     /** For `Appearance/get` and `Appearance/set`. Per user, so no mail capability is involved. */
     val USING_APPEARANCE = listOf(CORE, APPEARANCE)

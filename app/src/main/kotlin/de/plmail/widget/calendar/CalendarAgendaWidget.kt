@@ -51,7 +51,7 @@ import kotlin.math.max
  * Resizable both ways and down to a single strip. The widget is told its exact size, works out how
  * many rows fit, and fills that space with as many *days* as it can, so a tall widget shows the
  * whole week rather than one crowded date. Below [COMPACT_BELOW] it drops the header and the second
- * text line and shows `time  title` on one line per event, to spend as little screen as possible.
+ * text line and shows `time title` on one line per event, to spend as little screen as possible.
  *
  * Reads the cache straight from Room, so it renders even when the app process was not running.
  */
@@ -62,7 +62,9 @@ class CalendarAgendaWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val today = LocalDate.now()
         val now = LocalDateTime.now()
-        val rows = runCatching { loadAgendaRows(today, AGENDA_LIMIT, context) }
+        val rows = runCatching {
+            loadAgendaRows(today, AGENDA_LIMIT, context)
+        }
             .getOrDefault(emptyList())
 
         provideContent { AgendaContent(context, today, now, rows) }

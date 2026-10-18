@@ -68,6 +68,8 @@
     <string name="calendar">Kalender</string>
     <string name="drive">Drive</string>
     <string name="contacts">Kontakte</string>
+    <string name="notes">Notizen</string>
+    <string name="save_as_note">Als Notiz speichern</string>
     <string name="new_alias">Neuer Alias</string>
     <string name="app_lock">App-Sperre</string>
     <string name="check_updates">Nach Updates suchen</string>

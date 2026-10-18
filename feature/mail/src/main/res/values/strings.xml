@@ -97,6 +97,8 @@
     <string name="calendar">Calendar</string>
     <string name="drive">Drive</string>
     <string name="contacts">Contacts</string>
+    <string name="notes">Notes</string>
+    <string name="save_as_note">Save as note</string>
     <string name="new_alias">New alias</string>
     <string name="app_lock">App lock</string>
     <string name="check_updates">Check for updates</string>

@@ -10,6 +10,7 @@ android { namespace = "de.plmail.feature.drive" }
 
 dependencies {
     implementation(projects.core.data)
+    implementation(projects.feature.notes)
     implementation(projects.core.designsystem)
     implementation(projects.core.jmap)
 

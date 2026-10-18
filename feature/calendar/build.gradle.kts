@@ -16,6 +16,8 @@ android {
 
 dependencies {
     implementation(projects.core.data)
+    implementation(projects.feature.notes)
+    implementation(projects.core.jmap)
     // BearerMail: "Insert from Drive" link picker.
     implementation(projects.feature.drive)
     // The agenda draws an AgendaRow, which is the DAO's own projection. Same
