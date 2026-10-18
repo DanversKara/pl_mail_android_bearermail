@@ -290,8 +290,8 @@ private fun readableOn(background: Color): ColorProvider {
 }
 
 /**
- * One block in the calendar's color, each of its events as a bold title with the time under it
- * (or `time title` on one line in the compact strip). A block already over is a soft tint.
+ * One block in the calendar's color, each of its events as a bold title with the time under it (or
+ * `time title` on one line in the compact strip). A block already over is a soft tint.
  */
 @Composable
 private fun EventBlock(block: Block, compact: Boolean, allDay: String, openCalendar: Action) {
