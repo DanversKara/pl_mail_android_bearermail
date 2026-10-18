@@ -135,9 +135,12 @@ private fun entriesOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTim
     val last = today.plusDays(DAYS_AHEAD)
     var month = YearMonth.from(today)
     val days =
-        rows.take(MAX_EVENTS).groupBy { it.date }.mapNotNull { (dateString, dayRows) ->
-            runCatching { LocalDate.parse(dateString) }.getOrNull()?.let { it to dayRows }
-        }
+        rows
+            .take(MAX_EVENTS)
+            .groupBy { it.date }
+            .mapNotNull { (dateString, dayRows) ->
+                runCatching { LocalDate.parse(dateString) }.getOrNull()?.let { it to dayRows }
+            }
     for ((date, dayRows) in days) {
         if (date.isAfter(last)) break
         if (YearMonth.from(date) != month) {
