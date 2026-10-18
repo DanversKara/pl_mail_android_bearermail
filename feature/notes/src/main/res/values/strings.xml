@@ -29,18 +29,16 @@
     <string name="notes_add_link">Link to…</string>
     <string name="notes_remove_link">Remove link</string>
     <string name="notes_add_to_calendar">Add to calendar</string>
-    <string name="notes_links">Links</string>
     <string name="notes_link_event">Events</string>
     <string name="notes_link_contact">Contacts</string>
     <string name="notes_link_file">Files</string>
     <string name="notes_link_search">Search</string>
     <string name="notes_link_none">Nothing to link here</string>
-    <string name="notes_link_mail">Email</string>
     <string name="notes_close">Close</string>
     <string name="notes_error">Couldn\'t reach the server. Pull to retry.</string>
     <string name="notes_failed">That change didn\'t save</string>
     <string name="notes_linked_header">Notes</string>
     <string name="notes_linked_add">Add note</string>
     <string name="notes_untitled">Untitled note</string>
-    <string name="notes_done_items">%1$d completed</string>
+    <string name="notes_done_items">Done: %1$d</string>
 </resources>

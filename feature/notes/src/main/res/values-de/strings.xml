@@ -29,18 +29,16 @@
     <string name="notes_add_link">Verknüpfen mit …</string>
     <string name="notes_remove_link">Verknüpfung entfernen</string>
     <string name="notes_add_to_calendar">Zum Kalender hinzufügen</string>
-    <string name="notes_links">Verknüpfungen</string>
     <string name="notes_link_event">Termine</string>
     <string name="notes_link_contact">Kontakte</string>
     <string name="notes_link_file">Dateien</string>
     <string name="notes_link_search">Suchen</string>
     <string name="notes_link_none">Hier gibt es nichts zu verknüpfen</string>
-    <string name="notes_link_mail">E-Mail</string>
     <string name="notes_close">Schließen</string>
     <string name="notes_error">Server nicht erreichbar. Zum Wiederholen nach unten ziehen.</string>
     <string name="notes_failed">Die Änderung wurde nicht gespeichert</string>
     <string name="notes_linked_header">Notizen</string>
     <string name="notes_linked_add">Notiz hinzufügen</string>
     <string name="notes_untitled">Notiz ohne Titel</string>
-    <string name="notes_done_items">%1$d erledigt</string>
+    <string name="notes_done_items">Erledigt: %1$d</string>
 </resources>
