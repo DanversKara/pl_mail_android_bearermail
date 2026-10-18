@@ -97,7 +97,9 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
     fun setQuery(value: String) = query.update { value }
 
     /** Narrows the wall to one label; the same label again shows everything. */
-    fun toggleLabel(value: String) = label.update { if (it.equals(value, ignoreCase = true)) null else value }
+    fun toggleLabel(value: String) = label.update {
+        if (it.equals(value, ignoreCase = true)) null else value
+    }
 
     fun dismissFailure() = failedWrite.update { false }
 
@@ -161,7 +163,9 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
                 NotesFilter.NOTES -> all.filter { !it.trashed && !it.archived }
                 NotesFilter.ARCHIVE -> all.filter { !it.trashed && it.archived }
                 NotesFilter.BIN -> all.filter { it.trashed }
-            }.filter { note -> label == null || note.labels.any { it.equals(label, ignoreCase = true) } }
+            }.filter { note ->
+                label == null || note.labels.any { it.equals(label, ignoreCase = true) }
+            }
         val needle = query.trim()
         if (needle.isEmpty()) return scoped
         return scoped.filter { note ->

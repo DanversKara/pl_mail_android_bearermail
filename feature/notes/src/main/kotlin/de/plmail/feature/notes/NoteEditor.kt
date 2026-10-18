@@ -95,9 +95,9 @@ internal fun linkIcon(type: String): ImageVector =
  *
  * Saves as you type, as Keep does — a moment after the last change, and again on close — so there
  * is no Save button. A new note is created on the first change that gives it content; a note left
- * empty is never written. Undo and redo walk snapshots of the editor's state. [existing] is
- * the note being edited, [seed] starts a new one (an event's "add note" arrives with its link
- * already attached).
+ * empty is never written. Undo and redo walk snapshots of the editor's state. [existing] is the
+ * note being edited, [seed] starts a new one (an event's "add note" arrives with its link already
+ * attached).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -350,14 +350,26 @@ internal fun NoteEditor(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             listOf(
-                                    Triple("**", Icons.Outlined.FormatBold, R.string.notes_format_bold),
-                                    Triple("*", Icons.Outlined.FormatItalic, R.string.notes_format_italic),
+                                    Triple(
+                                        "**",
+                                        Icons.Outlined.FormatBold,
+                                        R.string.notes_format_bold,
+                                    ),
+                                    Triple(
+                                        "*",
+                                        Icons.Outlined.FormatItalic,
+                                        R.string.notes_format_italic,
+                                    ),
                                     Triple(
                                         "__",
                                         Icons.Outlined.FormatUnderlined,
                                         R.string.notes_format_underline,
                                     ),
-                                    Triple("# ", Icons.Outlined.Title, R.string.notes_format_heading),
+                                    Triple(
+                                        "# ",
+                                        Icons.Outlined.Title,
+                                        R.string.notes_format_heading,
+                                    ),
                                     Triple(
                                         "- ",
                                         Icons.AutoMirrored.Outlined.FormatListBulleted,
@@ -415,7 +427,8 @@ internal fun NoteEditor(
                                     if (items.isEmpty()) items.add(NoteItem())
                                     checklist = true
                                 } else {
-                                    body = TextFieldValue(items.joinToString("\n") { it.text }.trim())
+                                    body =
+                                        TextFieldValue(items.joinToString("\n") { it.text }.trim())
                                     items.clear()
                                     checklist = false
                                 }

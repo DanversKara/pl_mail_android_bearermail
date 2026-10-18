@@ -85,7 +85,8 @@ internal class NoteMarkupTransformation(private val markColor: Color) : VisualTr
                     addStyle(HEADING, offset, offset + line.length)
                     addStyle(SpanStyle(color = markColor), offset, offset + 2)
                 }
-                if (line.startsWith("- ")) addStyle(SpanStyle(color = markColor), offset, offset + 2)
+                if (line.startsWith("- "))
+                    addStyle(SpanStyle(color = markColor), offset, offset + 2)
                 offset += line.length + 1
             }
             INLINE.forEach { (regex, style) ->
@@ -102,8 +103,8 @@ internal class NoteMarkupTransformation(private val markColor: Color) : VisualTr
 }
 
 /**
- * A toolbar button: wraps the selection in [mark] (or unwraps it), or for `# ` and `- ` toggles
- * the prefix on every selected line.
+ * A toolbar button: wraps the selection in [mark] (or unwraps it), or for `# ` and `- ` toggles the
+ * prefix on every selected line.
  */
 internal fun applyMark(value: TextFieldValue, mark: String): TextFieldValue {
     val text = value.text
