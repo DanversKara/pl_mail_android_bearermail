@@ -51,9 +51,9 @@ private fun List<AgendaRow>.forWidget(): List<AgendaRow> = filter {
     .distinctBy { it.occurrenceKey() }
 
 /**
- * One row per occurrence: the same event on the same day at the same time, as when one meeting
- * sits in two calendars. Keyed by uid alone this kept only the first occurrence of a repeating
- * event, and with blank uids only the first event of all, so the agenda showed a single item.
+ * One row per occurrence: the same event on the same day at the same time, as when one meeting sits
+ * in two calendars. Keyed by uid alone this kept only the first occurrence of a repeating event,
+ * and with blank uids only the first event of all, so the agenda showed a single item.
  */
 private fun AgendaRow.occurrenceKey(): String {
     val id = eventUid?.takeIf { it.isNotBlank() } ?: eventKey
