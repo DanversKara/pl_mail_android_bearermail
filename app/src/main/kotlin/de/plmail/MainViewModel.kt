@@ -7,8 +7,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.plmail.core.data.CalendarRepository
 import de.plmail.core.data.ContactsRepository
-import de.plmail.core.data.NotesRepository
 import de.plmail.core.data.DriveRepository
+import de.plmail.core.data.NotesRepository
 import de.plmail.core.data.PushTransportManager
 import de.plmail.core.data.SyncWorker
 import de.plmail.core.datastore.CredentialStore

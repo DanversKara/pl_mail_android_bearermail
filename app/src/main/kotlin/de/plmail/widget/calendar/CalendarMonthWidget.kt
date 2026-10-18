@@ -43,9 +43,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
-import de.plmail.core.database.AgendaRow
 import de.plmail.R
+import de.plmail.core.database.AgendaRow
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle as JavaTextStyle

@@ -16,11 +16,11 @@ import kotlinx.serialization.json.put
 @Serializable data class NoteItem(val text: String = "", val done: Boolean = false)
 
 /**
- * A reference from a note to something else the user keeps: an `event`, a Drive `file`, a
- * `contact` or a `mail`.
+ * A reference from a note to something else the user keeps: an `event`, a Drive `file`, a `contact`
+ * or a `mail`.
  *
- * [id] is the id the target has on its own surface; the server does not check it exists. [title]
- * is the label it had when it was linked, kept so a list can be drawn without fetching the target.
+ * [id] is the id the target has on its own surface; the server does not check it exists. [title] is
+ * the label it had when it was linked, kept so a list can be drawn without fetching the target.
  */
 @Serializable
 data class NoteLink(val type: String, val id: String, val title: String? = null) {
@@ -111,7 +111,10 @@ class NoteSet(
     override fun arguments(): JsonObject = buildJsonObject {
         ifInState?.let { put("ifInState", it) }
         if (create.isNotEmpty()) {
-            put("create", buildJsonObject { create.forEach { (id, draft) -> put(id, draft.toJson()) } })
+            put(
+                "create",
+                buildJsonObject { create.forEach { (id, draft) -> put(id, draft.toJson()) } },
+            )
         }
         if (update.isNotEmpty()) {
             put("update", buildJsonObject { update.forEach { (id, patch) -> put(id, patch) } })
@@ -126,21 +129,43 @@ class NoteSet(
 
     companion object {
         /** A patch that sets exactly the given properties. */
-        fun patch(build: PatchBuilder.() -> Unit): JsonObject =
-            PatchBuilder().apply(build).toJson()
+        fun patch(build: PatchBuilder.() -> Unit): JsonObject = PatchBuilder().apply(build).toJson()
     }
 
     class PatchBuilder {
         private val fields = linkedMapOf<String, JsonElement>()
 
-        fun title(value: String) { fields["title"] = JsonPrimitive(value) }
-        fun body(value: String) { fields["body"] = JsonPrimitive(value) }
-        fun items(value: List<NoteItem>) { fields["items"] = itemsJson(value) }
-        fun color(value: String?) { fields["color"] = value?.let { JsonPrimitive(it) } ?: JsonNull }
-        fun pinned(value: Boolean) { fields["pinned"] = JsonPrimitive(value) }
-        fun archived(value: Boolean) { fields["archived"] = JsonPrimitive(value) }
-        fun trashed(value: Boolean) { fields["trashed"] = JsonPrimitive(value) }
-        fun links(value: List<NoteLink>) { fields["links"] = linksJson(value) }
+        fun title(value: String) {
+            fields["title"] = JsonPrimitive(value)
+        }
+
+        fun body(value: String) {
+            fields["body"] = JsonPrimitive(value)
+        }
+
+        fun items(value: List<NoteItem>) {
+            fields["items"] = itemsJson(value)
+        }
+
+        fun color(value: String?) {
+            fields["color"] = value?.let { JsonPrimitive(it) } ?: JsonNull
+        }
+
+        fun pinned(value: Boolean) {
+            fields["pinned"] = JsonPrimitive(value)
+        }
+
+        fun archived(value: Boolean) {
+            fields["archived"] = JsonPrimitive(value)
+        }
+
+        fun trashed(value: Boolean) {
+            fields["trashed"] = JsonPrimitive(value)
+        }
+
+        fun links(value: List<NoteLink>) {
+            fields["links"] = linksJson(value)
+        }
 
         fun toJson(): JsonObject = JsonObject(fields)
     }
@@ -159,26 +184,31 @@ data class NoteSetResult(
 ) {
     /** The first refusal of any kind, for a caller that only needs to know "did it land". */
     val firstError: SetError?
-        get() = notCreated.values.firstOrNull()
-            ?: notUpdated.values.firstOrNull()
-            ?: notDestroyed.values.firstOrNull()
+        get() =
+            notCreated.values.firstOrNull()
+                ?: notUpdated.values.firstOrNull()
+                ?: notDestroyed.values.firstOrNull()
 }
 
 private fun itemsJson(items: List<NoteItem>): JsonArray = buildJsonArray {
     items.forEach {
-        add(buildJsonObject {
-            put("text", it.text)
-            put("done", it.done)
-        })
+        add(
+            buildJsonObject {
+                put("text", it.text)
+                put("done", it.done)
+            }
+        )
     }
 }
 
 private fun linksJson(links: List<NoteLink>): JsonArray = buildJsonArray {
     links.forEach {
-        add(buildJsonObject {
-            put("type", it.type)
-            put("id", it.id)
-            put("title", it.title?.let { t -> JsonPrimitive(t) } ?: JsonNull)
-        })
+        add(
+            buildJsonObject {
+                put("type", it.type)
+                put("id", it.id)
+                put("title", it.title?.let { t -> JsonPrimitive(t) } ?: JsonNull)
+            }
+        )
     }
 }

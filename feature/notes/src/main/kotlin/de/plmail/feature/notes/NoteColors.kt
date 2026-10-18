@@ -11,17 +11,29 @@ internal val NoteColorNames =
 
 private val Light =
     mapOf(
-        "red" to 0xFFF28B82, "orange" to 0xFFFBBC04, "yellow" to 0xFFFFF475,
-        "green" to 0xFFCCFF90, "teal" to 0xFFA7FFEB, "blue" to 0xFFCBF0F8,
-        "purple" to 0xFFD7AEFB, "pink" to 0xFFFDCFE8, "brown" to 0xFFE6C9A8,
+        "red" to 0xFFF28B82,
+        "orange" to 0xFFFBBC04,
+        "yellow" to 0xFFFFF475,
+        "green" to 0xFFCCFF90,
+        "teal" to 0xFFA7FFEB,
+        "blue" to 0xFFCBF0F8,
+        "purple" to 0xFFD7AEFB,
+        "pink" to 0xFFFDCFE8,
+        "brown" to 0xFFE6C9A8,
         "gray" to 0xFFE8EAED,
     )
 
 private val Dark =
     mapOf(
-        "red" to 0xFF5C2B29, "orange" to 0xFF614A19, "yellow" to 0xFF635D19,
-        "green" to 0xFF345920, "teal" to 0xFF16504B, "blue" to 0xFF2D555E,
-        "purple" to 0xFF42275E, "pink" to 0xFF5B2245, "brown" to 0xFF442F19,
+        "red" to 0xFF5C2B29,
+        "orange" to 0xFF614A19,
+        "yellow" to 0xFF635D19,
+        "green" to 0xFF345920,
+        "teal" to 0xFF16504B,
+        "blue" to 0xFF2D555E,
+        "purple" to 0xFF42275E,
+        "pink" to 0xFF5B2245,
+        "brown" to 0xFF442F19,
         "gray" to 0xFF3C3F43,
     )
 

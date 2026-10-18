@@ -73,12 +73,12 @@ private sealed interface Editing {
 /**
  * The notes wall: pinned notes first, then the rest, as colour-coded cards two to a row; filter
  * chips for Notes / Archive / Bin; search over titles, text, checklist lines and link titles.
- * Tapping a card opens the editor in place, and the module owns its own back between the two —
- * what :app decides is only whether notes or mail is on screen.
+ * Tapping a card opens the editor in place, and the module owns its own back between the two — what
+ * :app decides is only whether notes or mail is on screen.
  *
- * [onAddToCalendar] and [onOpenLink] are :app's to supply, because this module knows nothing of
- * the calendar, Drive or contacts screens: add-to-calendar turns a note into a new event, and
- * opening a link switches to the area it points into.
+ * [onAddToCalendar] and [onOpenLink] are :app's to supply, because this module knows nothing of the
+ * calendar, Drive or contacts screens: add-to-calendar turns a note into a new event, and opening a
+ * link switches to the area it points into.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,7 +99,9 @@ fun NotesScreen(
     LaunchedEffect(seed) {
         val incoming = seed ?: return@LaunchedEffect
         editing =
-            Editing.New(NoteDraft(title = incoming.title, body = incoming.body, links = incoming.links))
+            Editing.New(
+                NoteDraft(title = incoming.title, body = incoming.body, links = incoming.links)
+            )
         onSeedHandled()
     }
     LaunchedEffect(state.failedWrite) {
@@ -138,7 +140,10 @@ fun NotesScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.notes_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.notes_back),
+                        )
                     }
                 },
                 title = {
@@ -197,7 +202,10 @@ fun NotesScreen(
             }
 
             if (state.error && !state.loaded) {
-                Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(stringResource(R.string.notes_error))
                     TextButton(onClick = viewModel::refresh) { Text("↻") }
                 }
@@ -225,9 +233,15 @@ fun NotesScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (pinned.isNotEmpty()) {
-                        item(span = StaggeredGridItemSpan.FullLine) { SectionLabel(R.string.notes_pinned) }
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            SectionLabel(R.string.notes_pinned)
+                        }
                         items(pinned, key = { it.id }) { note ->
-                            NoteCard(note, onOpen = { editing = Editing.Existing(note.id) }, viewModel)
+                            NoteCard(
+                                note,
+                                onOpen = { editing = Editing.Existing(note.id) },
+                                viewModel,
+                            )
                         }
                         if (others.isNotEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine) {
@@ -260,7 +274,11 @@ private fun NoteCard(note: NoteObject, onOpen: () -> Unit, viewModel: NotesViewM
     Card(
         onClick = onOpen,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = noteContainer(note.color), contentColor = content),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = noteContainer(note.color),
+                contentColor = content,
+            ),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -282,14 +300,22 @@ private fun NoteCard(note: NoteObject, onOpen: () -> Unit, viewModel: NotesViewM
                 }
             }
             if (note.body.isNotEmpty()) {
-                Text(note.body, style = MaterialTheme.typography.bodySmall, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                Text(
+                    note.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 8,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             val open = note.items.withIndex().filter { !it.value.done }
             val done = note.items.count { it.done }
             open.take(6).forEach { (index, item) ->
                 Row(
                     verticalAlignment = Alignment.Top,
-                    modifier = Modifier.clickable(enabled = !note.trashed) { viewModel.toggleItem(note, index) },
+                    modifier =
+                        Modifier.clickable(enabled = !note.trashed) {
+                            viewModel.toggleItem(note, index)
+                        },
                 ) {
                     Icon(Icons.Outlined.CheckBoxOutlineBlank, null, Modifier.size(16.dp))
                     Text(
@@ -315,9 +341,15 @@ private fun NoteCard(note: NoteObject, onOpen: () -> Unit, viewModel: NotesViewM
                 }
             }
             if (note.links.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    note.links.take(4).forEach { Icon(linkIcon(it.type), it.type, Modifier.size(14.dp)) }
-                    if (note.links.size > 4) Text("+${note.links.size - 4}", style = MaterialTheme.typography.labelSmall)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    note.links.take(4).forEach {
+                        Icon(linkIcon(it.type), it.type, Modifier.size(14.dp))
+                    }
+                    if (note.links.size > 4)
+                        Text("+${note.links.size - 4}", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

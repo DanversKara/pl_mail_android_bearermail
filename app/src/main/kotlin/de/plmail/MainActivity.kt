@@ -41,10 +41,10 @@ import de.plmail.feature.compose.ShareIntake
 import de.plmail.feature.compose.SharedMessage
 import de.plmail.feature.contacts.ContactsScreen
 import de.plmail.feature.drive.DriveScreen
-import de.plmail.feature.notes.NoteSeed
-import de.plmail.feature.notes.NotesScreen
 import de.plmail.feature.mail.MailShell
 import de.plmail.feature.mail.ThreadTarget
+import de.plmail.feature.notes.NoteSeed
+import de.plmail.feature.notes.NotesScreen
 import de.plmail.feature.onboarding.OnboardingScreen
 import de.plmail.feature.search.SearchScreen
 import de.plmail.feature.settings.AccountsScreen
@@ -513,9 +513,21 @@ private fun PlMailApp(
                                 },
                             onOpenLink = { link ->
                                 when (link.type) {
-                                    "event" -> if (hasCalendar) { isNoting = false; isCalendaring = true }
-                                    "contact" -> if (hasContacts) { isNoting = false; isContacting = true }
-                                    "file" -> if (hasDrive) { isNoting = false; isDriving = true }
+                                    "event" ->
+                                        if (hasCalendar) {
+                                            isNoting = false
+                                            isCalendaring = true
+                                        }
+                                    "contact" ->
+                                        if (hasContacts) {
+                                            isNoting = false
+                                            isContacting = true
+                                        }
+                                    "file" ->
+                                        if (hasDrive) {
+                                            isNoting = false
+                                            isDriving = true
+                                        }
                                     else -> Unit
                                 }
                             },
@@ -585,7 +597,9 @@ private fun PlMailApp(
                                                 links =
                                                     listOf(
                                                         de.plmail.jmap.methods.NoteLink(
-                                                            type = de.plmail.jmap.methods.NoteLink.MAIL,
+                                                            type =
+                                                                de.plmail.jmap.methods.NoteLink
+                                                                    .MAIL,
                                                             id = mailId,
                                                             title = subject.ifBlank { null },
                                                         )

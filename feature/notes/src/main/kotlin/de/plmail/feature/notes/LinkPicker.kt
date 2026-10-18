@@ -69,31 +69,30 @@ constructor(
 
     init {
         viewModelScope.launch {
-            val events =
-                runCatching {
-                        calendar.agenda(LocalDate.now(), 200).first()
-                            .distinctBy { it.eventId }
-                            .map { NoteLink(NoteLink.EVENT, it.eventId, "${it.title} · ${it.date}") }
-                    }
-                    .getOrDefault(emptyList())
+            val events = runCatching {
+                calendar
+                    .agenda(LocalDate.now(), 200)
+                    .first()
+                    .distinctBy { it.eventId }
+                    .map { NoteLink(NoteLink.EVENT, it.eventId, "${it.title} · ${it.date}") }
+            }
+                .getOrDefault(emptyList())
             _candidates.value = _candidates.value.copy(events = events)
         }
         viewModelScope.launch {
-            val people =
-                runCatching {
-                        contacts.list().map {
-                            NoteLink(NoteLink.CONTACT, it.id.value, it.displayName.ifBlank { null })
-                        }
-                    }
-                    .getOrDefault(emptyList())
+            val people = runCatching {
+                contacts.list().map {
+                    NoteLink(NoteLink.CONTACT, it.id.value, it.displayName.ifBlank { null })
+                }
+            }
+                .getOrDefault(emptyList())
             _candidates.value = _candidates.value.copy(contacts = people)
         }
         viewModelScope.launch {
-            val files =
-                runCatching {
-                        drive.allFiles().map { NoteLink(NoteLink.FILE, it.id.toString(), it.name) }
-                    }
-                    .getOrDefault(emptyList())
+            val files = runCatching {
+                drive.allFiles().map { NoteLink(NoteLink.FILE, it.id.toString(), it.name) }
+            }
+                .getOrDefault(emptyList())
             _candidates.value = _candidates.value.copy(files = files, loading = false)
         }
     }
@@ -121,13 +120,19 @@ internal fun LinkPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_close)) } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_close)) }
+        },
         title = { Text(stringResource(R.string.notes_add_link)) },
         text = {
             Column {
                 TabRow(selectedTabIndex = tab) {
                     tabs.forEachIndexed { index, (label, _) ->
-                        Tab(selected = tab == index, onClick = { tab = index }, text = { Text(label) })
+                        Tab(
+                            selected = tab == index,
+                            onClick = { tab = index },
+                            text = { Text(label) },
+                        )
                     }
                 }
                 OutlinedTextField(

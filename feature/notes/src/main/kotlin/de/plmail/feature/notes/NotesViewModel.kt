@@ -16,7 +16,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class NotesFilter { NOTES, ARCHIVE, BIN }
+enum class NotesFilter {
+    NOTES,
+    ARCHIVE,
+    BIN,
+}
 
 data class NotesUiState(
     val notes: List<NoteObject> = emptyList(),
@@ -131,7 +135,11 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
             null
         }
 
-    private fun visible(all: List<NoteObject>, filter: NotesFilter, query: String): List<NoteObject> {
+    private fun visible(
+        all: List<NoteObject>,
+        filter: NotesFilter,
+        query: String,
+    ): List<NoteObject> {
         val scoped =
             when (filter) {
                 NotesFilter.NOTES -> all.filter { !it.trashed && !it.archived }

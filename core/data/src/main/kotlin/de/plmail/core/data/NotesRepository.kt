@@ -73,16 +73,15 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
     }
 
     /**
-     * The notes that link to one thing: the "Notes" section of an event, a contact or a file.
-     * Notes in the bin are left out; archived ones are kept, because a note put away is still a
-     * note about that meeting.
+     * The notes that link to one thing: the "Notes" section of an event, a contact or a file. Notes
+     * in the bin are left out; archived ones are kept, because a note put away is still a note
+     * about that meeting.
      */
-    fun linkedTo(type: String, id: String): Flow<List<NoteObject>> =
-        _notes.map { all ->
-            all.filter { note ->
-                !note.trashed && note.links.any { it.type == type && it.id == id }
-            }
+    fun linkedTo(type: String, id: String): Flow<List<NoteObject>> = _notes.map { all ->
+        all.filter { note ->
+            !note.trashed && note.links.any { it.type == type && it.id == id }
         }
+    }
 
     /** The note with this id as the list holds it now, or null. */
     fun find(id: String): NoteObject? = _notes.value.firstOrNull { it.id == id }
@@ -95,29 +94,32 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
         val result = client.send(request).result(set)
 
         result.notCreated[CREATION_ID]?.let { throw NoteRefused(it.description ?: it.type) }
-        val created = result.created[CREATION_ID]
-            ?: throw NoteRefused("The server did not create the note.")
+        val created =
+            result.created[CREATION_ID] ?: throw NoteRefused("The server did not create the note.")
 
-        val note = NoteObject(
-            id = created["id"]?.jsonPrimitive?.content ?: throw NoteRefused("The server sent no id."),
-            title = draft.title,
-            body = draft.body,
-            items = draft.items,
-            color = draft.color,
-            pinned = draft.pinned,
-            archived = draft.archived,
-            links = draft.links,
-            createdAt = created.string("createdAt"),
-            updatedAt = created.string("updatedAt"),
-        )
+        val note =
+            NoteObject(
+                id =
+                    created["id"]?.jsonPrimitive?.content
+                        ?: throw NoteRefused("The server sent no id."),
+                title = draft.title,
+                body = draft.body,
+                items = draft.items,
+                color = draft.color,
+                pinned = draft.pinned,
+                archived = draft.archived,
+                links = draft.links,
+                createdAt = created.string("createdAt"),
+                updatedAt = created.string("updatedAt"),
+            )
         state = result.newState
         _notes.update { sorted(listOf(note) + it) }
         note
     }
 
     /**
-     * Saves the whole of [note]: every settable property, so a save is never a merge.
-     * Optimistic; on failure the server's list is re-read and the error rethrown.
+     * Saves the whole of [note]: every settable property, so a save is never a merge. Optimistic;
+     * on failure the server's list is re-read and the error rethrown.
      */
     suspend fun save(note: NoteObject) = writes.withLock {
         val stamped = note.copy(updatedAt = Instant.now().toString())
@@ -125,19 +127,20 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
 
         send(
             NoteSet(
-                update = mapOf(
-                    note.id to
-                        NoteSet.patch {
-                            title(note.title)
-                            body(note.body)
-                            items(note.items)
-                            color(note.color)
-                            pinned(note.pinned)
-                            archived(note.archived)
-                            trashed(note.trashed)
-                            links(note.links)
-                        }
-                )
+                update =
+                    mapOf(
+                        note.id to
+                            NoteSet.patch {
+                                title(note.title)
+                                body(note.body)
+                                items(note.items)
+                                color(note.color)
+                                pinned(note.pinned)
+                                archived(note.archived)
+                                trashed(note.trashed)
+                                links(note.links)
+                            }
+                    )
             )
         )
     }

@@ -31,8 +31,8 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Contacts
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Inbox

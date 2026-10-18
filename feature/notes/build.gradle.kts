@@ -4,7 +4,8 @@ plugins {
     alias(libs.plugins.plmail.android.hilt)
 }
 
-// Keep-style notes: a wall of cards, a text/checklist editor, colours, pin/archive/bin, and links to
+// Keep-style notes: a wall of cards, a text/checklist editor, colours, pin/archive/bin, and links
+// to
 // events, Drive files, contacts and mail. Talks to the server's Note/* JMAP methods through
 // :core:data's NotesRepository. Also exports LinkedNotesSection, which the calendar and contacts
 // screens embed so a note can be reached from the thing it is about.

@@ -54,8 +54,9 @@ fun LinkedNotesSection(
     val available by viewModel.available.collectAsStateWithLifecycle()
     if (!available) return
 
-    val notes by remember(type, id) { viewModel.linkedTo(type, id) }
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val notes by
+        remember(type, id) { viewModel.linkedTo(type, id) }
+            .collectAsStateWithLifecycle(initialValue = emptyList())
     var editing by remember { mutableStateOf<NoteObject?>(null) }
     var adding by remember { mutableStateOf(false) }
 
@@ -94,21 +95,32 @@ fun LinkedNotesSection(
         }
         TextButton(onClick = { adding = true }) {
             Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
-            Text(stringResource(R.string.notes_linked_add), modifier = Modifier.padding(start = 8.dp))
+            Text(
+                stringResource(R.string.notes_linked_add),
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
     }
 
     val open = editing
     if (open != null || adding) {
         Dialog(
-            onDismissRequest = { editing = null; adding = false },
+            onDismissRequest = {
+                editing = null
+                adding = false
+            },
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             Surface(Modifier.fillMaxSize()) {
                 NoteEditor(
                     existing = open?.let { viewModel.find(it.id) ?: it },
-                    seed = if (open == null) NoteDraft(links = listOf(NoteLink(type, id, title))) else null,
-                    onClose = { editing = null; adding = false },
+                    seed =
+                        if (open == null) NoteDraft(links = listOf(NoteLink(type, id, title)))
+                        else null,
+                    onClose = {
+                        editing = null
+                        adding = false
+                    },
                     viewModel = viewModel,
                 )
             }
@@ -125,7 +137,9 @@ fun LinkedNotesSection(
 fun LinkedNotesDialog(type: String, id: String, title: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_close)) } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_close)) }
+        },
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = { LinkedNotesSection(type = type, id = id, title = title) },
     )

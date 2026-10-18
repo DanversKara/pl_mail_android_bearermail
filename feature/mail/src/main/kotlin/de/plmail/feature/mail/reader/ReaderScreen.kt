@@ -125,8 +125,8 @@ fun ReaderScreen(
      */
     onAddToCalendar: ((PlanSuggestion) -> Unit)? = null,
     /**
-     * Keep-style notes: saves this conversation as a note, with its subject as the title and a
-     * link back to the mail. Null where the server has no notes, which hides the menu entry.
+     * Keep-style notes: saves this conversation as a note, with its subject as the title and a link
+     * back to the mail. Null where the server has no notes, which hides the menu entry.
      */
     onSaveAsNote: ((subject: String, mailId: String) -> Unit)? = null,
     viewModel: ReaderViewModel = hiltViewModel(),

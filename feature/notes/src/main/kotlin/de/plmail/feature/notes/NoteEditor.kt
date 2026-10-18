@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
@@ -93,16 +93,18 @@ internal fun NoteEditor(
     onAddToCalendar: ((title: String, description: String) -> Unit)? = null,
     onOpenLink: ((NoteLink) -> Unit)? = null,
 ) {
-    val start = existing ?: NoteObject(
-        id = "",
-        title = seed?.title.orEmpty(),
-        body = seed?.body.orEmpty(),
-        items = seed?.items.orEmpty(),
-        color = seed?.color,
-        pinned = seed?.pinned ?: false,
-        archived = seed?.archived ?: false,
-        links = seed?.links.orEmpty(),
-    )
+    val start =
+        existing
+            ?: NoteObject(
+                id = "",
+                title = seed?.title.orEmpty(),
+                body = seed?.body.orEmpty(),
+                items = seed?.items.orEmpty(),
+                color = seed?.color,
+                pinned = seed?.pinned ?: false,
+                archived = seed?.archived ?: false,
+                links = seed?.links.orEmpty(),
+            )
     val trashed = existing?.trashed == true
 
     var title by remember { mutableStateOf(start.title) }
@@ -136,8 +138,13 @@ internal fun NoteEditor(
             existing == null ->
                 viewModel.create(
                     NoteDraft(
-                        title = note.title, body = note.body, items = note.items, color = note.color,
-                        pinned = note.pinned, archived = note.archived, links = note.links,
+                        title = note.title,
+                        body = note.body,
+                        items = note.items,
+                        color = note.color,
+                        pinned = note.pinned,
+                        archived = note.archived,
+                        links = note.links,
                     )
                 )
             note != existing.copy(updatedAt = note.updatedAt, createdAt = note.createdAt) ->
@@ -165,29 +172,64 @@ internal fun NoteEditor(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = { finish() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.notes_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.notes_back),
+                        )
                     }
                 },
                 actions = {
                     if (trashed) {
-                        IconButton(onClick = { existing?.let(viewModel::restore); onClose() }) {
-                            Icon(Icons.Outlined.RestoreFromTrash, stringResource(R.string.notes_restore))
+                        IconButton(
+                            onClick = {
+                                existing?.let(viewModel::restore)
+                                onClose()
+                            }
+                        ) {
+                            Icon(
+                                Icons.Outlined.RestoreFromTrash,
+                                stringResource(R.string.notes_restore),
+                            )
                         }
-                        IconButton(onClick = { existing?.let(viewModel::destroy); onClose() }) {
-                            Icon(Icons.Outlined.DeleteForever, stringResource(R.string.notes_delete_forever))
+                        IconButton(
+                            onClick = {
+                                existing?.let(viewModel::destroy)
+                                onClose()
+                            }
+                        ) {
+                            Icon(
+                                Icons.Outlined.DeleteForever,
+                                stringResource(R.string.notes_delete_forever),
+                            )
                         }
                     } else {
-                        IconButton(onClick = { pinned = !pinned; if (pinned) archived = false }) {
+                        IconButton(
+                            onClick = {
+                                pinned = !pinned
+                                if (pinned) archived = false
+                            }
+                        ) {
                             Icon(
                                 Icons.Outlined.PushPin,
-                                stringResource(if (pinned) R.string.notes_unpin else R.string.notes_pin),
+                                stringResource(
+                                    if (pinned) R.string.notes_unpin else R.string.notes_pin
+                                ),
                                 tint = if (pinned) MaterialTheme.colorScheme.primary else content,
                             )
                         }
-                        IconButton(onClick = { archived = !archived; if (archived) pinned = false; finish() }) {
+                        IconButton(
+                            onClick = {
+                                archived = !archived
+                                if (archived) pinned = false
+                                finish()
+                            }
+                        ) {
                             Icon(
                                 if (archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
-                                stringResource(if (archived) R.string.notes_unarchive else R.string.notes_archive),
+                                stringResource(
+                                    if (archived) R.string.notes_unarchive
+                                    else R.string.notes_archive
+                                ),
                             )
                         }
                         if (existing != null) {
@@ -203,20 +245,35 @@ internal fun NoteEditor(
             if (!trashed) {
                 Column {
                     if (coloring) {
-                        ColorRow(selected = color, onPick = { color = it; coloring = false })
+                        ColorRow(
+                            selected = color,
+                            onPick = {
+                                color = it
+                                coloring = false
+                            },
+                        )
                     }
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         IconButton(onClick = { coloring = !coloring }) {
-                            Icon(Icons.Outlined.Palette, stringResource(R.string.notes_color), tint = content)
+                            Icon(
+                                Icons.Outlined.Palette,
+                                stringResource(R.string.notes_color),
+                                tint = content,
+                            )
                         }
                         IconButton(
                             onClick = {
                                 if (!checklist) {
                                     if (items.isEmpty() && body.isNotBlank()) {
-                                        items.addAll(body.lines().filter { it.isNotBlank() }.map { NoteItem(it, false) })
+                                        items.addAll(
+                                            body
+                                                .lines()
+                                                .filter { it.isNotBlank() }
+                                                .map { NoteItem(it, false) }
+                                        )
                                         body = ""
                                     }
                                     if (items.isEmpty()) items.add(NoteItem())
@@ -238,13 +295,18 @@ internal fun NoteEditor(
                             )
                         }
                         IconButton(onClick = { picking = true }) {
-                            Icon(Icons.Outlined.Link, stringResource(R.string.notes_add_link), tint = content)
+                            Icon(
+                                Icons.Outlined.Link,
+                                stringResource(R.string.notes_add_link),
+                                tint = content,
+                            )
                         }
                         if (onAddToCalendar != null) {
                             IconButton(
                                 onClick = {
                                     val text =
-                                        if (checklist) items.joinToString("\n") { "• ${it.text}" } else body
+                                        if (checklist) items.joinToString("\n") { "• ${it.text}" }
+                                        else body
                                     onAddToCalendar(title.trim(), text)
                                 }
                             ) {
@@ -294,7 +356,9 @@ internal fun NoteEditor(
                         )
                         TextField(
                             value = item.text,
-                            onValueChange = { items[index] = item.copy(text = it.replace("\n", " ")) },
+                            onValueChange = {
+                                items[index] = item.copy(text = it.replace("\n", " "))
+                            },
                             readOnly = trashed,
                             placeholder = { Text(stringResource(R.string.notes_item_hint)) },
                             colors = colors,
@@ -305,7 +369,11 @@ internal fun NoteEditor(
                         )
                         if (!trashed) {
                             IconButton(onClick = { items.removeAt(index) }) {
-                                Icon(Icons.Outlined.Close, stringResource(R.string.notes_delete), tint = content)
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    stringResource(R.string.notes_delete),
+                                    tint = content,
+                                )
                             }
                         }
                     }
@@ -342,7 +410,11 @@ internal fun NoteEditor(
                             selected = false,
                             onClick = { onOpenLink?.invoke(link) },
                             label = {
-                                Text(link.title ?: link.id, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    link.title ?: link.id,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             },
                             leadingIcon = { Icon(linkIcon(link.type), null, Modifier.size(18.dp)) },
                             trailingIcon =
