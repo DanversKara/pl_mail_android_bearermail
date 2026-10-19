@@ -1,7 +1,10 @@
 package de.plmail.feature.notes
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +31,9 @@ import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Contacts
@@ -41,7 +46,9 @@ import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatItalic
 import androidx.compose.material.icons.outlined.FormatUnderlined
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
@@ -65,6 +72,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -83,11 +91,15 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import de.plmail.jmap.methods.NoteDraft
 import de.plmail.jmap.methods.NoteItem
 import de.plmail.jmap.methods.NoteLink
+import de.plmail.jmap.methods.NoteMedia
 import de.plmail.jmap.methods.NoteObject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 internal fun linkIcon(type: String): ImageVector =
     when (type) {
@@ -146,6 +158,12 @@ internal fun NoteEditor(
     var reminderAt by remember { mutableStateOf(start.reminderAt) }
     var reminding by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
+    val media = remember { mutableStateListOf<NoteMedia>().apply { addAll(start.media) } }
+    var drawing by remember { mutableStateOf(false) }
+    var recording by remember { mutableStateOf(false) }
+    var mediaError by remember { mutableStateOf<String?>(null) }
+    val recorderRef = remember { mutableStateOf<VoiceRecorder?>(null) }
+    DisposableEffect(Unit) { onDispose { recorderRef.value?.cancel() } }
     val context = LocalContext.current
     val shareChooser = stringResource(R.string.notes_share_chooser)
     fun exportText() = NoteExport.text(title, body.text, items.toList(), checklist)
@@ -175,6 +193,7 @@ internal fun NoteEditor(
             trashed = trashedNow,
             links = links.toList(),
             reminderAt = reminderAt,
+            media = media.toList(),
         )
 
     // ── Saving ───────────────────────────────────────────────────────────
@@ -187,7 +206,8 @@ internal fun NoteEditor(
             other.copy(id = "", createdAt = null, updatedAt = null)
 
     // `this.` throughout: the editor's own title/body/items would shadow the note's.
-    fun NoteObject.isBlank() = this.title.isEmpty() && this.body.isBlank() && this.items.isEmpty()
+    fun NoteObject.isBlank() =
+        this.title.isEmpty() && this.body.isBlank() && this.items.isEmpty() && this.media.isEmpty()
 
     fun persist(trashedNow: Boolean = trashed) {
         val note = current(trashedNow)
@@ -229,9 +249,86 @@ internal fun NoteEditor(
     }
 
     fun finish(trashedNow: Boolean = trashed) {
+        if (recording) {
+            recording = false
+            recorderRef.value?.cancel()
+        }
         persist(trashedNow)
         onClose()
     }
+
+    // ── Pictures, drawings, voice notes ─────────────────────────────────
+    // A file needs a note to belong to, so a new note is created first (even blank).
+    fun withNoteId(then: (String) -> Unit) {
+        savedId?.let {
+            then(it)
+            return
+        }
+        if (creating) return
+        creating = true
+        val note = current()
+        viewModel.create(
+            NoteDraft(
+                title = note.title,
+                body = note.body,
+                items = note.items,
+                color = note.color,
+                pinned = note.pinned,
+                archived = note.archived,
+                links = note.links,
+                labels = note.labels,
+            )
+        ) { created ->
+            creating = false
+            if (created != null) {
+                savedId = created.id
+                lastWritten = created
+                then(created.id)
+            }
+        }
+    }
+
+    fun upload(kind: String, name: String, type: String, bytes: suspend () -> ByteArray) {
+        withNoteId { id ->
+            viewModel.addMedia(id, kind, name, type, bytes) { added, error ->
+                if (added != null) media.add(added) else mediaError = error
+            }
+        }
+    }
+
+    val pickImages =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+            uris.forEach { uri ->
+                val type = context.contentResolver.getType(uri) ?: "image/jpeg"
+                upload(NoteMedia.IMAGE, uri.lastPathSegment ?: "picture", type) {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            ?: ByteArray(0)
+                    }
+                }
+            }
+        }
+
+    fun startRecording() {
+        val recorder = recorderRef.value ?: VoiceRecorder(context).also { recorderRef.value = it }
+        runCatching { recorder.start() }
+            .onSuccess { recording = true }
+            .onFailure { mediaError = it.message }
+    }
+
+    fun stopRecording() {
+        recording = false
+        val file = recorderRef.value?.stop() ?: return
+        upload(NoteMedia.AUDIO, "voice-note.m4a", "audio/mp4") {
+            withContext(Dispatchers.IO) { file.readBytes().also { file.delete() } }
+        }
+    }
+
+    val micDenied = stringResource(R.string.notes_media_mic_denied)
+    val askMic =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) startRecording() else mediaError = micDenied
+        }
 
     // ── Undo / redo ──────────────────────────────────────────────────────
     data class Snap(
@@ -508,6 +605,49 @@ internal fun NoteEditor(
                                 tint = content,
                             )
                         }
+                        IconButton(
+                            onClick = {
+                                pickImages.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            }
+                        ) {
+                            Icon(
+                                Icons.Outlined.Image,
+                                stringResource(R.string.notes_media_add_image),
+                                tint = content,
+                            )
+                        }
+                        IconButton(onClick = { drawing = true }) {
+                            Icon(
+                                Icons.Outlined.Brush,
+                                stringResource(R.string.notes_media_draw),
+                                tint = content,
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                when {
+                                    recording -> stopRecording()
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.RECORD_AUDIO,
+                                    ) == PackageManager.PERMISSION_GRANTED -> startRecording()
+                                    else -> askMic.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                if (recording) Icons.Filled.Stop else Icons.Outlined.Mic,
+                                stringResource(
+                                    if (recording) R.string.notes_media_stop
+                                    else R.string.notes_media_record
+                                ),
+                                tint = if (recording) MaterialTheme.colorScheme.error else content,
+                            )
+                        }
                         IconButton(onClick = { reminding = true }) {
                             Icon(
                                 Icons.Outlined.NotificationsNone,
@@ -586,6 +726,26 @@ internal fun NoteEditor(
                     disabledTextColor = content,
                 )
 
+            NoteMediaStrip(
+                media = media.toList(),
+                editable = !trashed,
+                load = { item -> savedId?.let { viewModel.mediaFile(it, item) } },
+                onRemove = { item ->
+                    media.remove(item)
+                    savedId?.let { viewModel.removeMedia(it, item.id) }
+                },
+            )
+            mediaError?.let { message ->
+                Text(
+                    stringResource(R.string.notes_media_failed, message),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .clickable { mediaError = null }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             TextField(
                 value = title,
                 onValueChange = { title = it.replace("\n", " ") },
@@ -727,6 +887,16 @@ internal fun NoteEditor(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (drawing) {
+        DrawingDialog(
+            onSave = { png ->
+                drawing = false
+                upload(NoteMedia.DRAWING, "drawing.png", "image/png") { png }
+            },
+            onDismiss = { drawing = false },
+        )
     }
 
     if (reminding) {

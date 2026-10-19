@@ -32,6 +32,26 @@ data class NoteLink(val type: String, val id: String, val title: String? = null)
     }
 }
 
+/** One picture, drawing or voice recording on a note. */
+@Serializable
+data class NoteMedia(
+    val id: String,
+    val kind: String,
+    val name: String = "",
+    val type: String = "application/octet-stream",
+    val size: Long = 0,
+    val createdAt: String? = null,
+) {
+    val isAudio: Boolean
+        get() = kind == AUDIO
+
+    companion object {
+        const val IMAGE = "image"
+        const val DRAWING = "drawing"
+        const val AUDIO = "audio"
+    }
+}
+
 /** A note as it comes off the wire. See the server's `Note` in `docs/CLIENT_DEVELOPMENT.md`. */
 @Serializable
 data class NoteObject(
@@ -51,6 +71,8 @@ data class NoteObject(
     val reminderAt: String? = null,
     /** The current reminder has gone out (read-only). */
     val reminderSent: Boolean = false,
+    /** Pictures, drawings and voice notes (read-only; changed through [NoteMediaClient]). */
+    val media: List<NoteMedia> = emptyList(),
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )
