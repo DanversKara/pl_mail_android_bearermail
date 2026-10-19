@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BearerMail (original): an adaptive icon, the artwork inside the 66dp safe zone on its own colour,
+     so every launcher mask (circle, squircle, rounded square) shows all of it. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_bearermail_original_background" />
+    <foreground android:drawable="@drawable/ic_launcher_bearermail_original_foreground" />
+</adaptive-icon>

@@ -376,6 +376,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- The BearerMail artwork on white (appIcon "bearermail-white"). -->
+        <activity-alias
+            android:name="de.plmail.LogoLauncherBearermailWhite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_bearermail_white"
+            android:roundIcon="@mipmap/ic_launcher_bearermail_white"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity-alias
             android:name=".CalendarLauncher"
