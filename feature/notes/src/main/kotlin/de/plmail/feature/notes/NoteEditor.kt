@@ -22,6 +22,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
+import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Close
@@ -32,10 +36,15 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.FormatBold
+import androidx.compose.material.icons.outlined.FormatItalic
+import androidx.compose.material.icons.outlined.FormatUnderlined
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RestoreFromTrash
+import androidx.compose.material.icons.outlined.TextFormat
+import androidx.compose.material.icons.outlined.Title
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,7 +59,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,12 +72,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.plmail.jmap.methods.NoteDraft
 import de.plmail.jmap.methods.NoteItem
 import de.plmail.jmap.methods.NoteLink
 import de.plmail.jmap.methods.NoteObject
+import kotlinx.coroutines.delay
 
 internal fun linkIcon(type: String): ImageVector =
     when (type) {
@@ -80,10 +93,11 @@ internal fun linkIcon(type: String): ImageVector =
 /**
  * The note editor: title, free text or a checklist, colour, pin, archive, bin, and links.
  *
- * Saves when it closes rather than on a Save button, as Keep does: a new note that is still empty
- * is discarded, an edited one is written whole, and an untouched one sends nothing. [existing] is
- * the note being edited, [seed] starts a new one (an event's "add note" arrives with its link
- * already attached).
+ * Saves as you type, as Keep does — a moment after the last change, and again on close — so there
+ * is no Save button. A new note is created on the first change that gives it content; a note left
+ * empty is never written. Undo and redo walk snapshots of the editor's state. [existing] is the
+ * note being edited, [seed] starts a new one (an event's "add note" arrives with its link already
+ * attached).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,7 +124,9 @@ internal fun NoteEditor(
     val trashed = existing?.trashed == true
 
     var title by remember { mutableStateOf(start.title) }
-    var body by remember { mutableStateOf(start.body) }
+    var body by remember { mutableStateOf(TextFieldValue(start.body)) }
+    var labelsText by remember { mutableStateOf(start.labels.joinToString(", ")) }
+    var formatting by remember { mutableStateOf(false) }
     val items = remember { mutableStateListOf<NoteItem>().apply { addAll(start.items) } }
     var checklist by remember { mutableStateOf(start.items.isNotEmpty()) }
     var color by remember { mutableStateOf(start.color) }
@@ -120,10 +136,19 @@ internal fun NoteEditor(
     var picking by remember { mutableStateOf(false) }
     var coloring by remember { mutableStateOf(false) }
 
+    fun parsedLabels(): List<String> =
+        labelsText
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+            .take(20)
+
     fun current(trashedNow: Boolean = trashed) =
         start.copy(
             title = title.trim(),
-            body = body,
+            body = body.text,
+            labels = parsedLabels(),
             items = if (checklist) items.filter { it.text.isNotBlank() } else emptyList(),
             color = color,
             pinned = pinned,
@@ -132,27 +157,97 @@ internal fun NoteEditor(
             links = links.toList(),
         )
 
-    fun finish(trashedNow: Boolean = trashed) {
+    // ── Saving ───────────────────────────────────────────────────────────
+    var savedId by remember { mutableStateOf(existing?.id) }
+    var lastWritten by remember { mutableStateOf(existing ?: start) }
+    var creating by remember { mutableStateOf(false) }
+
+    fun NoteObject.sameAs(other: NoteObject) =
+        copy(id = "", createdAt = null, updatedAt = null) ==
+            other.copy(id = "", createdAt = null, updatedAt = null)
+
+    // `this.` throughout: the editor's own title/body/items would shadow the note's.
+    fun NoteObject.isBlank() = this.title.isEmpty() && this.body.isBlank() && this.items.isEmpty()
+
+    fun persist(trashedNow: Boolean = trashed) {
         val note = current(trashedNow)
-        val blank = note.title.isEmpty() && note.body.isBlank() && note.items.isEmpty()
-        when {
-            existing == null && blank -> Unit
-            existing == null ->
-                viewModel.create(
-                    NoteDraft(
-                        title = note.title,
-                        body = note.body,
-                        items = note.items,
-                        color = note.color,
-                        pinned = note.pinned,
-                        archived = note.archived,
-                        links = note.links,
-                    )
+        val id = savedId
+        if (id == null) {
+            if (note.isBlank() || creating) return
+            creating = true
+            viewModel.create(
+                NoteDraft(
+                    title = note.title,
+                    body = note.body,
+                    items = note.items,
+                    color = note.color,
+                    pinned = note.pinned,
+                    archived = note.archived,
+                    links = note.links,
+                    labels = note.labels,
                 )
-            note != existing.copy(updatedAt = note.updatedAt, createdAt = note.createdAt) ->
-                viewModel.save(note)
+            ) { created ->
+                creating = false
+                if (created != null) {
+                    savedId = created.id
+                    lastWritten = created
+                    // Typing went on while the create was out, or the editor closed with
+                    // the note in the bin: write what the editor holds now.
+                    val latest = current(trashedNow).copy(id = created.id)
+                    if (!latest.sameAs(created)) {
+                        viewModel.save(latest)
+                        lastWritten = latest
+                    }
+                }
+            }
+            return
         }
+        val candidate = note.copy(id = id)
+        if (candidate.sameAs(lastWritten)) return
+        viewModel.save(candidate)
+        lastWritten = candidate
+    }
+
+    fun finish(trashedNow: Boolean = trashed) {
+        persist(trashedNow)
         onClose()
+    }
+
+    // ── Undo / redo ──────────────────────────────────────────────────────
+    data class Snap(
+        val title: String,
+        val body: String,
+        val items: List<NoteItem>,
+        val checklist: Boolean,
+        val color: String?,
+        val labels: String,
+    )
+
+    fun snap() = Snap(title, body.text, items.toList(), checklist, color, labelsText)
+
+    val history = remember { mutableStateListOf(snap()) }
+    var position by remember { mutableIntStateOf(0) }
+
+    fun restore(to: Snap) {
+        title = to.title
+        body = TextFieldValue(to.body)
+        items.clear()
+        items.addAll(to.items)
+        checklist = to.checklist
+        color = to.color
+        labelsText = to.labels
+    }
+
+    val now = snap()
+    LaunchedEffect(now) {
+        delay(AUTOSAVE_DELAY_MS)
+        if (now != history.getOrNull(position)) {
+            while (history.size > position + 1) history.removeAt(history.lastIndex)
+            history.add(now)
+            if (history.size > HISTORY_LIMIT) history.removeAt(0)
+            position = history.lastIndex
+        }
+        if (!trashed) persist()
     }
 
     BackHandler { finish() }
@@ -249,6 +344,45 @@ internal fun NoteEditor(
                 // toolbar sat under the gesture/navigation bar, and under the
                 // keyboard while typing.
                 Column(Modifier.navigationBarsPadding().imePadding()) {
+                    if (formatting && !checklist) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            listOf(
+                                    Triple(
+                                        "**",
+                                        Icons.Outlined.FormatBold,
+                                        R.string.notes_format_bold,
+                                    ),
+                                    Triple(
+                                        "*",
+                                        Icons.Outlined.FormatItalic,
+                                        R.string.notes_format_italic,
+                                    ),
+                                    Triple(
+                                        "__",
+                                        Icons.Outlined.FormatUnderlined,
+                                        R.string.notes_format_underline,
+                                    ),
+                                    Triple(
+                                        "# ",
+                                        Icons.Outlined.Title,
+                                        R.string.notes_format_heading,
+                                    ),
+                                    Triple(
+                                        "- ",
+                                        Icons.AutoMirrored.Outlined.FormatListBulleted,
+                                        R.string.notes_format_bullets,
+                                    ),
+                                )
+                                .forEach { (mark, icon, label) ->
+                                    IconButton(onClick = { body = applyMark(body, mark) }) {
+                                        Icon(icon, stringResource(label), tint = content)
+                                    }
+                                }
+                        }
+                    }
                     if (coloring) {
                         ColorRow(
                             selected = color,
@@ -262,6 +396,15 @@ internal fun NoteEditor(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        if (!checklist) {
+                            IconButton(onClick = { formatting = !formatting }) {
+                                Icon(
+                                    Icons.Outlined.TextFormat,
+                                    stringResource(R.string.notes_format),
+                                    tint = content,
+                                )
+                            }
+                        }
                         IconButton(onClick = { coloring = !coloring }) {
                             Icon(
                                 Icons.Outlined.Palette,
@@ -272,19 +415,20 @@ internal fun NoteEditor(
                         IconButton(
                             onClick = {
                                 if (!checklist) {
-                                    if (items.isEmpty() && body.isNotBlank()) {
+                                    if (items.isEmpty() && body.text.isNotBlank()) {
                                         items.addAll(
-                                            body
+                                            body.text
                                                 .lines()
                                                 .filter { it.isNotBlank() }
                                                 .map { NoteItem(it, false) }
                                         )
-                                        body = ""
+                                        body = TextFieldValue("")
                                     }
                                     if (items.isEmpty()) items.add(NoteItem())
                                     checklist = true
                                 } else {
-                                    body = items.joinToString("\n") { it.text }.trim()
+                                    body =
+                                        TextFieldValue(items.joinToString("\n") { it.text }.trim())
                                     items.clear()
                                     checklist = false
                                 }
@@ -306,12 +450,41 @@ internal fun NoteEditor(
                                 tint = content,
                             )
                         }
+                        IconButton(
+                            enabled = position > 0,
+                            onClick = {
+                                position -= 1
+                                restore(history[position])
+                            },
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.Undo,
+                                stringResource(R.string.notes_undo),
+                                tint = content.copy(alpha = if (position > 0) 1f else 0.35f),
+                            )
+                        }
+                        IconButton(
+                            enabled = position < history.lastIndex,
+                            onClick = {
+                                position += 1
+                                restore(history[position])
+                            },
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.Redo,
+                                stringResource(R.string.notes_redo),
+                                tint =
+                                    content.copy(
+                                        alpha = if (position < history.lastIndex) 1f else 0.35f
+                                    ),
+                            )
+                        }
                         if (onAddToCalendar != null) {
                             IconButton(
                                 onClick = {
                                     val text =
                                         if (checklist) items.joinToString("\n") { "• ${it.text}" }
-                                        else body
+                                        else body.text
                                     onAddToCalendar(title.trim(), text)
                                 }
                             ) {
@@ -401,6 +574,7 @@ internal fun NoteEditor(
                     readOnly = trashed,
                     placeholder = { Text(stringResource(R.string.notes_body_hint)) },
                     colors = colors,
+                    visualTransformation = NoteMarkupTransformation(content.copy(alpha = 0.45f)),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -437,6 +611,17 @@ internal fun NoteEditor(
                     }
                 }
             }
+            TextField(
+                value = labelsText,
+                onValueChange = { labelsText = it.replace("\n", " ") },
+                readOnly = trashed,
+                placeholder = { Text(stringResource(R.string.notes_labels_hint)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Label, null, tint = content) },
+                singleLine = true,
+                colors = colors,
+                textStyle = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 
@@ -474,3 +659,9 @@ private fun ColorRow(selected: String?, onPick: (String?) -> Unit) {
         }
     }
 }
+
+/** How long after the last keystroke the editor saves (and records an undo step). */
+private const val AUTOSAVE_DELAY_MS = 700L
+
+/** Undo steps kept per editing session. */
+private const val HISTORY_LIMIT = 100

@@ -109,6 +109,7 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
                 pinned = draft.pinned,
                 archived = draft.archived,
                 links = draft.links,
+                labels = draft.labels,
                 createdAt = created.string("createdAt"),
                 updatedAt = created.string("updatedAt"),
             )
@@ -122,6 +123,9 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
      * on failure the server's list is re-read and the error rethrown.
      */
     suspend fun save(note: NoteObject) = writes.withLock {
+        // Labels go on the wire only when this note has or had some: a server from before
+        // labels refuses the property, and every other save must still work against it.
+        val sendLabels = note.labels.isNotEmpty() || find(note.id)?.labels?.isNotEmpty() == true
         val stamped = note.copy(updatedAt = Instant.now().toString())
         _notes.update { list -> sorted(list.map { if (it.id == note.id) stamped else it }) }
 
@@ -139,6 +143,7 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
                                 archived(note.archived)
                                 trashed(note.trashed)
                                 links(note.links)
+                                if (sendLabels) labels(note.labels)
                             }
                     )
             )
