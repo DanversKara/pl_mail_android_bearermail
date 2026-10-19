@@ -52,3 +52,11 @@ internal fun noteContent(name: String?): Color {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     return if (dark) Color(0xFFE8EAED) else Color(0xFF202124)
 }
+
+/**
+ * A note colour as ARGB, for surfaces that are not Compose themes (the home-screen widget). Null
+ * for no colour or an unknown name.
+ */
+fun noteColorArgb(name: String?, dark: Boolean): Long? = name?.let {
+    (if (dark) Dark else Light)[it]
+}

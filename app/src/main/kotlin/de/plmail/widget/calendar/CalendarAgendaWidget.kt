@@ -223,9 +223,23 @@ private fun AgendaContent(
                             Band(monthName(entry.date, locale), false, compact, openCalendar)
                         is Entry.DayBand -> {
                             val isToday = entry.date == today
-                            Band(dayName(entry.date, locale), isToday, compact, openCalendar)
+                            val openDay =
+                                actionStartActivity(CalendarWidgetIntents.day(context, entry.date))
+                            Band(dayName(entry.date, locale), isToday, compact, openDay)
                         }
-                        is Entry.Events -> EventBlock(entry.block, compact, allDay, openCalendar)
+                        is Entry.Events ->
+                            EventBlock(
+                                entry.block,
+                                compact,
+                                allDay,
+                                actionStartActivity(
+                                    CalendarWidgetIntents.event(
+                                        context,
+                                        entry.date,
+                                        entry.block.rows.first().eventKey,
+                                    )
+                                ),
+                            )
                     }
                 }
             }

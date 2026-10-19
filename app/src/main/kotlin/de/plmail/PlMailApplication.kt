@@ -41,6 +41,8 @@ class PlMailApplication : Application() {
 
     @Inject lateinit var icons: LauncherIconSync
 
+    @Inject lateinit var notesWidget: de.plmail.widget.notes.NotesWidgetSync
+
     /**
      * The third exception, and the one that has to run before everything else.
      *
@@ -71,5 +73,7 @@ class PlMailApplication : Application() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(AppLock.lifecycleObserver)
 
         icons.start()
+
+        notesWidget.start()
     }
 }

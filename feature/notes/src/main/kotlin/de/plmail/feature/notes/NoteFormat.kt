@@ -141,3 +141,6 @@ internal fun applyMark(value: TextFieldValue, mark: String): TextFieldValue {
         else TextRange(start, start + replacement.length)
     return TextFieldValue(out, selection)
 }
+
+/** The body as plain text with the formatting marks removed, for surfaces without styling. */
+fun notePlainText(body: String): String = noteAnnotated(body).text
