@@ -1,0 +1,19 @@
+name: tmp diag
+on:
+    push:
+        branches: [feat/notes-widget]
+        paths: ['.github/workflows/tmp-diag.yml']
+jobs:
+    diag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '21'
+            - uses: gradle/actions/setup-gradle@v4
+            - run: ./gradlew build --continue > build.log 2>&1 || true
+            - run: |
+                  grep -E "^e: |error:|Error:|FAILED|What went wrong" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+                  find . -path '*/lint_intermediate_text_report/*' -name 'lint-results-*.txt' -exec cat {} + 2>/dev/null | grep -E "Error|error" | head -20 | while IFS= read -r l; do echo "::error::LINT $l"; done
