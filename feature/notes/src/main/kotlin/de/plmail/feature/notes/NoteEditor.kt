@@ -1,6 +1,8 @@
 package de.plmail.feature.notes
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,10 +46,13 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RestoreFromTrash
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material.icons.outlined.Title
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +76,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -139,6 +145,15 @@ internal fun NoteEditor(
     var coloring by remember { mutableStateOf(false) }
     var reminderAt by remember { mutableStateOf(start.reminderAt) }
     var reminding by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val shareChooser = stringResource(R.string.notes_share_chooser)
+    fun exportText() =
+        NoteExport.text(title, body.text, items.toList(), checklist)
+    val saveTxt =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            if (uri != null) NoteExport.writeText(context, uri, exportText())
+        }
 
     fun parsedLabels(): List<String> =
         labelsText
@@ -333,6 +348,43 @@ internal fun NoteEditor(
                                     else R.string.notes_archive
                                 ),
                             )
+                        }
+                        Box {
+                            IconButton(onClick = { sharing = true }) {
+                                Icon(Icons.Outlined.Share, stringResource(R.string.notes_share))
+                            }
+                            DropdownMenu(expanded = sharing, onDismissRequest = { sharing = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.notes_share_text)) },
+                                    onClick = {
+                                        sharing = false
+                                        NoteExport.shareText(context, title, exportText(), shareChooser)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.notes_share_png)) },
+                                    onClick = {
+                                        sharing = false
+                                        NoteExport.sharePng(
+                                            context,
+                                            title,
+                                            body.text,
+                                            items.toList(),
+                                            checklist,
+                                            noteColorArgb(color, dark = false)?.let { Color(it) }
+                                                ?: Color.White,
+                                            shareChooser,
+                                        )
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.notes_save_txt)) },
+                                    onClick = {
+                                        sharing = false
+                                        saveTxt.launch("${title.ifBlank { "note" }.take(60)}.txt")
+                                    },
+                                )
+                            }
                         }
                         if (existing != null) {
                             IconButton(onClick = { finish(trashedNow = true) }) {

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
@@ -114,6 +115,7 @@ fun ComposeScreen(
     var aliasRequest by remember { mutableStateOf<Boolean?>(null) }
     var isPickingDrive by remember { mutableStateOf(false) }
     var isPickingEvent by remember { mutableStateOf(false) }
+    var isPickingNote by remember { mutableStateOf(false) }
     val whenLabel = stringResource(R.string.compose_event_when)
     val whereLabel = stringResource(R.string.compose_event_where)
     var isPickingExactTime by remember { mutableStateOf(false) }
@@ -217,6 +219,7 @@ fun ComposeScreen(
                         onSendLater = { isChoosingWhen = true },
                         onDiscard = { viewModel.discard(onClose) },
                         onInsertEvent = { isPickingEvent = true },
+                        onInsertNote = { isPickingNote = true },
                     )
 
                     // Anchored under the overflow button it was opened from, so
@@ -261,6 +264,17 @@ fun ComposeScreen(
                     viewModel.attachEvent(row)
                 },
                 onDismiss = { isPickingEvent = false },
+            )
+        }
+
+        if (isPickingNote) {
+            NotePickerDialog(
+                load = viewModel::notes,
+                onPick = { note ->
+                    isPickingNote = false
+                    body.setHtml(body.toHtml() + viewModel.noteHtml(note))
+                },
+                onDismiss = { isPickingNote = false },
             )
         }
 
@@ -564,6 +578,7 @@ private fun OverflowMenu(
     onSendLater: () -> Unit,
     onDiscard: () -> Unit,
     onInsertEvent: () -> Unit = {},
+    onInsertNote: () -> Unit = {},
 ) {
     var isOpen by remember { mutableStateOf(false) }
 
@@ -585,6 +600,16 @@ private fun OverflowMenu(
                 },
             )
         }
+
+        // BearerMail: one of your notes, into the message as text.
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.compose_insert_note)) },
+            leadingIcon = { Icon(Icons.Outlined.Description, contentDescription = null) },
+            onClick = {
+                isOpen = false
+                onInsertNote()
+            },
+        )
 
         // BearerMail: one of your calendar events, into the message and attached as .ics.
         DropdownMenuItem(

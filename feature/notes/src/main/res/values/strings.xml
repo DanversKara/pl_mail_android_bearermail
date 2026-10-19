@@ -59,4 +59,9 @@
     <string name="notes_reminder_set">Set</string>
     <string name="notes_reminder_cancel">Cancel</string>
     <string name="notes_reminder_hint">You get an email and a notification when it is due.</string>
+    <string name="notes_share">Share</string>
+    <string name="notes_share_chooser">Share note</string>
+    <string name="notes_share_text">Send a copy</string>
+    <string name="notes_share_png">Share as picture</string>
+    <string name="notes_save_txt">Save as .txt</string>
 </resources>

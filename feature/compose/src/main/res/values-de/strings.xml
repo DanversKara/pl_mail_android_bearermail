@@ -118,4 +118,9 @@
     <string name="compose_event_when">Wann</string>
     <string name="compose_event_where">Wo</string>
     <string name="compose_too_large_note">Zu groß als Anhang, daher liegt es in meinem Drive. Hier herunterladen:</string>
+    <string name="compose_insert_note">Notiz einfügen</string>
+    <string name="compose_note_title">Notiz einfügen</string>
+    <string name="compose_note_search">Notizen durchsuchen</string>
+    <string name="compose_note_empty">Noch keine Notizen.</string>
+    <string name="compose_note_cancel">Abbrechen</string>
 </resources>
