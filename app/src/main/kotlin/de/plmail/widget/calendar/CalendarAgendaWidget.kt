@@ -18,6 +18,8 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
@@ -52,9 +54,11 @@ import java.util.Locale
  * the next month, a band with that month's name ("NOVEMBER") marks the turn. Text on a block is
  * black or white, whichever reads on that color.
  *
- * Resizable both ways and down to a single strip. The widget is told its exact size, works out what
- * fits, and fills that space with as many *days* as it can. Below [COMPACT_BELOW] it drops the
- * month title and the time line and shows `time title` on one line per event.
+ * The days are a scrolling list, as in Google Calendar's own agenda widget: the widget fills
+ * whatever height it really has and scrolls for the rest. It used to work out from the size the
+ * launcher reported how many days would fit — and launchers that report far less than the widget's
+ * real height left it showing a single event. Below [COMPACT_BELOW] it drops the month title and
+ * the time line and shows `time title` on one line per event.
  *
  * Reads the cache straight from Room, so it renders even when the app process was not running.
  */
@@ -82,18 +86,29 @@ class CalendarAgendaWidget : GlanceAppWidget() {
 /** Below this height the widget switches to the one-line-per-event strip. */
 private val COMPACT_BELOW = 120.dp
 
-/** Glance containers are happiest with few children, so cap what one column is asked to hold. */
-private const val MAX_DAYS = 8
-private const val MAX_ROWS_PER_DAY = 9
+/** How far ahead, and how many events, the list goes: well past a week, never unbounded. */
+private const val DAYS_AHEAD = 31L
+private const val MAX_EVENTS = 80
 
 /** Events of one day that share a color (and are all over, or all still to come): one block. */
 private class Block(val rows: List<AgendaRow>, val past: Boolean)
 
-/** One day as drawn: a month band first when the month turns, its own band, then its blocks. */
-private class DayPlan(val date: LocalDate, val newMonth: Boolean, val blocks: List<Block>)
+/** One line of the scrolling list: a month band, a day band, or a block of events. */
+private sealed interface Entry {
+    val key: Long
 
-/** Heights in dp, per layout, that [planAgenda] packs against the widget's real height. */
-private class Metrics(val band: Float, val blockPad: Float, val line: Float)
+    class MonthBand(val date: LocalDate) : Entry {
+        override val key = date.toEpochDay() * 1000 + 1
+    }
+
+    class DayBand(val date: LocalDate) : Entry {
+        override val key = date.toEpochDay() * 1000 + 2
+    }
+
+    class Events(val date: LocalDate, val index: Int, val block: Block) : Entry {
+        override val key = date.toEpochDay() * 1000 + 10 + index
+    }
+}
 
 /** Consecutive events with the same color and the same past/upcoming state share one block. */
 private fun blocksOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime): List<Block> {
@@ -114,49 +129,30 @@ private fun blocksOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime
     return blocks
 }
 
-/**
- * Decides which days, and how many of each day's events, fit in [avail] dp.
- *
- * A day costs its band (and a month band when the month turns), each block its padding, and each
- * event a line. Whole days are packed in order until the space runs out; the last day may be cut
- * short. There is always at least one event when there is any, however small the widget is.
- */
-private fun planAgenda(
-    rows: List<AgendaRow>,
-    today: LocalDate,
-    now: LocalDateTime,
-    avail: Float,
-    m: Metrics,
-): List<DayPlan> {
-    val plan = mutableListOf<DayPlan>()
-    var used = 0f
+/** The list the widget scrolls: every day with events in the next [DAYS_AHEAD] days. */
+private fun entriesOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime): List<Entry> {
+    val entries = mutableListOf<Entry>()
+    val last = today.plusDays(DAYS_AHEAD)
     var month = YearMonth.from(today)
-
-    for ((dateString, dayRows) in rows.groupBy { it.date }) {
-        val date = runCatching { LocalDate.parse(dateString) }.getOrNull() ?: continue
-        val newMonth = YearMonth.from(date) != month
-        val bands = m.band * (if (newMonth) 2 else 1)
-
-        // Grow the day an event at a time while it still fits.
-        val limit = minOf(dayRows.size, MAX_ROWS_PER_DAY)
-        var take = 0
-        while (take < limit) {
-            val blocks = blocksOf(dayRows.take(take + 1), today, now)
-            val cost = bands + blocks.size * m.blockPad + (take + 1) * m.line
-            if (used + cost > avail) break
-            take++
+    val days =
+        rows
+            .take(MAX_EVENTS)
+            .groupBy { it.date }
+            .mapNotNull { (dateString, dayRows) ->
+                runCatching { LocalDate.parse(dateString) }.getOrNull()?.let { it to dayRows }
+            }
+    for ((date, dayRows) in days) {
+        if (date.isAfter(last)) break
+        if (YearMonth.from(date) != month) {
+            entries += Entry.MonthBand(date)
+            month = YearMonth.from(date)
         }
-        if (take == 0) {
-            if (plan.isEmpty()) take = 1 else break
+        entries += Entry.DayBand(date)
+        blocksOf(dayRows, today, now).forEachIndexed { index, block ->
+            entries += Entry.Events(date, index, block)
         }
-
-        val blocks = blocksOf(dayRows.take(take), today, now)
-        plan += DayPlan(date, newMonth, blocks)
-        used += bands + blocks.size * m.blockPad + take * m.line
-        month = YearMonth.from(date)
-        if (take < dayRows.size || plan.size >= MAX_DAYS) break
     }
-    return plan
+    return entries
 }
 
 @Composable
@@ -173,12 +169,7 @@ private fun AgendaContent(
     val allDay = context.getString(R.string.calendar_widget_all_day)
 
     val pad = if (compact) 4f else 8f
-    val headerH = if (compact) 0f else 40f
-    val metrics =
-        if (compact) Metrics(band = 16f, blockPad = 6f, line = 18f)
-        else Metrics(band = 22f, blockPad = 12f, line = 38f)
-    val avail = size.height.value - pad * 2 - headerH - 2f
-    val plan = planAgenda(rows, today, now, avail, metrics)
+    val entries = entriesOf(rows, today, now)
 
     Column(
         modifier =
@@ -218,15 +209,25 @@ private fun AgendaContent(
             Spacer(modifier = GlanceModifier.height(4.dp))
         }
 
-        if (plan.isEmpty()) {
+        if (entries.isEmpty()) {
             Text(
                 text = context.getString(R.string.calendar_widget_empty),
                 modifier = GlanceModifier.padding(horizontal = 8.dp).clickable(openCalendar),
                 style = TextStyle(color = WidgetColors.muted, fontSize = 13.sp),
             )
         } else {
-            Column(modifier = GlanceModifier.fillMaxWidth()) {
-                plan.forEach { day -> DayGroup(day, today, compact, allDay, openCalendar) }
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                items(entries, itemId = { it.key }) { entry ->
+                    when (entry) {
+                        is Entry.MonthBand ->
+                            Band(monthName(entry.date, locale), false, compact, openCalendar)
+                        is Entry.DayBand -> {
+                            val isToday = entry.date == today
+                            Band(dayName(entry.date, locale), isToday, compact, openCalendar)
+                        }
+                        is Entry.Events -> EventBlock(entry.block, compact, allDay, openCalendar)
+                    }
+                }
             }
         }
     }
@@ -264,24 +265,6 @@ private fun dayName(date: LocalDate, locale: Locale): String =
 /** "NOVEMBER", in the device's language. */
 private fun monthName(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofPattern("LLLL", locale)).uppercase(locale)
-
-/** One day: the month band when the month turns, its own band, then its blocks edge to edge. */
-@Composable
-private fun DayGroup(
-    day: DayPlan,
-    today: LocalDate,
-    compact: Boolean,
-    allDay: String,
-    openCalendar: Action,
-) {
-    val locale = Locale.getDefault()
-
-    Column(modifier = GlanceModifier.fillMaxWidth()) {
-        if (day.newMonth) Band(monthName(day.date, locale), false, compact, openCalendar)
-        Band(dayName(day.date, locale), day.date == today, compact, openCalendar)
-        day.blocks.forEach { block -> EventBlock(block, compact, allDay, openCalendar) }
-    }
-}
 
 /** Black or white, whichever reads on [background]. */
 private fun readableOn(background: Color): ColorProvider {
