@@ -1,0 +1,27 @@
+name: tmp format
+on:
+    push:
+        branches: [feat/bearermail-icons]
+        paths: ['.github/workflows/tmp-format.yml']
+permissions:
+    contents: write
+jobs:
+    format:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: feat/bearermail-icons
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '21'
+            - uses: gradle/actions/setup-gradle@v4
+            - run: ./gradlew spotlessApply
+            - run: |
+                  git config user.name github-actions
+                  git config user.email actions@users.noreply.github.com
+                  git rm -q .github/workflows/tmp-format.yml
+                  git add -A
+                  git commit -m "style: spotlessApply"
+                  git push
