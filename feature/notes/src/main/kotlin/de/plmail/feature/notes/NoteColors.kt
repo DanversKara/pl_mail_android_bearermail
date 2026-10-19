@@ -54,7 +54,9 @@ internal fun noteContent(name: String?): Color {
 }
 
 /**
- * A note colour as ARGB, for surfaces that are not Compose themes (the home-screen widget). Null for
- * no colour or an unknown name.
+ * A note colour as ARGB, for surfaces that are not Compose themes (the home-screen widget). Null
+ * for no colour or an unknown name.
  */
-fun noteColorArgb(name: String?, dark: Boolean): Long? = name?.let { (if (dark) Dark else Light)[it] }
+fun noteColorArgb(name: String?, dark: Boolean): Long? = name?.let {
+    (if (dark) Dark else Light)[it]
+}

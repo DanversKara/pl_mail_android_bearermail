@@ -9,9 +9,9 @@ import de.plmail.feature.notes.NoteSeed
 /**
  * The intents behind the notes widget's taps, and reading them back in [MainActivity].
  *
- * Each carries a distinct data URI as well as its extras: PendingIntents that differ only in
- * extras are the same PendingIntent to Android, so without it every card would open the first
- * note. The scheme is not `plmail:`, which [MainActivity] reads as a pairing link.
+ * Each carries a distinct data URI as well as its extras: PendingIntents that differ only in extras
+ * are the same PendingIntent to Android, so without it every card would open the first note. The
+ * scheme is not `plmail:`, which [MainActivity] reads as a pairing link.
  */
 object NotesWidgetIntents {
     private const val SCHEME = "plmail-notes"
