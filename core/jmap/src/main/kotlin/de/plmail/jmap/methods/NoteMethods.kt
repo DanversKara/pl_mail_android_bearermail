@@ -47,6 +47,10 @@ data class NoteObject(
     val links: List<NoteLink> = emptyList(),
     /** Keep-style labels, case kept as typed, each once. */
     val labels: List<String> = emptyList(),
+    /** When to remind, a UTCDate, or null. The server mails and pushes it once it is due. */
+    val reminderAt: String? = null,
+    /** The current reminder has gone out (read-only). */
+    val reminderSent: Boolean = false,
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )
@@ -172,6 +176,10 @@ class NoteSet(
 
         fun links(value: List<NoteLink>) {
             fields["links"] = linksJson(value)
+        }
+
+        fun reminderAt(value: String?) {
+            fields["reminderAt"] = value?.let { JsonPrimitive(it) } ?: JsonNull
         }
 
         fun labels(value: List<String>) {

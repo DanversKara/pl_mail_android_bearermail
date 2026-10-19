@@ -126,7 +126,14 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
         // Labels go on the wire only when this note has or had some: a server from before
         // labels refuses the property, and every other save must still work against it.
         val sendLabels = note.labels.isNotEmpty() || find(note.id)?.labels?.isNotEmpty() == true
-        val stamped = note.copy(updatedAt = Instant.now().toString())
+        // The reminder likewise: only when it is set or was, for the same older servers.
+        val previousReminder = find(note.id)?.reminderAt
+        val sendReminder = note.reminderAt != null || previousReminder != null
+        val stamped =
+            note.copy(
+                updatedAt = Instant.now().toString(),
+                reminderSent = note.reminderSent && note.reminderAt == previousReminder,
+            )
         _notes.update { list -> sorted(list.map { if (it.id == note.id) stamped else it }) }
 
         send(
@@ -144,6 +151,7 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
                                 trashed(note.trashed)
                                 links(note.links)
                                 if (sendLabels) labels(note.labels)
+                                if (sendReminder) reminderAt(note.reminderAt)
                             }
                     )
             )

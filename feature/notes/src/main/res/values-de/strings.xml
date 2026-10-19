@@ -50,4 +50,13 @@
     <string name="notes_undo">Rückgängig</string>
     <string name="notes_redo">Wiederholen</string>
     <string name="notes_labels_hint">Labels, durch Kommas getrennt</string>
+    <string name="notes_reminder">Erinnern</string>
+    <string name="notes_reminder_later">Später heute</string>
+    <string name="notes_reminder_tomorrow">Morgen früh</string>
+    <string name="notes_reminder_next_week">Nächste Woche</string>
+    <string name="notes_reminder_pick">Datum &amp; Uhrzeit wählen</string>
+    <string name="notes_reminder_remove">Erinnerung entfernen</string>
+    <string name="notes_reminder_set">Setzen</string>
+    <string name="notes_reminder_cancel">Abbrechen</string>
+    <string name="notes_reminder_hint">Du bekommst eine E-Mail und eine Benachrichtigung, wenn es so weit ist.</string>
 </resources>
