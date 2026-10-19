@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
 import de.plmail.jmap.methods.NoteItem
 import java.io.File
 
@@ -151,14 +152,10 @@ internal object NoteExport {
             }
         canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 40f, 40f, fill)
 
-        canvas.save()
-        canvas.translate(pad, pad)
-        titleLayout?.let {
-            it.draw(canvas)
-            canvas.translate(0f, it.height + gap)
+        canvas.withTranslation(pad, pad) {
+            titleLayout?.draw(this)
+            withTranslation(0f, (titleLayout?.height ?: 0) + gap) { bodyLayout.draw(this) }
         }
-        bodyLayout.draw(canvas)
-        canvas.restore()
         return bitmap
     }
 }
