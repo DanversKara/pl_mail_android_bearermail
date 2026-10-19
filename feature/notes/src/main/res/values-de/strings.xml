@@ -59,4 +59,9 @@
     <string name="notes_reminder_set">Setzen</string>
     <string name="notes_reminder_cancel">Abbrechen</string>
     <string name="notes_reminder_hint">Du bekommst eine E-Mail und eine Benachrichtigung, wenn es so weit ist.</string>
+    <string name="notes_share">Teilen</string>
+    <string name="notes_share_chooser">Notiz teilen</string>
+    <string name="notes_share_text">Kopie senden</string>
+    <string name="notes_share_png">Als Bild teilen</string>
+    <string name="notes_save_txt">Als .txt speichern</string>
 </resources>

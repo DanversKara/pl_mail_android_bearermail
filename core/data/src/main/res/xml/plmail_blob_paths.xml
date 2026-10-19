@@ -11,4 +11,6 @@
     <cache-path name="blobs" path="blobs/" />
     <!-- BearerMail Drive downloads (DriveRepository.downloadToCache). -->
     <cache-path name="drive" path="drive/" />
+    <!-- BearerMail: a note shared as a picture (feature/notes NoteExport). -->
+    <cache-path name="notes" path="notes/" />
 </paths>
