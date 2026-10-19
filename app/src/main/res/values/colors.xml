@@ -26,4 +26,7 @@
       layer.
     -->
     <color name="ic_launcher_background">#FAF9F7</color>
+    <!-- BearerMail launcher icons: navy (the original artwork) and white. -->
+    <color name="ic_launcher_bearermail_original_background">#1B1562</color>
+    <color name="ic_launcher_bearermail_white_background">#FFFFFF</color>
 </resources>

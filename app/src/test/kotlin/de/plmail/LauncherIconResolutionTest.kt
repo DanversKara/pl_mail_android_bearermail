@@ -117,6 +117,10 @@ class LauncherIconResolutionTest {
             LauncherIcon.resolve("blue-horn", "ocean", null, appIcon = "bearermail").alias,
         )
         assertEquals(
+            "de.plmail.LogoLauncherBearermailWhite",
+            LauncherIcon.resolve("blue-horn", "ocean", null, appIcon = "bearermail-white").alias,
+        )
+        assertEquals(
             "de.plmail.LogoLauncherBlueHornOcean",
             LauncherIcon.resolve("blue-horn", "ocean", null, appIcon = "logo").alias,
         )

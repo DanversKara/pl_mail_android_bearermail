@@ -55,7 +55,11 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
         val Bearermail: LauncherIcon =
             LauncherIcon(BEARERMAIL, ORIGINAL, "de.plmail.LogoLauncherBearermailOriginal")
 
-        val all: List<LauncherIcon> = LAUNCHER_ICONS + Bearermail
+        /** The same artwork on white: appIcon `bearermail-white`. */
+        val BearermailWhite: LauncherIcon =
+            LauncherIcon(BEARERMAIL, "white", "de.plmail.LogoLauncherBearermailWhite")
+
+        val all: List<LauncherIcon> = LAUNCHER_ICONS + Bearermail + BearermailWhite
 
         /**
          * The icon the product ships with, and the answer to every question this build cannot
@@ -105,7 +109,10 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
             appIcon: String? = null,
         ): LauncherIcon {
             // The web's App icon choice wins over the logo when it names the artwork.
-            if (appIcon == BEARERMAIL) return Bearermail
+            // Navy is `bearermail` (and anything else of that family this build has not
+            // heard of); white is `bearermail-white`.
+            if (appIcon == "$BEARERMAIL-white") return BearermailWhite
+            if (appIcon == BEARERMAIL || appIcon?.startsWith("$BEARERMAIL-") == true) return Bearermail
 
             val motif = logoMotif?.takeIf { it in motifs } ?: PL
 
