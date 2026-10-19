@@ -1,0 +1,28 @@
+name: tmp diag
+on:
+    push:
+        branches: [feat/note-share-android]
+        paths: ['.github/workflows/tmp-diag.yml']
+permissions:
+    contents: write
+jobs:
+    diag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: feat/note-share-android
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '21'
+            - uses: gradle/actions/setup-gradle@v4
+            - run: ./gradlew build --continue > build.log 2>&1 || true
+            - run: |
+                  grep -E "^e: |error:|Error:|What went wrong" build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            - run: |
+                  git config user.name github-actions
+                  git config user.email actions@users.noreply.github.com
+                  git rm -q .github/workflows/tmp-diag.yml
+                  git commit -m "ci: drop diag workflow"
+                  git push
