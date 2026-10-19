@@ -119,6 +119,33 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
         }
     }
 
+    /** Adds a picture, drawing or recording; [onDone] gets it, or the reason it was refused. */
+    fun addMedia(
+        noteId: String,
+        kind: String,
+        name: String,
+        type: String,
+        bytes: suspend () -> ByteArray,
+        onDone: (de.plmail.jmap.methods.NoteMedia?, String?) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching { repository.addMedia(noteId, kind, name, type, bytes()) }
+                .onSuccess { onDone(it, null) }
+                .onFailure { onDone(null, it.message ?: it.javaClass.simpleName) }
+        }
+    }
+
+    fun removeMedia(noteId: String, mediaId: String) {
+        viewModelScope.launch { runCatching { repository.removeMedia(noteId, mediaId) } }
+    }
+
+    /** The cached file behind one picture or recording, downloading it the first time. */
+    suspend fun mediaFile(noteId: String, media: de.plmail.jmap.methods.NoteMedia): java.io.File? =
+        runCatching {
+            repository.mediaFile(noteId, media)
+        }
+        .getOrNull()
+
     fun save(note: NoteObject) {
         viewModelScope.launch { guarded { repository.save(note) } }
     }

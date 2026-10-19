@@ -64,4 +64,16 @@
     <string name="notes_share_text">Kopie senden</string>
     <string name="notes_share_png">Als Bild teilen</string>
     <string name="notes_save_txt">Als .txt speichern</string>
+    <string name="notes_media_remove">Entfernen</string>
+    <string name="notes_media_play">Abspielen</string>
+    <string name="notes_media_pause">Pause</string>
+    <string name="notes_media_voice_note">Sprachnotiz</string>
+    <string name="notes_media_clear">Leeren</string>
+    <string name="notes_media_save_drawing">Zeichnung speichern</string>
+    <string name="notes_media_add_image">Bild hinzufügen</string>
+    <string name="notes_media_draw">Zeichnen</string>
+    <string name="notes_media_record">Sprachnotiz aufnehmen</string>
+    <string name="notes_media_stop">Aufnahme beenden</string>
+    <string name="notes_media_mic_denied">Erlaube das Mikrofon, um Sprachnotizen aufzunehmen.</string>
+    <string name="notes_media_failed">Nicht gespeichert: %1$s</string>
 </resources>

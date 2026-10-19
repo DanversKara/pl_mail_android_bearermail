@@ -3,6 +3,8 @@ package de.plmail.core.data
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.methods.NoteDraft
 import de.plmail.jmap.methods.NoteGet
+import de.plmail.jmap.methods.NoteMedia
+import de.plmail.jmap.methods.NoteMediaClient
 import de.plmail.jmap.methods.NoteObject
 import de.plmail.jmap.methods.NoteSet
 import de.plmail.jmap.protocol.Capability
@@ -39,7 +41,13 @@ import kotlinx.serialization.json.jsonPrimitive
  * short objects, and it runs when the notes screen opens and after a failed write.
  */
 @Singleton
-class NotesRepository @Inject constructor(private val clients: AccountClients) {
+class NotesRepository
+@Inject
+constructor(
+    private val clients: AccountClients,
+    @param:dagger.hilt.android.qualifiers.ApplicationContext
+    private val context: android.content.Context,
+) {
 
     private val _notes = MutableStateFlow<List<NoteObject>>(emptyList())
 
@@ -157,6 +165,63 @@ class NotesRepository @Inject constructor(private val clients: AccountClients) {
             )
         )
     }
+
+    /** Whether the server keeps pictures, drawings and voice notes on notes. */
+    suspend fun supportsMedia(): Boolean = runCatching {
+        clients.current()?.let { NoteMediaClient(it).isAvailable() } ?: false
+    }
+        .getOrDefault(false)
+
+    /**
+     * Adds a picture, drawing or recording to note [noteId] and puts it on the note in the local
+     * list straight away. Throws what the server refused, with its reason.
+     */
+    suspend fun addMedia(
+        noteId: String,
+        kind: String,
+        name: String,
+        type: String,
+        bytes: ByteArray,
+    ): NoteMedia {
+        val media = NoteMediaClient(client()).upload(noteId, kind, name, type, bytes)
+        _notes.update { list ->
+            list.map { if (it.id == noteId) it.copy(media = it.media + media) else it }
+        }
+        return media
+    }
+
+    /** Takes one off the note, here and on the server. */
+    suspend fun removeMedia(noteId: String, mediaId: String) {
+        _notes.update { list ->
+            list.map {
+                if (it.id == noteId) it.copy(media = it.media.filterNot { m -> m.id == mediaId })
+                else it
+            }
+        }
+        NoteMediaClient(client()).delete(noteId, mediaId)
+        mediaCacheFile(mediaId).delete()
+    }
+
+    /**
+     * The file behind one of a note's pictures or recordings, downloaded once into the cache
+     * (`cache/notes/media/`, which the app's FileProvider shares for "open").
+     */
+    suspend fun mediaFile(noteId: String, media: NoteMedia): java.io.File {
+        val target = mediaCacheFile(media.id)
+        if (target.isFile && target.length() > 0) return target
+        val client = client()
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val partial = java.io.File(target.parentFile, target.name + ".part")
+            partial.outputStream().use { out ->
+                NoteMediaClient(client).download(noteId, media.id, out)
+            }
+            partial.renameTo(target)
+        }
+        return target
+    }
+
+    private fun mediaCacheFile(mediaId: String): java.io.File =
+        java.io.File(java.io.File(context.cacheDir, "notes/media").apply { mkdirs() }, mediaId)
 
     /** Removes a note for good — the bin's "delete forever". */
     suspend fun destroy(id: String) = writes.withLock {

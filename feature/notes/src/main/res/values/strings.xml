@@ -64,4 +64,16 @@
     <string name="notes_share_text">Send a copy</string>
     <string name="notes_share_png">Share as picture</string>
     <string name="notes_save_txt">Save as .txt</string>
+    <string name="notes_media_remove">Remove</string>
+    <string name="notes_media_play">Play</string>
+    <string name="notes_media_pause">Pause</string>
+    <string name="notes_media_voice_note">Voice note</string>
+    <string name="notes_media_clear">Clear</string>
+    <string name="notes_media_save_drawing">Save drawing</string>
+    <string name="notes_media_add_image">Add picture</string>
+    <string name="notes_media_draw">Draw</string>
+    <string name="notes_media_record">Record a voice note</string>
+    <string name="notes_media_stop">Stop recording</string>
+    <string name="notes_media_mic_denied">Allow the microphone to record voice notes.</string>
+    <string name="notes_media_failed">That did not save: %1$s</string>
 </resources>

@@ -20,6 +20,9 @@
     <!-- BearerMail: installs updates downloaded from the repository's GitHub Releases. The user
          confirms every install on Android's own screen. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- BearerMail: voice notes. Asked for the first time the microphone button in a note is
+         pressed, never before. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!--
       Package visibility for UnifiedPush.
