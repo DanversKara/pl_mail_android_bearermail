@@ -25,16 +25,20 @@ import java.io.File
 internal object NoteExport {
 
     /** Title, a blank line, then the text — or the checklist as `[x]` / `[ ]` lines. */
-    fun text(title: String, body: String, items: List<NoteItem>, checklist: Boolean): String = buildString {
-        if (title.isNotBlank()) append(title.trim()).append("\n\n")
-        if (checklist) {
-            items.filter { it.text.isNotBlank() }.forEach {
-                append(if (it.done) "[x] " else "[ ] ").append(it.text).append('\n')
+    fun text(title: String, body: String, items: List<NoteItem>, checklist: Boolean): String =
+        buildString {
+            if (title.isNotBlank()) append(title.trim()).append("\n\n")
+            if (checklist) {
+                items
+                    .filter { it.text.isNotBlank() }
+                    .forEach {
+                        append(if (it.done) "[x] " else "[ ] ").append(it.text).append('\n')
+                    }
+            } else {
+                append(notePlainText(body))
             }
-        } else {
-            append(notePlainText(body))
         }
-    }.trimEnd() + "\n"
+            .trimEnd() + "\n"
 
     fun shareText(context: Context, title: String, text: String, chooserTitle: String) {
         val send =
@@ -109,19 +113,23 @@ internal object NoteExport {
             }
         val text =
             if (checklist) {
-                items.filter { it.text.isNotBlank() }.joinToString("\n") {
-                    (if (it.done) "☑  " else "☐  ") + it.text
-                }
+                items
+                    .filter { it.text.isNotBlank() }
+                    .joinToString("\n") {
+                        (if (it.done) "☑  " else "☐  ") + it.text
+                    }
             } else {
                 notePlainText(body)
             }
 
         val titleLayout =
-            title.takeIf { it.isNotBlank() }?.let {
-                StaticLayout.Builder.obtain(it, 0, it.length, titlePaint, inner)
-                    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                    .build()
-            }
+            title
+                .takeIf { it.isNotBlank() }
+                ?.let {
+                    StaticLayout.Builder.obtain(it, 0, it.length, titlePaint, inner)
+                        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                        .build()
+                }
         val bodyLayout =
             StaticLayout.Builder.obtain(text, 0, text.length, bodyPaint, inner)
                 .setAlignment(Layout.Alignment.ALIGN_NORMAL)
@@ -130,7 +138,9 @@ internal object NoteExport {
 
         val gap = if (titleLayout != null) 32f else 0f
         val height =
-            (pad * 2 + (titleLayout?.height ?: 0) + gap + bodyLayout.height).toInt().coerceAtLeast(320)
+            (pad * 2 + (titleLayout?.height ?: 0) + gap + bodyLayout.height)
+                .toInt()
+                .coerceAtLeast(320)
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

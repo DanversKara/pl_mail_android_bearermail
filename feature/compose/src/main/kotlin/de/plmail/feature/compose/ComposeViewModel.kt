@@ -191,12 +191,18 @@ constructor(
     /** A note as message HTML: its title in bold, then its text or its checklist. */
     fun noteHtml(note: de.plmail.jmap.methods.NoteObject): String = buildString {
         fun esc(s: String) =
-            s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+            s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
         if (note.title.isNotBlank()) append("<p><b>").append(esc(note.title)).append("</b></p>")
         if (note.items.isNotEmpty()) {
             append("<ul>")
             note.items.forEach {
-                append("<li>").append(if (it.done) "☑ " else "☐ ").append(esc(it.text)).append("</li>")
+                append("<li>")
+                    .append(if (it.done) "☑ " else "☐ ")
+                    .append(esc(it.text))
+                    .append("</li>")
             }
             append("</ul>")
         } else {

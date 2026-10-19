@@ -148,10 +148,10 @@ internal fun NoteEditor(
     var sharing by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val shareChooser = stringResource(R.string.notes_share_chooser)
-    fun exportText() =
-        NoteExport.text(title, body.text, items.toList(), checklist)
+    fun exportText() = NoteExport.text(title, body.text, items.toList(), checklist)
     val saveTxt =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) {
+            uri ->
             if (uri != null) NoteExport.writeText(context, uri, exportText())
         }
 
@@ -353,12 +353,20 @@ internal fun NoteEditor(
                             IconButton(onClick = { sharing = true }) {
                                 Icon(Icons.Outlined.Share, stringResource(R.string.notes_share))
                             }
-                            DropdownMenu(expanded = sharing, onDismissRequest = { sharing = false }) {
+                            DropdownMenu(
+                                expanded = sharing,
+                                onDismissRequest = { sharing = false },
+                            ) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.notes_share_text)) },
                                     onClick = {
                                         sharing = false
-                                        NoteExport.shareText(context, title, exportText(), shareChooser)
+                                        NoteExport.shareText(
+                                            context,
+                                            title,
+                                            exportText(),
+                                            shareChooser,
+                                        )
                                     },
                                 )
                                 DropdownMenuItem(
