@@ -10,8 +10,8 @@ import java.time.LocalDate
 /**
  * The calendar widgets' taps: open the calendar on a day, or on one event of that day.
  *
- * Each target carries its own data URI as well as its extras — PendingIntents that differ only
- * in extras are one PendingIntent to Android, and every chip would open the first event.
+ * Each target carries its own data URI as well as its extras — PendingIntents that differ only in
+ * extras are one PendingIntent to Android, and every chip would open the first event.
  */
 object CalendarWidgetIntents {
     private const val EXTRA_DATE = "de.plmail.widget.calendar.DATE"
@@ -31,8 +31,9 @@ object CalendarWidgetIntents {
 
     fun read(intent: Intent?): CalendarOpenRequest? {
         val date =
-            intent?.getStringExtra(EXTRA_DATE)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                ?: return null
+            intent?.getStringExtra(EXTRA_DATE)?.let {
+                runCatching { LocalDate.parse(it) }.getOrNull()
+            } ?: return null
         return CalendarOpenRequest(date, intent.getStringExtra(EXTRA_EVENT))
     }
 }
