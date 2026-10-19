@@ -297,7 +297,8 @@ internal fun NoteEditor(
     }
 
     val pickImages =
-        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) {
+            uris ->
             uris.forEach { uri ->
                 val type = context.contentResolver.getType(uri) ?: "image/jpeg"
                 upload(NoteMedia.IMAGE, uri.lastPathSegment ?: "picture", type) {

@@ -106,17 +106,22 @@ internal fun NoteMediaStrip(
                     var file by remember(item.id) { mutableStateOf<File?>(null) }
                     LaunchedEffect(item.id) {
                         file = load(item)
-                        bitmap = file?.let { f -> withContext(Dispatchers.IO) { decodeSampled(f, 480) } }
+                        bitmap = file?.let { f ->
+                            withContext(Dispatchers.IO) { decodeSampled(f, 480) }
+                        }
                     }
                     Box(
                         Modifier.height(140.dp)
                             .aspectRatio(
-                                bitmap?.let { it.width.toFloat() / it.height.coerceAtLeast(1) }
+                                bitmap
+                                    ?.let { it.width.toFloat() / it.height.coerceAtLeast(1) }
                                     ?.coerceIn(0.5f, 2f) ?: 1f
                             )
                             .clip(RoundedCornerShape(10.dp))
                             .background(Color.White)
-                            .clickable(enabled = file != null) { file?.let { context.openMedia(it, item.type) } }
+                            .clickable(enabled = file != null) {
+                                file?.let { context.openMedia(it, item.type) }
+                            }
                     ) {
                         val b = bitmap
                         if (b != null) {
@@ -143,7 +148,8 @@ internal fun NoteMediaStrip(
 @Composable
 private fun RemoveBadge(modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.padding(4.dp)
+        modifier
+            .padding(4.dp)
             .size(28.dp)
             .background(Color.Black.copy(alpha = 0.55f), CircleShape)
             .clickable(onClick = onClick),
@@ -200,7 +206,9 @@ private fun VoiceRow(
         ) {
             Icon(
                 if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                stringResource(if (playing) R.string.notes_media_pause else R.string.notes_media_play),
+                stringResource(
+                    if (playing) R.string.notes_media_pause else R.string.notes_media_play
+                ),
             )
         }
         Text(
@@ -227,7 +235,10 @@ internal fun DrawingDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
     var size by remember { mutableStateOf(IntSize.Zero) }
     var tick by remember { mutableIntStateOf(0) }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(Modifier.fillMaxSize(), color = Color.White) {
             Column(Modifier.fillMaxSize()) {
                 Row(
@@ -235,7 +246,15 @@ internal fun DrawingDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    listOf(0xFF202124, 0xFFD93025, 0xFF1A73E8, 0xFF188038, 0xFFF9AB00, 0xFF9334E6, 0xFFFFFFFF)
+                    listOf(
+                            0xFF202124,
+                            0xFFD93025,
+                            0xFF1A73E8,
+                            0xFF188038,
+                            0xFFF9AB00,
+                            0xFF9334E6,
+                            0xFFFFFFFF,
+                        )
                         .forEach { argb ->
                             val c = Color(argb)
                             Box(
@@ -279,44 +298,65 @@ internal fun DrawingDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
                     if (tick < 0) return@Canvas
                     strokes.forEach { s ->
                         val path = Path()
-                        s.points.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
-                        drawPath(path, s.color, style = Stroke(s.width, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                        s.points.forEachIndexed { i, p ->
+                            if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                        }
+                        drawPath(
+                            path,
+                            s.color,
+                            style = Stroke(s.width, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                        )
                     }
                 }
                 Row(
                     Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(onClick = { strokes.removeLastOrNull(); tick++ }) {
+                    TextButton(
+                        onClick = {
+                            strokes.removeLastOrNull()
+                            tick++
+                        }
+                    ) {
                         Text(stringResource(R.string.notes_undo))
                     }
-                    TextButton(onClick = { strokes.clear(); tick++ }) {
+                    TextButton(
+                        onClick = {
+                            strokes.clear()
+                            tick++
+                        }
+                    ) {
                         Text(stringResource(R.string.notes_media_clear))
                     }
                     Box(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_reminder_cancel)) }
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.notes_reminder_cancel))
+                    }
                     TextButton(
                         enabled = strokes.isNotEmpty() && size.width > 0,
                         onClick = {
                             val bitmap = createBitmap(size.width, size.height)
                             bitmap.applyCanvas {
-                            drawColor(android.graphics.Color.WHITE)
-                            strokes.forEach { s ->
-                                val paint =
-                                    android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                        this.color = s.color.toArgb()
-                                        strokeWidth = s.width
-                                        style = android.graphics.Paint.Style.STROKE
-                                        strokeCap = android.graphics.Paint.Cap.ROUND
-                                        strokeJoin = android.graphics.Paint.Join.ROUND
+                                drawColor(android.graphics.Color.WHITE)
+                                strokes.forEach { s ->
+                                    val paint =
+                                        android.graphics
+                                            .Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                                            .apply {
+                                                this.color = s.color.toArgb()
+                                                strokeWidth = s.width
+                                                style = android.graphics.Paint.Style.STROKE
+                                                strokeCap = android.graphics.Paint.Cap.ROUND
+                                                strokeJoin = android.graphics.Paint.Join.ROUND
+                                            }
+                                    val path = android.graphics.Path()
+                                    s.points.forEachIndexed { i, p ->
+                                        if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
                                     }
-                                val path = android.graphics.Path()
-                                s.points.forEachIndexed { i, p ->
-                                    if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                                    if (s.points.size == 1)
+                                        path.lineTo(s.points[0].x + 0.1f, s.points[0].y)
+                                    drawPath(path, paint)
                                 }
-                                if (s.points.size == 1) path.lineTo(s.points[0].x + 0.1f, s.points[0].y)
-                                drawPath(path, paint)
-                            }
                             }
                             val out = ByteArrayOutputStream()
                             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -341,7 +381,10 @@ internal class VoiceRecorder(private val context: Context) {
 
     fun start() {
         val target =
-            File(File(context.cacheDir, "notes").apply { mkdirs() }, "voice-${System.currentTimeMillis()}.m4a")
+            File(
+                File(context.cacheDir, "notes").apply { mkdirs() },
+                "voice-${System.currentTimeMillis()}.m4a",
+            )
         val r = MediaRecorder(context)
         r.setAudioSource(MediaRecorder.AudioSource.MIC)
         r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -374,8 +417,13 @@ private fun decodeSampled(file: File, max: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.absolutePath, bounds)
     var sample = 1
-    while (bounds.outWidth / (sample * 2) >= max && bounds.outHeight / (sample * 2) >= max) sample *= 2
-    return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+    while (
+        bounds.outWidth / (sample * 2) >= max && bounds.outHeight / (sample * 2) >= max
+    ) sample *= 2
+    return BitmapFactory.decodeFile(
+        file.absolutePath,
+        BitmapFactory.Options().apply { inSampleSize = sample },
+    )
 }
 
 private fun Context.openMedia(file: File, type: String) {

@@ -41,11 +41,12 @@ class NoteMediaClient(private val client: JmapClient) {
         if (response.status == 401) throw JmapError.NotAuthenticated("Sign in again.")
         if (!response.isSuccess) {
             val detail = runCatching {
-                    json.parseToJsonElement(response.bodyAsText())
-                        .jsonObject["description"]
-                        ?.jsonPrimitive
-                        ?.content
-                }
+                json
+                    .parseToJsonElement(response.bodyAsText())
+                    .jsonObject["description"]
+                    ?.jsonPrimitive
+                    ?.content
+            }
                 .getOrNull()
             throw JmapError.RequestRejected(
                 "noteMedia",

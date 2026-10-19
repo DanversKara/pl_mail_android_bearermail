@@ -141,7 +141,10 @@ class NotesViewModel @Inject constructor(private val repository: NotesRepository
 
     /** The cached file behind one picture or recording, downloading it the first time. */
     suspend fun mediaFile(noteId: String, media: de.plmail.jmap.methods.NoteMedia): java.io.File? =
-        runCatching { repository.mediaFile(noteId, media) }.getOrNull()
+        runCatching {
+            repository.mediaFile(noteId, media)
+        }
+        .getOrNull()
 
     fun save(note: NoteObject) {
         viewModelScope.launch { guarded { repository.save(note) } }
