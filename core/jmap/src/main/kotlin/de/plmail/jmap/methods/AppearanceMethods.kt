@@ -128,6 +128,8 @@ data class Appearance(
     val logoMotif: String? = null,
     /** The motif's paint, `original` or a colourway. Read-only; see the class docblock. */
     val logoPaint: String? = null,
+    /** Which picture is the app icon: `logo` (the motif above) or `bearermail` (fixed artwork). */
+    val appIcon: String? = null,
 ) {
     /**
      * The same object with everything the server reported changed applied on top.
@@ -196,6 +198,7 @@ data class Appearance(
             logoStyle = string("logoStyle") ?: logoStyle,
             logoMotif = string("logoMotif") ?: logoMotif,
             logoPaint = string("logoPaint") ?: logoPaint,
+            appIcon = string("appIcon") ?: appIcon,
         )
     }
 

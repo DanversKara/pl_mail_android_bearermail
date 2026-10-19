@@ -44,7 +44,18 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
         const val ORIGINAL = "original"
 
         /** Every icon in this build, one per alias, in the order the manifest declares them. */
-        val all: List<LauncherIcon> = LAUNCHER_ICONS
+        /** The motif the BearerMail artwork goes by: a fixed picture, never repainted. */
+        const val BEARERMAIL = "bearermail"
+
+        /**
+         * The BearerMail artwork (Settings → Appearance → App icon on the web). Not generated with
+         * the motifs — it is a finished bitmap, not a template to paint — so it is declared by hand
+         * in the main manifest and added to the table here.
+         */
+        val Bearermail: LauncherIcon =
+            LauncherIcon(BEARERMAIL, ORIGINAL, "de.plmail.LogoLauncherBearermailOriginal")
+
+        val all: List<LauncherIcon> = LAUNCHER_ICONS + Bearermail
 
         /**
          * The icon the product ships with, and the answer to every question this build cannot
@@ -57,11 +68,11 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
          */
         val Default: LauncherIcon = DEFAULT_LAUNCHER_ICON
 
-        private val byPair: Map<Pair<String, String>, LauncherIcon> = all.associateBy {
+        private val byPair: Map<Pair<String, String>, LauncherIcon> = LAUNCHER_ICONS.associateBy {
             it.motif to it.paint
         }
 
-        private val motifs: Set<String> = all.mapTo(HashSet()) { it.motif }
+        private val motifs: Set<String> = LAUNCHER_ICONS.mapTo(HashSet()) { it.motif }
 
         /**
          * What the server said, as one of [all] — never null, and never an icon this build lacks.
@@ -87,7 +98,15 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
          * know that one" has to end at a real alias, or the app is one unrecognised string away
          * from having none at all.
          */
-        fun resolve(logoMotif: String?, logoPaint: String?, logoStyle: String?): LauncherIcon {
+        fun resolve(
+            logoMotif: String?,
+            logoPaint: String?,
+            logoStyle: String?,
+            appIcon: String? = null,
+        ): LauncherIcon {
+            // The web's App icon choice wins over the logo when it names the artwork.
+            if (appIcon == BEARERMAIL) return Bearermail
+
             val motif = logoMotif?.takeIf { it in motifs } ?: PL
 
             if (motif == PL) {

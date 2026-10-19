@@ -63,6 +63,8 @@ data class AppearanceSettings(
      */
     val logoMotif: String? = null,
     val logoPaint: String? = null,
+    /** `logo` or `bearermail`: whether the launcher wears the motif or the BearerMail artwork. */
+    val appIcon: String? = null,
 )
 
 /**
@@ -252,6 +254,7 @@ constructor(private val store: AppearanceStore, private val clients: AccountClie
                 logoStyle = logoStyle,
                 logoMotif = logoMotif,
                 logoPaint = logoPaint,
+                appIcon = appIcon,
                 state = state.takeIf { it.isNotBlank() },
             )
     }
@@ -302,4 +305,5 @@ internal fun resolve(local: StoredAppearance, remote: RemoteAppearance): Appeara
         logoStyle = remote.logoStyle,
         logoMotif = remote.logoMotif,
         logoPaint = remote.logoPaint,
+        appIcon = remote.appIcon,
     )

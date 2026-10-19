@@ -109,4 +109,16 @@ class LauncherIconResolutionTest {
             assertTrue(it.alias.startsWith("de.plmail.LogoLauncher"), it.alias)
         }
     }
+
+    @Test
+    fun `the web's App icon choice of the BearerMail artwork wins over the logo`() {
+        assertEquals(
+            "de.plmail.LogoLauncherBearermailOriginal",
+            LauncherIcon.resolve("blue-horn", "ocean", null, appIcon = "bearermail").alias,
+        )
+        assertEquals(
+            "de.plmail.LogoLauncherBlueHornOcean",
+            LauncherIcon.resolve("blue-horn", "ocean", null, appIcon = "logo").alias,
+        )
+    }
 }
