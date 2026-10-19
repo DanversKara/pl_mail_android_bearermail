@@ -599,7 +599,8 @@ internal fun NoteEditor(
                         Text(
                             NoteReminderTimes.label(at),
                             textDecoration =
-                                if (NoteReminderTimes.isPast(at)) TextDecoration.LineThrough else null,
+                                if (NoteReminderTimes.isPast(at)) TextDecoration.LineThrough
+                                else null,
                         )
                     },
                     leadingIcon = {

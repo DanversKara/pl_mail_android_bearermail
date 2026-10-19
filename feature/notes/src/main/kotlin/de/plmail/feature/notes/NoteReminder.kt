@@ -39,8 +39,7 @@ import java.time.temporal.TemporalAdjusters
 internal object NoteReminderTimes {
     fun later(now: LocalDateTime = LocalDateTime.now()): LocalDateTime {
         val evening = now.toLocalDate().atTime(18, 0)
-        return if (evening.isAfter(now)) evening
-        else now.plusHours(3).truncatedTo(ChronoUnit.HOURS)
+        return if (evening.isAfter(now)) evening else now.plusHours(3).truncatedTo(ChronoUnit.HOURS)
     }
 
     fun tomorrow(now: LocalDateTime = LocalDateTime.now()): LocalDateTime =
@@ -54,16 +53,17 @@ internal object NoteReminderTimes {
         at.atZone(zone).toInstant().truncatedTo(ChronoUnit.SECONDS).toString()
 
     /** How a stored reminder reads on the chip. */
-    fun label(utc: String, zone: ZoneId = ZoneId.systemDefault()): String =
-        runCatching {
-                Instant.parse(utc)
-                    .atZone(zone)
-                    .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
-            }
-            .getOrDefault(utc)
+    fun label(utc: String, zone: ZoneId = ZoneId.systemDefault()): String = runCatching {
+        Instant.parse(utc)
+            .atZone(zone)
+            .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+    }
+        .getOrDefault(utc)
 
-    fun isPast(utc: String): Boolean =
-        runCatching { Instant.parse(utc).isBefore(Instant.now()) }.getOrDefault(false)
+    fun isPast(utc: String): Boolean = runCatching {
+        Instant.parse(utc).isBefore(Instant.now())
+    }
+        .getOrDefault(false)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,16 +87,22 @@ internal fun NoteReminderDialog(
                             stringResource(R.string.notes_reminder_hint),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        TextButton(onClick = { onPick(NoteReminderTimes.utc(NoteReminderTimes.later())) }) {
+                        TextButton(
+                            onClick = { onPick(NoteReminderTimes.utc(NoteReminderTimes.later())) }
+                        ) {
                             Text(stringResource(R.string.notes_reminder_later))
                         }
                         TextButton(
-                            onClick = { onPick(NoteReminderTimes.utc(NoteReminderTimes.tomorrow())) }
+                            onClick = {
+                                onPick(NoteReminderTimes.utc(NoteReminderTimes.tomorrow()))
+                            }
                         ) {
                             Text(stringResource(R.string.notes_reminder_tomorrow))
                         }
                         TextButton(
-                            onClick = { onPick(NoteReminderTimes.utc(NoteReminderTimes.nextWeek())) }
+                            onClick = {
+                                onPick(NoteReminderTimes.utc(NoteReminderTimes.nextWeek()))
+                            }
                         ) {
                             Text(stringResource(R.string.notes_reminder_next_week))
                         }
@@ -112,11 +118,14 @@ internal fun NoteReminderDialog(
                 },
                 confirmButton = {},
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_reminder_cancel)) }
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.notes_reminder_cancel))
+                    }
                 },
             )
         1 -> {
-            val state = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+            val state =
+                rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
             DatePickerDialog(
                 onDismissRequest = onDismiss,
                 confirmButton = {
@@ -134,7 +143,9 @@ internal fun NoteReminderDialog(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_reminder_cancel)) }
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.notes_reminder_cancel))
+                    }
                 },
             ) {
                 DatePicker(state = state)
@@ -150,7 +161,9 @@ internal fun NoteReminderDialog(
                         onClick = {
                             val day = date ?: LocalDate.now()
                             onPick(
-                                NoteReminderTimes.utc(day.atTime(LocalTime.of(state.hour, state.minute)))
+                                NoteReminderTimes.utc(
+                                    day.atTime(LocalTime.of(state.hour, state.minute))
+                                )
                             )
                         }
                     ) {
@@ -158,7 +171,9 @@ internal fun NoteReminderDialog(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.notes_reminder_cancel)) }
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.notes_reminder_cancel))
+                    }
                 },
             )
         }
