@@ -9,12 +9,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.AppLocaleOverride
+import de.plmail.feature.calendar.CalendarOpenRequest
 import de.plmail.feature.calendar.CalendarScreen
 import de.plmail.lock.AppLockGate
+import de.plmail.widget.calendar.CalendarWidgetIntents
 
 /**
  * The calendar when it is its own app.
@@ -67,10 +71,14 @@ class CalendarActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        if (savedInstanceState == null) openRequest = CalendarWidgetIntents.read(intent)
+
         setContent {
             PlMailAppTheme {
                 AppLockGate {
                     CalendarApp(
+                        openRequest = openRequest,
+                        onOpenRequestHandled = { openRequest = null },
                         // The app bar's arrow means the same thing the gesture does
                         // in a task of one screen: leave. finish() and not
                         // finishAndRemoveTask(), because a user who backs out of an
@@ -99,6 +107,16 @@ class CalendarActivity : ComponentActivity() {
      * matters: a calendar task whose only screen bounced straight to onboarding has nothing worth
      * returning to, so leaving its card in Recents would leave a card that opens onboarding.
      */
+    /** A tap on the agenda widget: the day, and maybe the event, to open on. */
+    private var openRequest by mutableStateOf<CalendarOpenRequest?>(null)
+
+    // singleTask: a second widget tap with the calendar already open arrives here.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        CalendarWidgetIntents.read(intent)?.let { openRequest = it }
+    }
+
     private fun openOnboarding() {
         startActivity(
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -118,6 +136,8 @@ class CalendarActivity : ComponentActivity() {
  */
 @Composable
 private fun CalendarApp(
+    openRequest: CalendarOpenRequest?,
+    onOpenRequestHandled: () -> Unit,
     onLeave: () -> Unit,
     onNotPaired: () -> Unit,
     viewModel: MainViewModel = hiltViewModel(),
@@ -131,6 +151,11 @@ private fun CalendarApp(
         // exactly as it does in the mail app. All that changes is where its
         // outermost back goes, and that is the activity's business rather than
         // the screen's.
-        is ConnectionState.Connected -> CalendarScreen(onBack = onLeave)
+        is ConnectionState.Connected ->
+            CalendarScreen(
+                onBack = onLeave,
+                openRequest = openRequest,
+                onOpenRequestHandled = onOpenRequestHandled,
+            )
     }
 }

@@ -2,7 +2,7 @@ package de.plmail.widget.notes
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import de.plmail.MainActivity
 import de.plmail.feature.notes.NoteSeed
 
@@ -29,7 +29,7 @@ object NotesWidgetIntents {
 
     private fun build(context: Context, action: String, id: String?): Intent =
         Intent(context, MainActivity::class.java)
-            .setData(Uri.parse("$SCHEME://$action/${id.orEmpty()}"))
+            .setData("$SCHEME://$action/${id.orEmpty()}".toUri())
             .putExtra(EXTRA_ACTION, action)
             .putExtra(EXTRA_ID, id)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

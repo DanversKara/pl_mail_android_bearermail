@@ -9,14 +9,23 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDateTime
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Which occurrence a detail screen is showing. */
 data class OccurrenceKey(val eventKey: String, val date: String)
+
+/**
+ * A place to open the calendar on, from outside it — a tap on the home-screen agenda: a day, and
+ * optionally one event on it to show.
+ */
+data class CalendarOpenRequest(val date: java.time.LocalDate, val eventKey: String? = null)
 
 /** What the editor was opened for. */
 sealed interface EditorRequest {
@@ -97,6 +106,9 @@ fun CalendarScreen(
     /** BearerMail: an editor to open straight away — "Add to calendar" from a mail. */
     pending: EditorRequest? = null,
     onPendingHandled: () -> Unit = {},
+    /** A day (and maybe an event on it) to open on — a tap on the home-screen agenda. */
+    openRequest: CalendarOpenRequest? = null,
+    onOpenRequestHandled: () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -145,6 +157,31 @@ fun CalendarScreen(
     fun openEditor(request: EditorRequest) {
         openings += 1
         editing = EditorSession(openings, request)
+    }
+
+    // A widget tap: show that day, and the event when one was tapped. The detail waits
+    // for the day's events to load — opened earlier, it would find nothing and close.
+    LaunchedEffect(openRequest) {
+        val request = openRequest ?: return@LaunchedEffect
+        editing = null
+        open = null
+        viewModel.openDay(request.date)
+        val key = request.eventKey
+        if (key != null) {
+            val day = request.date.toString()
+            val found =
+                withTimeoutOrNull(OPEN_EVENT_WAIT_MS) {
+                    snapshotFlow { state.days }
+                        .first { days ->
+                            days.any { d ->
+                                d.date.toString() == day &&
+                                    d.clusters.any { c -> c.members.any { it.eventKey == key } }
+                            }
+                        }
+                }
+            if (found != null) open = OccurrenceKey(key, day)
+        }
+        onOpenRequestHandled()
     }
 
     LaunchedEffect(pending) {
@@ -264,3 +301,6 @@ private val EditorSessionSaver: Saver<EditorSession?, Any> =
             }
         },
     )
+
+/** How long a widget tap waits for the tapped event's day to load before showing just the day. */
+private const val OPEN_EVENT_WAIT_MS = 5_000L
