@@ -48,9 +48,9 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
         const val BEARERMAIL = "bearermail"
 
         /**
-         * The BearerMail artwork (Settings → Appearance → App icon on the web). Not generated
-         * with the motifs — it is a finished bitmap, not a template to paint — so it is declared
-         * by hand in the main manifest and added to the table here.
+         * The BearerMail artwork (Settings → Appearance → App icon on the web). Not generated with
+         * the motifs — it is a finished bitmap, not a template to paint — so it is declared by hand
+         * in the main manifest and added to the table here.
          */
         val Bearermail: LauncherIcon =
             LauncherIcon(BEARERMAIL, ORIGINAL, "de.plmail.LogoLauncherBearermailOriginal")

@@ -87,7 +87,9 @@ constructor(
                     // default, on every install that has never been told
                     // otherwise -- and `wear` is a no-op when that is already
                     // what is on the home screen. See LauncherIcon.resolve.
-                    icon.wear(LauncherIcon.resolve(state.motif, state.paint, state.style, state.appIcon))
+                    icon.wear(
+                        LauncherIcon.resolve(state.motif, state.paint, state.style, state.appIcon)
+                    )
                 }
         }
     }
