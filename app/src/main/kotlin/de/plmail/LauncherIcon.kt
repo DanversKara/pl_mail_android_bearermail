@@ -112,7 +112,8 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
             // Navy is `bearermail` (and anything else of that family this build has not
             // heard of); white is `bearermail-white`.
             if (appIcon == "$BEARERMAIL-white") return BearermailWhite
-            if (appIcon == BEARERMAIL || appIcon?.startsWith("$BEARERMAIL-") == true) return Bearermail
+            if (appIcon == BEARERMAIL || appIcon?.startsWith("$BEARERMAIL-") == true)
+                return Bearermail
 
             val motif = logoMotif?.takeIf { it in motifs } ?: PL
 
