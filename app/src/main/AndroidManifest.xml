@@ -357,6 +357,26 @@
           flavour, so foss and google both have it without either being able to
           drift from the other.
         -->
+        <!--
+          The BearerMail artwork as the launcher icon (web: Settings → Appearance →
+          App icon). Hand-written, unlike the generated motif aliases: it is a
+          finished bitmap, not a template to paint. Same shape as theirs — see the
+          block comment on the generated ones further down — and off until the
+          server's appIcon asks for it; LauncherIcon.Bearermail is its table entry.
+        -->
+        <activity-alias
+            android:name="de.plmail.LogoLauncherBearermailOriginal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_bearermail_original"
+            android:roundIcon="@mipmap/ic_launcher_bearermail_original"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <activity-alias
             android:name=".CalendarLauncher"
             android:enabled="false"

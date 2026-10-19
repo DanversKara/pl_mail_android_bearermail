@@ -72,6 +72,7 @@ constructor(
                         settings.logoMotif,
                         settings.logoPaint,
                         settings.logoStyle,
+                        settings.appIcon,
                     )
                 }
                 // The repository's own flow is distinct on the whole record,
@@ -86,7 +87,7 @@ constructor(
                     // default, on every install that has never been told
                     // otherwise -- and `wear` is a no-op when that is already
                     // what is on the home screen. See LauncherIcon.resolve.
-                    icon.wear(LauncherIcon.resolve(state.motif, state.paint, state.style))
+                    icon.wear(LauncherIcon.resolve(state.motif, state.paint, state.style, state.appIcon))
                 }
         }
     }
@@ -98,4 +99,5 @@ private data class Following(
     val motif: String?,
     val paint: String?,
     val style: String?,
+    val appIcon: String?,
 )

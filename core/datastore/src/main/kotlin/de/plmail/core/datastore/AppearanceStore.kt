@@ -117,6 +117,7 @@ class AppearanceStore @Inject constructor(private val preferences: DataStore<Pre
                     logoStyle = stored[REMOTE_LOGO_STYLE],
                     logoMotif = stored[REMOTE_LOGO_MOTIF],
                     logoPaint = stored[REMOTE_LOGO_PAINT],
+                    appIcon = stored[REMOTE_APP_ICON],
                     state = stored[REMOTE_STATE],
                 )
             }
@@ -147,6 +148,7 @@ class AppearanceStore @Inject constructor(private val preferences: DataStore<Pre
             stored.put(REMOTE_LOGO_STYLE, remote.logoStyle)
             stored.put(REMOTE_LOGO_MOTIF, remote.logoMotif)
             stored.put(REMOTE_LOGO_PAINT, remote.logoPaint)
+            stored.put(REMOTE_APP_ICON, remote.appIcon)
             stored.put(REMOTE_STATE, remote.state)
         }
     }
@@ -318,6 +320,7 @@ class AppearanceStore @Inject constructor(private val preferences: DataStore<Pre
          */
         val REMOTE_LOGO_STYLE = stringPreferencesKey("appearance_remote_logo_style")
         val REMOTE_LOGO_MOTIF = stringPreferencesKey("appearance_remote_logo_motif")
+        val REMOTE_APP_ICON = stringPreferencesKey("appearance_remote_app_icon")
         val REMOTE_LOGO_PAINT = stringPreferencesKey("appearance_remote_logo_paint")
 
         val REMOTE_STATE = stringPreferencesKey("appearance_remote_state")
@@ -498,6 +501,8 @@ data class RemoteAppearance(
     val logoMotif: String? = null,
     /** The motif's paint, raw: `original` or a colourway wire. See [logoMotif]. */
     val logoPaint: String? = null,
+    /** The app icon choice, raw: `logo` or `bearermail`. */
+    val appIcon: String? = null,
     /** `Appearance/get`'s state, for the next write's `ifInState`. Null before the first read. */
     val state: String? = null,
 )
