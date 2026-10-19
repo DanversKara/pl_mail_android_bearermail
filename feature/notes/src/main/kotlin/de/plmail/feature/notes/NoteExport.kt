@@ -14,6 +14,7 @@ import android.text.TextPaint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import de.plmail.jmap.methods.NoteItem
 import java.io.File
 
@@ -142,7 +143,7 @@ internal object NoteExport {
                 .toInt()
                 .coerceAtLeast(320)
 
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         val fill =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
