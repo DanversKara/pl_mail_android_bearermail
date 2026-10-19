@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatItalic
 import androidx.compose.material.icons.outlined.FormatUnderlined
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RestoreFromTrash
@@ -73,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.plmail.jmap.methods.NoteDraft
@@ -135,6 +137,8 @@ internal fun NoteEditor(
     val links = remember { mutableStateListOf<NoteLink>().apply { addAll(start.links) } }
     var picking by remember { mutableStateOf(false) }
     var coloring by remember { mutableStateOf(false) }
+    var reminderAt by remember { mutableStateOf(start.reminderAt) }
+    var reminding by remember { mutableStateOf(false) }
 
     fun parsedLabels(): List<String> =
         labelsText
@@ -155,6 +159,7 @@ internal fun NoteEditor(
             archived = archived,
             trashed = trashedNow,
             links = links.toList(),
+            reminderAt = reminderAt,
         )
 
     // ── Saving ───────────────────────────────────────────────────────────
@@ -443,6 +448,13 @@ internal fun NoteEditor(
                                 tint = content,
                             )
                         }
+                        IconButton(onClick = { reminding = true }) {
+                            Icon(
+                                Icons.Outlined.NotificationsNone,
+                                stringResource(R.string.notes_reminder),
+                                tint = content,
+                            )
+                        }
                         IconButton(onClick = { picking = true }) {
                             Icon(
                                 Icons.Outlined.Link,
@@ -579,6 +591,38 @@ internal fun NoteEditor(
                 )
             }
 
+            reminderAt?.let { at ->
+                InputChip(
+                    selected = false,
+                    onClick = { if (!trashed) reminding = true },
+                    label = {
+                        Text(
+                            NoteReminderTimes.label(at),
+                            textDecoration =
+                                if (NoteReminderTimes.isPast(at)) TextDecoration.LineThrough
+                                else null,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.NotificationsNone, null, Modifier.size(18.dp))
+                    },
+                    trailingIcon =
+                        if (trashed) null
+                        else {
+                            {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    stringResource(R.string.notes_reminder_remove),
+                                    Modifier.size(18.dp).clickable {
+                                        reminderAt = null
+                                        persist()
+                                    },
+                                )
+                            }
+                        },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
             if (links.isNotEmpty()) {
                 FlowRow(
                     Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -623,6 +667,18 @@ internal fun NoteEditor(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (reminding) {
+        NoteReminderDialog(
+            hasReminder = reminderAt != null,
+            onPick = { picked ->
+                reminderAt = picked
+                reminding = false
+                persist()
+            },
+            onDismiss = { reminding = false },
+        )
     }
 
     if (picking) {
