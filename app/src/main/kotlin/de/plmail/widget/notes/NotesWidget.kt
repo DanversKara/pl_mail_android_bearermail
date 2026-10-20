@@ -62,8 +62,11 @@ interface NotesWidgetDependencies {
  * Notes are not cached on the device, so an update reads them from the server (briefly; the last
  * list stays if the server does not answer) and the app re-renders the widget whenever its notes
  * change.
+ *
+ * [floating] leaves out the panel behind the cards, so each note floats on the wallpaper; see
+ * [FloatingNotesWidget].
  */
-class NotesWidget : GlanceAppWidget() {
+open class NotesWidget(private val floating: Boolean = false) : GlanceAppWidget() {
 
     override val sizeMode: SizeMode = SizeMode.Exact
 
@@ -75,21 +78,30 @@ class NotesWidget : GlanceAppWidget() {
         val notes = repository.notes.value.filter { !it.trashed && !it.archived }
         val loaded = repository.loaded.value
 
-        provideContent { NotesContent(context, notes, loaded) }
+        provideContent { NotesContent(context, notes, loaded, floating) }
     }
 
     companion object {
         private const val REFRESH_TIMEOUT_MS = 10_000L
 
-        /** Re-renders every notes widget; called when the app's notes change. */
+        /** Re-renders every notes widget, both looks; called when the app's notes change. */
         suspend fun updateAll(context: Context) {
             val manager = GlanceAppWidgetManager(context)
             manager.getGlanceIds(NotesWidget::class.java).forEach { id ->
                 runCatching { NotesWidget().update(context, id) }
             }
+            manager.getGlanceIds(FloatingNotesWidget::class.java).forEach { id ->
+                runCatching { FloatingNotesWidget().update(context, id) }
+            }
         }
     }
 }
+
+/**
+ * The notes without their panel: only the note cards and the small +, on the wallpaper. A widget of
+ * its own in the launcher's list, so both looks can be placed.
+ */
+class FloatingNotesWidget : NotesWidget(floating = true)
 
 private object NotesWidgetColors {
     val card = ColorProvider(day = Color(0xFFF6F1E3), night = Color(0xFF1F1F23))
@@ -98,29 +110,56 @@ private object NotesWidgetColors {
     val plainNote = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF2D2E31))
     val accent = ColorProvider(day = Color(0xFF0B57D0), night = Color(0xFFA8C7FA))
     val fab = ColorProvider(day = Color(0xFFE6DCC4), night = Color(0xFF2D2E31))
+    /** The panel's colour, slightly see-through: backing for a message on the wallpaper. */
+    val pill = ColorProvider(day = Color(0xE6F6F1E3), night = Color(0xD91F1F23))
 }
 
 @Composable
-private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Boolean) {
+private fun NotesContent(
+    context: Context,
+    notes: List<NoteObject>,
+    loaded: Boolean,
+    floating: Boolean,
+) {
     val newNote = actionStartActivity(NotesWidgetIntents.newNote(context))
     Box(
         modifier =
             GlanceModifier.fillMaxSize()
                 .appWidgetBackground()
-                .background(NotesWidgetColors.card)
-                .cornerRadius(20.dp)
+                .let {
+                    if (floating) it else it.background(NotesWidgetColors.card).cornerRadius(20.dp)
+                }
                 .padding(10.dp),
         contentAlignment = Alignment.TopEnd,
     ) {
         if (notes.isEmpty()) {
-            Text(
-                text =
-                    context.getString(
-                        if (loaded) R.string.notes_widget_empty else R.string.notes_widget_offline
-                    ),
-                modifier = GlanceModifier.fillMaxSize().padding(4.dp).clickable(newNote),
-                style = TextStyle(color = NotesWidgetColors.muted, fontSize = 13.sp),
-            )
+            val message =
+                context.getString(
+                    if (loaded) R.string.notes_widget_empty else R.string.notes_widget_offline
+                )
+            if (floating) {
+                // On the wallpaper the message gets a backing, and stays clear of the +.
+                Column(modifier = GlanceModifier.fillMaxSize().padding(top = 36.dp)) {
+                    Box(
+                        modifier =
+                            GlanceModifier.background(NotesWidgetColors.pill)
+                                .cornerRadius(14.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .clickable(newNote)
+                    ) {
+                        Text(
+                            text = message,
+                            style = TextStyle(color = NotesWidgetColors.onCard, fontSize = 13.sp),
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = message,
+                    modifier = GlanceModifier.fillMaxSize().padding(4.dp).clickable(newNote),
+                    style = TextStyle(color = NotesWidgetColors.muted, fontSize = 13.sp),
+                )
+            }
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(notes.take(MAX_NOTES), itemId = { it.id.hashCode().toLong() }) { note ->

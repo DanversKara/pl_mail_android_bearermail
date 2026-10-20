@@ -21,5 +21,8 @@ object CalendarWidgetUpdater {
         manager.getGlanceIds(CalendarAgendaWidget::class.java).forEach { id ->
             runCatching { CalendarAgendaWidget().update(context, id) }
         }
+        manager.getGlanceIds(FloatingCalendarAgendaWidget::class.java).forEach { id ->
+            runCatching { FloatingCalendarAgendaWidget().update(context, id) }
+        }
     }
 }

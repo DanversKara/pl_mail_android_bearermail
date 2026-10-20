@@ -21,6 +21,8 @@ internal fun openCalendarIntent(context: Context): Intent =
 internal object WidgetColors {
     val card = ColorProvider(day = Color(0xFFF6F1E3), night = Color(0xFF1F1F23))
     val onCard = ColorProvider(day = Color(0xFF1F1F1F), night = Color(0xFFE8EAED))
+    /** The panel's colour, slightly see-through: the date's backing on the floating agenda. */
+    val pill = ColorProvider(day = Color(0xE6F6F1E3), night = Color(0xD91F1F23))
     /** The day and month bands across the agenda: a step darker than the card. */
     val band = ColorProvider(day = Color(0xFFE6DCC4), night = Color(0xFF141417))
     val muted = ColorProvider(day = Color(0xFF5F6368), night = Color(0xFF9AA0A6))
