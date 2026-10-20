@@ -557,6 +557,7 @@ interface CalendarEventDao {
                COALESCE(o.titleOverride, e.title) AS title,
                e.location AS location, e.description AS description, e.status AS status,
                e.isRecurring AS isRecurring, e.calendarKey AS calendarKey,
+               e.hasAlerts AS hasAlerts, e.isLinked AS isLinked,
                c.name AS calendarName, c.color AS calendarColor, c.isVisible AS calendarIsVisible
         FROM calendar_occurrences o
         JOIN calendar_events e ON e.uid = o.eventKey
@@ -577,6 +578,7 @@ interface CalendarEventDao {
                COALESCE(o.titleOverride, e.title) AS title,
                e.location AS location, e.description AS description, e.status AS status,
                e.isRecurring AS isRecurring, e.calendarKey AS calendarKey,
+               e.hasAlerts AS hasAlerts, e.isLinked AS isLinked,
                c.name AS calendarName, c.color AS calendarColor, c.isVisible AS calendarIsVisible
         FROM calendar_occurrences o
         JOIN calendar_events e ON e.uid = o.eventKey
@@ -725,6 +727,10 @@ data class AgendaRow(
      * servers.
      */
     val eventUid: String? = null,
+    /** BearerMail: the event has reminders — the bell on the agenda widget. */
+    val hasAlerts: Boolean = false,
+    /** BearerMail: it came from an email or a note links to it — the widget's link icon. */
+    val isLinked: Boolean = false,
 )
 
 @Dao
