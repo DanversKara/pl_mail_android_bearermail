@@ -108,4 +108,29 @@
         <item quantity="other">%1$d weitere</item>
     </plurals>
     <string name="calendar_add_from_drive">Aus Drive einfügen</string>
+    <string name="calendar_reminders">Erinnerungen</string>
+    <string name="calendar_reminders_loading">Erinnerungen werden gelesen …</string>
+    <string name="calendar_reminder_add">Erinnerung hinzufügen</string>
+    <string name="calendar_reminder_remove">Erinnerung entfernen</string>
+    <string name="calendar_reminder_done">Fertig</string>
+    <string name="calendar_reminder_cancel">Abbrechen</string>
+    <string name="calendar_reminder_at_time">Zum Beginn des Termins</string>
+    <string name="calendar_reminder_on_the_day">Am Tag selbst</string>
+    <string name="calendar_reminder_night_before">Am Vorabend (20 Uhr)</string>
+    <plurals name="calendar_reminder_minutes">
+        <item quantity="one">%d Minute vorher</item>
+        <item quantity="other">%d Minuten vorher</item>
+    </plurals>
+    <plurals name="calendar_reminder_hours">
+        <item quantity="one">%d Stunde vorher</item>
+        <item quantity="other">%d Stunden vorher</item>
+    </plurals>
+    <plurals name="calendar_reminder_days">
+        <item quantity="one">%d Tag vorher</item>
+        <item quantity="other">%d Tage vorher</item>
+    </plurals>
+    <plurals name="calendar_reminder_weeks">
+        <item quantity="one">%d Woche vorher</item>
+        <item quantity="other">%d Wochen vorher</item>
+    </plurals>
 </resources>

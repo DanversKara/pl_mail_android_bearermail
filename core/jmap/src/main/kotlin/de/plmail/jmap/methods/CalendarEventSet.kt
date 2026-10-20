@@ -91,10 +91,10 @@ sealed interface EventTimeZone {
  * An event being created.
  *
  * The properties here are **exactly** what the server accepts, and that is the whole design.
- * Anything else — `participants`, `alerts`, `privacy`, `links` — comes back as a per-object
+ * Anything else — `participants`, `privacy`, `links` — comes back as a per-object
  * `invalidProperties` naming the offenders, after the user has typed the event. Making the refused
  * set unrepresentable moves that from runtime to compile time, the same way `EmailFilter` does for
- * `unsupportedFilter`.
+ * `unsupportedFilter`. `alerts` became settable with the BearerMail server's reminders.
  */
 data class NewCalendarEvent(
     val calendarId: CalendarId,
@@ -134,6 +134,8 @@ data class NewCalendarEvent(
      * across servers.
      */
     val uid: String? = null,
+    /** Reminders as offsets before the start (`-PT30M`, `-P1D`); delivered by the server. */
+    val alerts: List<String> = emptyList(),
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         put("@type", "Event")
@@ -151,6 +153,7 @@ data class NewCalendarEvent(
         location?.let { put("locations", locationJson(it)) }
         put("status", status)
         putRecurrence(recurrenceRule, recurrenceOverrides)
+        if (alerts.isNotEmpty()) put("alerts", alertsJson(alerts))
     }
 
     companion object {
@@ -202,6 +205,9 @@ class CalendarEventPatch private constructor(private val fields: Map<String, Jso
         fun location(name: String?) = apply { fields["locations"] = locationJson(name) }
 
         fun status(value: String) = apply { fields["status"] = JsonPrimitive(value) }
+
+        /** Replaces every reminder; an empty list clears them. */
+        fun alerts(offsets: List<String>) = apply { fields["alerts"] = alertsJson(offsets) }
 
         /** Moving an event between calendars is a plain property change. */
         fun calendarId(id: CalendarId) = apply { fields["calendarId"] = JsonPrimitive(id.value) }
@@ -401,3 +407,27 @@ private fun locationJson(name: String?): JsonElement =
             )
         }
     } ?: JsonNull
+
+/**
+ * Reminders as JSCalendar's `alerts` map: one display Alert per offset, keyed by the offset so the
+ * same reminder sent twice is one reminder.
+ */
+internal fun alertsJson(offsets: List<String>): JsonObject = buildJsonObject {
+    offsets.distinct().forEach { offset ->
+        put(
+            "r" + offset.replace(Regex("[^A-Za-z0-9]"), ""),
+            buildJsonObject {
+                put("@type", "Alert")
+                put(
+                    "trigger",
+                    buildJsonObject {
+                        put("@type", "OffsetTrigger")
+                        put("offset", offset)
+                    },
+                )
+                put("action", "display")
+            },
+        )
+    }
+}
+

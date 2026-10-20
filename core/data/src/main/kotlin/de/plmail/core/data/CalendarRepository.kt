@@ -1,5 +1,6 @@
 package de.plmail.core.data
 
+import de.plmail.jmap.calendar.alertOffsets
 import androidx.room.withTransaction
 import de.plmail.core.database.AgendaRow
 import de.plmail.core.database.CalendarEntity
@@ -214,6 +215,11 @@ sealed interface CalendarWriteResult {
 data class EventDraft(
     val title: String,
     /**
+     * Reminders, as offsets before the start (`-PT30M`, `-P1D`). Null on an update leaves the
+     * event's reminders as they are; an empty list removes them.
+     */
+    val alerts: List<String>? = null,
+    /**
      * Local wall-clock time, formatted for the wire in this file.
      *
      * Kept as a `LocalDateTime` rather than a string so that formatting an instant — the single
@@ -257,6 +263,9 @@ interface EventEditing {
     suspend fun update(eventKey: String, draft: EventDraft): CalendarWriteResult
 
     suspend fun delete(eventKey: String): CalendarWriteResult
+
+    /** The event's reminders as offsets, from the server; null when they could not be read. */
+    suspend fun alertsOf(eventKey: String): List<String>? = null
 }
 
 /**
@@ -390,6 +399,26 @@ constructor(
      */
     override suspend fun event(eventKey: String): CalendarEventEntity? =
         database.calendarEvents().byUid(eventKey)
+
+    override suspend fun alertsOf(eventKey: String): List<String>? {
+        val existing = database.calendarEvents().byUid(eventKey) ?: return null
+        val client = clients.current() ?: return null
+        return runCatching {
+                val session = client.session()
+                val accountId = session.primaryCalendarAccount ?: return null
+                val request = request(session)
+                val handle =
+                    request.add(
+                        CalendarEventGet(
+                            accountId = accountId,
+                            ids = listOf(CalendarEventId(existing.eventId)),
+                            properties = listOf("id", "alerts"),
+                        )
+                    )
+                client.send(request).result(handle).list.firstOrNull()?.alertOffsets()
+            }
+            .getOrNull()
+    }
 
     /** Everything from [from] onwards, earliest first. The agenda. */
     fun agenda(from: LocalDate, limit: Int = AGENDA_LIMIT): Flow<List<AgendaRow>> =
@@ -1657,6 +1686,7 @@ private fun EventDraft.toNewEvent(calendarId: CalendarId) =
         location = location,
         status = status,
         recurrenceRule = recurrenceRule,
+        alerts = alerts.orEmpty(),
     )
 
 private fun EventDraft.toPatch(): CalendarEventPatch {
@@ -1671,6 +1701,7 @@ private fun EventDraft.toPatch(): CalendarEventPatch {
         location(draft.location)
         status(draft.status)
         draft.timeZone?.let { timeZone(it) }
+        draft.alerts?.let { alerts(it) }
     }
 }
 

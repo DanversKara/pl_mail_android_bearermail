@@ -79,6 +79,11 @@ data class CalendarEvent(
      * only show when the value was written back.
      */
     val recurrenceOverrides: Map<String, JsonObject> = emptyMap(),
+    /**
+     * Reminders, as JSCalendar keeps them: each an Alert with an OffsetTrigger such as `-PT30M`.
+     * Read through [alertOffsets]; only present when asked for.
+     */
+    val alerts: Map<String, JsonObject> = emptyMap(),
     val sequence: Int = 0,
     /** UTC instants, unlike [start] — these are `Z`-suffixed. */
     val created: String? = null,
@@ -157,3 +162,13 @@ data class NDay(
     val day: String = "",
     val nthOfPeriod: Int? = null,
 )
+
+/** The offsets (`-PT30M`, `-P1D`) of an event's reminders that count from its start. */
+fun CalendarEvent.alertOffsets(): List<String> =
+    alerts.values.mapNotNull { alert ->
+        val trigger = alert["trigger"] as? JsonObject ?: return@mapNotNull null
+        val relativeTo = (trigger["relativeTo"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        if (relativeTo == "end") return@mapNotNull null
+        (trigger["offset"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }
+
