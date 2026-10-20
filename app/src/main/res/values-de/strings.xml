@@ -73,7 +73,6 @@
     <string name="notes_widget_new">Neue Notiz</string>
     <string name="notes_widget_label">Notizen</string>
     <string name="notes_widget_description">Deine Notizen und Listen, angeheftete zuerst</string>
-    <string name="notes_widget_title">Notizen</string>
     <string name="notes_widget_empty">Noch keine Notizen. Tippen, um eine zu schreiben.</string>
     <string name="notes_widget_offline">Notizen konnten nicht geladen werden. Tippen, um sie zu öffnen.</string>
     <string name="notes_widget_untitled">Leere Notiz</string>
