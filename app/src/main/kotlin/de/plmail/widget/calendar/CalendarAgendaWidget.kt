@@ -75,7 +75,8 @@ class CalendarAgendaWidget : GlanceAppWidget() {
         val now = LocalDateTime.now()
         var rows = runCatching {
             loadAgendaRows(today, AGENDA_LIMIT, context)
-        }.getOrDefault(emptyList())
+        }
+            .getOrDefault(emptyList())
         // An empty cache (a fresh install, or an update that rebuilt it) would show "Nothing
         // coming up" until the app next synced; fetch the next weeks first, briefly.
         if (rows.isEmpty()) {
