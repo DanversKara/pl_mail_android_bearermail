@@ -167,8 +167,8 @@ data class NDay(
 fun CalendarEvent.alertOffsets(): List<String> =
     alerts.values.mapNotNull { alert ->
         val trigger = alert["trigger"] as? JsonObject ?: return@mapNotNull null
-        val relativeTo = (trigger["relativeTo"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        val relativeTo =
+            (trigger["relativeTo"] as? kotlinx.serialization.json.JsonPrimitive)?.content
         if (relativeTo == "end") return@mapNotNull null
         (trigger["offset"] as? kotlinx.serialization.json.JsonPrimitive)?.content
     }
-

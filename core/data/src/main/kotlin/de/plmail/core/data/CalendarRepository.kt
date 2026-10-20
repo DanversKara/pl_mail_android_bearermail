@@ -1,6 +1,5 @@
 package de.plmail.core.data
 
-import de.plmail.jmap.calendar.alertOffsets
 import androidx.room.withTransaction
 import de.plmail.core.database.AgendaRow
 import de.plmail.core.database.CalendarEntity
@@ -14,6 +13,7 @@ import de.plmail.jmap.calendar.Calendar
 import de.plmail.jmap.calendar.CalendarEvent
 import de.plmail.jmap.calendar.CalendarEventFilter
 import de.plmail.jmap.calendar.RecurrenceRule
+import de.plmail.jmap.calendar.alertOffsets
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.methods.CalendarChanges
 import de.plmail.jmap.methods.CalendarEventChanges
@@ -404,19 +404,19 @@ constructor(
         val existing = database.calendarEvents().byUid(eventKey) ?: return null
         val client = clients.current() ?: return null
         return runCatching {
-                val session = client.session()
-                val accountId = session.primaryCalendarAccount ?: return null
-                val request = request(session)
-                val handle =
-                    request.add(
-                        CalendarEventGet(
-                            accountId = accountId,
-                            ids = listOf(CalendarEventId(existing.eventId)),
-                            properties = listOf("id", "alerts"),
-                        )
+            val session = client.session()
+            val accountId = session.primaryCalendarAccount ?: return null
+            val request = request(session)
+            val handle =
+                request.add(
+                    CalendarEventGet(
+                        accountId = accountId,
+                        ids = listOf(CalendarEventId(existing.eventId)),
+                        properties = listOf("id", "alerts"),
                     )
-                client.send(request).result(handle).list.firstOrNull()?.alertOffsets()
-            }
+                )
+            client.send(request).result(handle).list.firstOrNull()?.alertOffsets()
+        }
             .getOrNull()
     }
 

@@ -255,7 +255,9 @@ internal fun EventEditorScreen(
                 known = form.alertsKnown,
                 start = form.start,
                 isAllDay = form.isAllDay,
-                onChange = { list -> viewModel.edit { it.copy(alerts = list, alertsKnown = true) } },
+                onChange = { list ->
+                    viewModel.edit { it.copy(alerts = list, alertsKnown = true) }
+                },
             )
 
             OutlinedTextField(

@@ -430,4 +430,3 @@ internal fun alertsJson(offsets: List<String>): JsonObject = buildJsonObject {
         )
     }
 }
-

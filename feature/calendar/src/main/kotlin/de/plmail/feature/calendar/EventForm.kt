@@ -52,8 +52,8 @@ data class EventFormState(
     /** Reminders, as offsets before the start (`-PT30M`, `-P1D`), in the order chosen. */
     val alerts: List<String> = emptyList(),
     /**
-     * Whether [alerts] is what the event really has. False while an existing event's reminders
-     * are still being read — saving then leaves them alone rather than clearing them.
+     * Whether [alerts] is what the event really has. False while an existing event's reminders are
+     * still being read — saving then leaves them alone rather than clearing them.
      */
     val alertsKnown: Boolean = true,
 ) {

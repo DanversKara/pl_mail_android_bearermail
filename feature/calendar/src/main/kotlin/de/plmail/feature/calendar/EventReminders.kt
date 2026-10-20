@@ -153,7 +153,9 @@ private fun ReminderPicker(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.calendar_reminder_cancel)) }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.calendar_reminder_cancel))
+            }
         },
     )
 }
@@ -168,7 +170,8 @@ internal fun reminderLabel(offset: String, start: LocalDateTime, isAllDay: Boole
     return when {
         minutes == 0L ->
             stringResource(
-                if (isAllDay) R.string.calendar_reminder_on_the_day else R.string.calendar_reminder_at_time
+                if (isAllDay) R.string.calendar_reminder_on_the_day
+                else R.string.calendar_reminder_at_time
             )
         minutes % (7 * 24 * 60) == 0L -> {
             val n = (minutes / (7 * 24 * 60)).toInt()
@@ -182,7 +185,12 @@ internal fun reminderLabel(offset: String, start: LocalDateTime, isAllDay: Boole
             val n = (minutes / 60).toInt()
             pluralStringResource(R.plurals.calendar_reminder_hours, n, n)
         }
-        else -> pluralStringResource(R.plurals.calendar_reminder_minutes, minutes.toInt(), minutes.toInt())
+        else ->
+            pluralStringResource(
+                R.plurals.calendar_reminder_minutes,
+                minutes.toInt(),
+                minutes.toInt(),
+            )
     }
 }
 
@@ -192,7 +200,18 @@ internal object ReminderOffsets {
     const val MAX = 10
 
     val PRESETS =
-        listOf("PT0S", "-PT5M", "-PT10M", "-PT15M", "-PT30M", "-PT1H", "-PT2H", "-P1D", "-P2D", "-P7D")
+        listOf(
+            "PT0S",
+            "-PT5M",
+            "-PT10M",
+            "-PT15M",
+            "-PT30M",
+            "-PT1H",
+            "-PT2H",
+            "-P1D",
+            "-P2D",
+            "-P7D",
+        )
 
     /** 8 PM on the evening before the start, as an offset before it. */
     fun nightBefore(start: LocalDateTime): String {
@@ -202,10 +221,13 @@ internal object ReminderOffsets {
     }
 
     /** Minutes before the start, or null for an offset this cannot read. */
-    fun minutesBefore(offset: String): Long? =
-        runCatching { -Duration.parse(offset).toMinutes() }.getOrNull()
+    fun minutesBefore(offset: String): Long? = runCatching {
+        -Duration.parse(offset).toMinutes()
+    }
+        .getOrNull()
 
     /** Earliest reminder first, as a calendar lists them. */
-    fun sorted(offsets: List<String>): List<String> =
-        offsets.sortedByDescending { minutesBefore(it) ?: 0 }
+    fun sorted(offsets: List<String>): List<String> = offsets.sortedByDescending {
+        minutesBefore(it) ?: 0
+    }
 }
