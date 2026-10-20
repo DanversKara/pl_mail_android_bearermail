@@ -41,20 +41,22 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import de.plmail.R
+import de.plmail.core.data.CalendarWindow
 import de.plmail.core.database.AgendaRow
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The agenda on the home screen, laid out after the owner's own sketch: today's date across the top
- * ("MON OCT 19") with a `+` for a new event, then every event as its own rounded card in its
- * calendar's color. The first card of each later day carries the day ("TUE 20"); today's do not,
- * the header already says it. Each card shows the time ("All day" for an all-day event), the title
- * in large bold type, and at the top right small icons: a bell when it has reminders, the repeat
- * arrows when it repeats, a link when it came from an email or a note links to it. Text and icons
- * are black or white, whichever reads on the card's color.
+ * ("MON OCT 19", "MON 19" when narrow), then every event as its own rounded card in its calendar's
+ * color. The first card of each later day carries the day ("TUE 20"); today's do not, the header
+ * already says it. Each card shows the time ("All day" for an all-day event), the title in large
+ * bold type, and at the top right small icons: a bell when it has reminders, the repeat arrows when
+ * it repeats, a link when it came from an email or a note links to it. Text and icons are black or
+ * white, whichever reads on the card's color.
  *
  * The days are a scrolling list, as in Google Calendar's own agenda widget: the widget fills
  * whatever height it really has and scrolls for the rest. It used to work out from the size the
@@ -71,10 +73,22 @@ class CalendarAgendaWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val today = LocalDate.now()
         val now = LocalDateTime.now()
-        val rows = runCatching {
+        var rows = runCatching {
             loadAgendaRows(today, AGENDA_LIMIT, context)
+        }.getOrDefault(emptyList())
+        // An empty cache (a fresh install, or an update that rebuilt it) would show "Nothing
+        // coming up" until the app next synced; fetch the next weeks first, briefly.
+        if (rows.isEmpty()) {
+            withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching {
+                    widgetCalendarRepository(context)
+                        .refresh(CalendarWindow(today.minusDays(1), today.plusDays(DAYS_AHEAD)))
+                }
+            }
+            rows =
+                runCatching { loadAgendaRows(today, AGENDA_LIMIT, context) }
+                    .getOrDefault(emptyList())
         }
-            .getOrDefault(emptyList())
 
         provideContent { AgendaContent(context, today, now, rows) }
     }
@@ -82,11 +96,15 @@ class CalendarAgendaWidget : GlanceAppWidget() {
     companion object {
         /** More than any size can draw; the height decides how many are shown. */
         private const val AGENDA_LIMIT = 150
+        private const val REFRESH_TIMEOUT_MS = 10_000L
     }
 }
 
 /** Below this height the widget switches to the one-line-per-event strip. */
 private val COMPACT_BELOW = 120.dp
+
+/** Narrower than this, the header leaves out the month: "MON 19". */
+private val WIDE_HEADER_FROM = 220.dp
 
 /** How far ahead, and how many events, the list goes: well past a week, never unbounded. */
 private const val DAYS_AHEAD = 31L
@@ -134,7 +152,6 @@ private fun AgendaContent(
 ) {
     val locale = Locale.getDefault()
     val openCalendar = actionStartActivity(openCalendarIntent(context))
-    val newEvent = actionStartActivity(CalendarWidgetIntents.newEvent(context, today))
     val size = LocalSize.current
     val compact = size.height < COMPACT_BELOW
     val labels =
@@ -156,29 +173,21 @@ private fun AgendaContent(
                 .padding(horizontal = 6.dp, vertical = if (compact) 4.dp else 8.dp)
     ) {
         if (!compact) {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(start = 8.dp, end = 2.dp),
-                verticalAlignment = Alignment.Vertical.CenterVertically,
-            ) {
-                Text(
-                    text = headerDate(today, locale),
-                    maxLines = 1,
-                    modifier = GlanceModifier.defaultWeight().clickable(openCalendar),
-                    style =
-                        TextStyle(
-                            color = WidgetColors.onCard,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                )
-                Image(
-                    provider = ImageProvider(R.drawable.ic_widget_add),
-                    contentDescription = context.getString(R.string.calendar_widget_new),
-                    colorFilter = ColorFilter.tint(WidgetColors.muted),
-                    modifier = GlanceModifier.size(40.dp).padding(8.dp).clickable(newEvent),
-                )
-            }
-            Spacer(modifier = GlanceModifier.height(4.dp))
+            Text(
+                text = headerDate(today, locale, short = size.width < WIDE_HEADER_FROM),
+                maxLines = 1,
+                modifier =
+                    GlanceModifier.fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                        .clickable(openCalendar),
+                style =
+                    TextStyle(
+                        color = WidgetColors.onCard,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+            )
+            Spacer(modifier = GlanceModifier.height(6.dp))
         }
 
         if (cards.isEmpty()) {
@@ -213,9 +222,11 @@ private class CardLabels(
     val linked: String,
 )
 
-/** "MON OCT 19", in the device's language. */
-private fun headerDate(date: LocalDate, locale: Locale): String =
-    date.format(DateTimeFormatter.ofPattern("EEE MMM d", locale)).uppercase(locale)
+/** "MON OCT 19", or "MON 19" on a narrow widget, in the device's language. */
+private fun headerDate(date: LocalDate, locale: Locale, short: Boolean): String =
+    date
+        .format(DateTimeFormatter.ofPattern(if (short) "EEE d" else "EEE MMM d", locale))
+        .uppercase(locale)
 
 /** "TUE 20", in the device's language. */
 private fun dayLabel(date: LocalDate, locale: Locale): String =

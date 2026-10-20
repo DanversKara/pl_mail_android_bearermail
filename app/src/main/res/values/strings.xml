@@ -72,7 +72,6 @@
     <string name="calendar_widget_reminder">Reminder set</string>
     <string name="calendar_widget_repeats">Repeats</string>
     <string name="calendar_widget_linked">Linked to an email or note</string>
-    <string name="calendar_widget_new">New event</string>
     <string name="notes_widget_new">New note</string>
     <string name="notes_widget_label">Notes</string>
     <string name="notes_widget_description">Your notes and lists, pinned first</string>

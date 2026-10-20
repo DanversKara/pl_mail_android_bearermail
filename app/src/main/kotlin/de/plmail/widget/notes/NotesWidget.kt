@@ -56,8 +56,8 @@ interface NotesWidgetDependencies {
 /**
  * Notes on the home screen, laid out after the owner's sketch: no title bar, just the notes as
  * coloured cards filling the widget — pinned first, then the most recently changed — each with its
- * title, the start of its text or its first checklist items, and a round `+` floating at the bottom
- * right for a new note. Tapping a card opens that note; the list scrolls.
+ * title, the start of its text or its first checklist items, and a small round `+` in the top right
+ * corner, over the first card, for a new note. Tapping a card opens that note; the list scrolls.
  *
  * Notes are not cached on the device, so an update reads them from the server (briefly; the last
  * list stays if the server does not answer) and the app re-renders the widget whenever its notes
@@ -110,7 +110,7 @@ private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Bool
                 .background(NotesWidgetColors.card)
                 .cornerRadius(20.dp)
                 .padding(10.dp),
-        contentAlignment = Alignment.BottomEnd,
+        contentAlignment = Alignment.TopEnd,
     ) {
         if (notes.isEmpty()) {
             Text(
@@ -126,16 +126,14 @@ private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Bool
                 items(notes.take(MAX_NOTES), itemId = { it.id.hashCode().toLong() }) { note ->
                     NoteCard(context, note)
                 }
-                // Room under the last card for the + button, so it never covers a note's text.
-                item(itemId = Long.MAX_VALUE) { Spacer(GlanceModifier.height(44.dp)) }
             }
         }
-        // The new-note button, floating at the bottom right.
+        // The new-note button: small, in the top right corner, over the first card's corner.
         Box(
             modifier =
-                GlanceModifier.size(44.dp)
+                GlanceModifier.size(28.dp)
                     .background(NotesWidgetColors.fab)
-                    .cornerRadius(22.dp)
+                    .cornerRadius(14.dp)
                     .clickable(newNote),
             contentAlignment = Alignment.Center,
         ) {
@@ -143,7 +141,7 @@ private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Bool
                 provider = ImageProvider(R.drawable.ic_widget_add),
                 contentDescription = context.getString(R.string.notes_widget_new),
                 colorFilter = ColorFilter.tint(NotesWidgetColors.accent),
-                modifier = GlanceModifier.size(26.dp),
+                modifier = GlanceModifier.size(18.dp),
             )
         }
     }
