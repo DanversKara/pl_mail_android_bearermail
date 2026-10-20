@@ -16,11 +16,20 @@ import java.time.LocalDate
 object CalendarWidgetIntents {
     private const val EXTRA_DATE = "de.plmail.widget.calendar.DATE"
     private const val EXTRA_EVENT = "de.plmail.widget.calendar.EVENT"
+    private const val EXTRA_NEW = "de.plmail.widget.calendar.NEW"
 
     fun day(context: Context, date: LocalDate): Intent = build(context, date, null)
 
     fun event(context: Context, date: LocalDate, eventKey: String): Intent =
         build(context, date, eventKey)
+
+    /** The widget's `+`: the calendar with a new event's editor open. */
+    fun newEvent(context: Context, date: LocalDate): Intent =
+        Intent(context, CalendarActivity::class.java)
+            .setData("plmail-calendar://new/$date".toUri())
+            .putExtra(EXTRA_DATE, date.toString())
+            .putExtra(EXTRA_NEW, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     private fun build(context: Context, date: LocalDate, eventKey: String?): Intent =
         Intent(context, CalendarActivity::class.java)
@@ -34,6 +43,10 @@ object CalendarWidgetIntents {
             intent?.getStringExtra(EXTRA_DATE)?.let {
                 runCatching { LocalDate.parse(it) }.getOrNull()
             } ?: return null
-        return CalendarOpenRequest(date, intent.getStringExtra(EXTRA_EVENT))
+        return CalendarOpenRequest(
+            date,
+            intent.getStringExtra(EXTRA_EVENT),
+            newEvent = intent.getBooleanExtra(EXTRA_NEW, false),
+        )
     }
 }

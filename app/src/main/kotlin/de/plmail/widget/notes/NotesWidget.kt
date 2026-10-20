@@ -5,8 +5,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -20,13 +23,14 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
-import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -50,10 +54,10 @@ interface NotesWidgetDependencies {
 }
 
 /**
- * Notes on the home screen, after Google Keep's widget: "Notes" with New list and New note across
- * the top, then the notes as coloured cards — pinned first, then the most recently changed — each
- * with its title, the start of its text or its first checklist items. Tapping a card opens that
- * note; the list scrolls.
+ * Notes on the home screen, laid out after the owner's sketch: no title bar, just the notes as
+ * coloured cards filling the widget — pinned first, then the most recently changed — each with its
+ * title, the start of its text or its first checklist items, and a round `+` floating at the bottom
+ * right for a new note. Tapping a card opens that note; the list scrolls.
  *
  * Notes are not cached on the device, so an update reads them from the server (briefly; the last
  * list stays if the server does not answer) and the app re-renders the widget whenever its notes
@@ -93,63 +97,28 @@ private object NotesWidgetColors {
     val muted = ColorProvider(day = Color(0xFF5F6368), night = Color(0xFF9AA0A6))
     val plainNote = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF2D2E31))
     val accent = ColorProvider(day = Color(0xFF0B57D0), night = Color(0xFFA8C7FA))
+    val fab = ColorProvider(day = Color(0xFFE6DCC4), night = Color(0xFF2D2E31))
 }
 
 @Composable
 private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Boolean) {
-    Column(
+    val newNote = actionStartActivity(NotesWidgetIntents.newNote(context))
+    Box(
         modifier =
             GlanceModifier.fillMaxSize()
                 .appWidgetBackground()
                 .background(NotesWidgetColors.card)
-                .padding(10.dp)
+                .cornerRadius(20.dp)
+                .padding(10.dp),
+        contentAlignment = Alignment.BottomEnd,
     ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().padding(start = 4.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.Vertical.CenterVertically,
-        ) {
-            Text(
-                text = context.getString(R.string.notes_widget_title),
-                modifier =
-                    GlanceModifier.defaultWeight()
-                        .clickable(actionStartActivity(NotesWidgetIntents.newNote(context))),
-                style =
-                    TextStyle(
-                        color = NotesWidgetColors.onCard,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-            )
-            Text(
-                text = "☑",
-                modifier =
-                    GlanceModifier.padding(horizontal = 10.dp, vertical = 2.dp)
-                        .clickable(actionStartActivity(NotesWidgetIntents.newList(context))),
-                style = TextStyle(color = NotesWidgetColors.accent, fontSize = 20.sp),
-            )
-            Text(
-                text = "+",
-                modifier =
-                    GlanceModifier.padding(horizontal = 10.dp, vertical = 2.dp)
-                        .clickable(actionStartActivity(NotesWidgetIntents.newNote(context))),
-                style =
-                    TextStyle(
-                        color = NotesWidgetColors.accent,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-            )
-        }
-
         if (notes.isEmpty()) {
             Text(
                 text =
                     context.getString(
                         if (loaded) R.string.notes_widget_empty else R.string.notes_widget_offline
                     ),
-                modifier =
-                    GlanceModifier.padding(4.dp)
-                        .clickable(actionStartActivity(NotesWidgetIntents.newNote(context))),
+                modifier = GlanceModifier.fillMaxSize().padding(4.dp).clickable(newNote),
                 style = TextStyle(color = NotesWidgetColors.muted, fontSize = 13.sp),
             )
         } else {
@@ -157,7 +126,25 @@ private fun NotesContent(context: Context, notes: List<NoteObject>, loaded: Bool
                 items(notes.take(MAX_NOTES), itemId = { it.id.hashCode().toLong() }) { note ->
                     NoteCard(context, note)
                 }
+                // Room under the last card for the + button, so it never covers a note's text.
+                item(itemId = Long.MAX_VALUE) { Spacer(GlanceModifier.height(44.dp)) }
             }
+        }
+        // The new-note button, floating at the bottom right.
+        Box(
+            modifier =
+                GlanceModifier.size(44.dp)
+                    .background(NotesWidgetColors.fab)
+                    .cornerRadius(22.dp)
+                    .clickable(newNote),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_widget_add),
+                contentDescription = context.getString(R.string.notes_widget_new),
+                colorFilter = ColorFilter.tint(NotesWidgetColors.accent),
+                modifier = GlanceModifier.size(26.dp),
+            )
         }
     }
 }
@@ -175,8 +162,8 @@ private fun NoteCard(context: Context, note: NoteObject) {
             modifier =
                 GlanceModifier.fillMaxWidth()
                     .background(fill)
-                    .cornerRadius(12.dp)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .cornerRadius(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .clickable(actionStartActivity(NotesWidgetIntents.open(context, note.id)))
         ) {
             if (note.title.isNotBlank()) {
@@ -186,7 +173,7 @@ private fun NoteCard(context: Context, note: NoteObject) {
                     style =
                         TextStyle(
                             color = NotesWidgetColors.onCard,
-                            fontSize = 14.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                         ),
                 )
@@ -195,8 +182,8 @@ private fun NoteCard(context: Context, note: NoteObject) {
                 if (note.title.isNotBlank()) Spacer(GlanceModifier.height(2.dp))
                 Text(
                     text = notePlainText(note.body),
-                    maxLines = 6,
-                    style = TextStyle(color = NotesWidgetColors.onCard, fontSize = 13.sp),
+                    maxLines = 5,
+                    style = TextStyle(color = NotesWidgetColors.onCard, fontSize = 15.sp),
                 )
             }
             if (note.items.isNotEmpty()) {

@@ -60,7 +60,23 @@ jobs:
             # still assemble; they come out unsigned, which is exactly what the
             # guard in app/build.gradle.kts is for.
             - name: Build, test and lint
-              run: ./gradlew build
+              run: |
+                  set -o pipefail
+                  ./gradlew build 2>&1 | tee build.log
+
+            # The same failures again as annotations on the check run, which
+            # can be read through the API without downloading the log:
+            # compiler errors, failing tests, and lint's findings.
+            - name: Annotate failures
+              if: failure()
+              run: |
+                  {
+                      grep -E '^e: |FAILED$|^> Task .* FAILED|Execution failed|What went wrong' build.log || true
+                      find . -path '*/lint_intermediate_text_report/*' -name 'lint-results-*.txt' -exec grep -hE ': (Error|Warning): ' {} + || true
+                      find . -path '*/test-results/*' -name '*.xml' -exec grep -hoE '<testcase [^>]*name="[^"]*" classname="[^"]*"[^>]*>\s*<failure message="[^"]{0,300}' {} + || true
+                  } | head -40 | while IFS= read -r line; do
+                      echo "::error::${line//%/%25}"
+                  done
 
             # Only when something failed, and only the reports: a green build's
             # reports are noise, and uploading a whole build directory would

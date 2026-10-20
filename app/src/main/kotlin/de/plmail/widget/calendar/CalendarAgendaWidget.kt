@@ -8,8 +8,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
@@ -24,7 +27,6 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
-import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -32,27 +34,27 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
-import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import de.plmail.R
 import de.plmail.core.database.AgendaRow
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * The agenda on the home screen, laid out after the owner's own sketch: the month across the top,
- * then for each day a full-width band with its name ("MONDAY 19"), and under it the day's events as
- * edge-to-edge blocks filled with their calendar's color — the title in bold, the start – end time
- * under it. Events of one day that share a color sit together in one block. When the list runs into
- * the next month, a band with that month's name ("NOVEMBER") marks the turn. Text on a block is
- * black or white, whichever reads on that color.
+ * The agenda on the home screen, laid out after the owner's own sketch: today's date across the top
+ * ("MON OCT 19") with a `+` for a new event, then every event as its own rounded card in its
+ * calendar's color. The first card of each later day carries the day ("TUE 20"); today's do not,
+ * the header already says it. Each card shows the time ("All day" for an all-day event), the title
+ * in large bold type, and at the top right small icons: a bell when it has reminders, the repeat
+ * arrows when it repeats, a link when it came from an email or a note links to it. Text and icons
+ * are black or white, whichever reads on the card's color.
  *
  * The days are a scrolling list, as in Google Calendar's own agenda widget: the widget fills
  * whatever height it really has and scrolls for the rest. It used to work out from the size the
@@ -90,69 +92,37 @@ private val COMPACT_BELOW = 120.dp
 private const val DAYS_AHEAD = 31L
 private const val MAX_EVENTS = 80
 
-/** Events of one day that share a color (and are all over, or all still to come): one block. */
-private class Block(val rows: List<AgendaRow>, val past: Boolean)
+/** One card: an event, and whether it is the first of a later day (so it carries the day). */
+private class Card(
+    val date: LocalDate,
+    val row: AgendaRow,
+    val showDay: Boolean,
+    val past: Boolean,
+    val key: Long,
+)
 
-/** One line of the scrolling list: a month band, a day band, or a block of events. */
-private sealed interface Entry {
-    val key: Long
-
-    class MonthBand(val date: LocalDate) : Entry {
-        override val key = date.toEpochDay() * 1000 + 1
-    }
-
-    class DayBand(val date: LocalDate) : Entry {
-        override val key = date.toEpochDay() * 1000 + 2
-    }
-
-    class Events(val date: LocalDate, val index: Int, val block: Block) : Entry {
-        override val key = date.toEpochDay() * 1000 + 10 + index
-    }
-}
-
-/** Consecutive events with the same color and the same past/upcoming state share one block. */
-private fun blocksOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime): List<Block> {
-    val blocks = mutableListOf<Block>()
-    var current = mutableListOf<AgendaRow>()
-    var currentPast = false
-    for (row in rows) {
-        val past = row.date == today.toString() && row.isPast(now)
-        val first = current.firstOrNull()
-        if (first != null && (first.calendarColor != row.calendarColor || currentPast != past)) {
-            blocks += Block(current, currentPast)
-            current = mutableListOf()
-        }
-        current += row
-        currentPast = past
-    }
-    if (current.isNotEmpty()) blocks += Block(current, currentPast)
-    return blocks
-}
-
-/** The list the widget scrolls: every day with events in the next [DAYS_AHEAD] days. */
-private fun entriesOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime): List<Entry> {
-    val entries = mutableListOf<Entry>()
+/** Every event in the next [DAYS_AHEAD] days, one card each, earliest first. */
+private fun cardsOf(rows: List<AgendaRow>, today: LocalDate, now: LocalDateTime): List<Card> {
+    val cards = mutableListOf<Card>()
     val last = today.plusDays(DAYS_AHEAD)
-    var month = YearMonth.from(today)
-    val days =
-        rows
-            .take(MAX_EVENTS)
-            .groupBy { it.date }
-            .mapNotNull { (dateString, dayRows) ->
-                runCatching { LocalDate.parse(dateString) }.getOrNull()?.let { it to dayRows }
+    rows
+        .take(MAX_EVENTS)
+        .groupBy { it.date }
+        .forEach { (dateString, dayRows) ->
+            val date = runCatching { LocalDate.parse(dateString) }.getOrNull() ?: return@forEach
+            if (date.isAfter(last)) return@forEach
+            dayRows.forEachIndexed { index, row ->
+                cards +=
+                    Card(
+                        date = date,
+                        row = row,
+                        showDay = index == 0 && date != today,
+                        past = date == today && row.isPast(now),
+                        key = date.toEpochDay() * 1000 + index,
+                    )
             }
-    for ((date, dayRows) in days) {
-        if (date.isAfter(last)) break
-        if (YearMonth.from(date) != month) {
-            entries += Entry.MonthBand(date)
-            month = YearMonth.from(date)
         }
-        entries += Entry.DayBand(date)
-        blocksOf(dayRows, today, now).forEachIndexed { index, block ->
-            entries += Entry.Events(date, index, block)
-        }
-    }
-    return entries
+    return cards
 }
 
 @Composable
@@ -164,52 +134,54 @@ private fun AgendaContent(
 ) {
     val locale = Locale.getDefault()
     val openCalendar = actionStartActivity(openCalendarIntent(context))
+    val newEvent = actionStartActivity(CalendarWidgetIntents.newEvent(context, today))
     val size = LocalSize.current
     val compact = size.height < COMPACT_BELOW
-    val allDay = context.getString(R.string.calendar_widget_all_day)
+    val labels =
+        CardLabels(
+            allDay = context.getString(R.string.calendar_widget_all_day),
+            reminder = context.getString(R.string.calendar_widget_reminder),
+            repeats = context.getString(R.string.calendar_widget_repeats),
+            linked = context.getString(R.string.calendar_widget_linked),
+        )
 
-    val pad = if (compact) 4f else 8f
-    val entries = entriesOf(rows, today, now)
+    val cards = cardsOf(rows, today, now)
 
     Column(
         modifier =
             GlanceModifier.fillMaxSize()
                 .appWidgetBackground()
                 .background(WidgetColors.card)
-                .padding(horizontal = 4.dp, vertical = pad.dp)
+                .cornerRadius(20.dp)
+                .padding(horizontal = 6.dp, vertical = if (compact) 4.dp else 8.dp)
     ) {
         if (!compact) {
             Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 8.dp),
+                modifier = GlanceModifier.fillMaxWidth().padding(start = 8.dp, end = 2.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 Text(
-                    text = today.format(DateTimeFormatter.ofPattern("LLLL", locale)),
+                    text = headerDate(today, locale),
+                    maxLines = 1,
                     modifier = GlanceModifier.defaultWeight().clickable(openCalendar),
                     style =
                         TextStyle(
                             color = WidgetColors.onCard,
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                         ),
                 )
-                Text(
-                    text = "+",
-                    modifier =
-                        GlanceModifier.padding(horizontal = 10.dp, vertical = 2.dp)
-                            .clickable(openCalendar),
-                    style =
-                        TextStyle(
-                            color = WidgetColors.muted,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
+                Image(
+                    provider = ImageProvider(R.drawable.ic_widget_add),
+                    contentDescription = context.getString(R.string.calendar_widget_new),
+                    colorFilter = ColorFilter.tint(WidgetColors.muted),
+                    modifier = GlanceModifier.size(40.dp).padding(8.dp).clickable(newEvent),
                 )
             }
             Spacer(modifier = GlanceModifier.height(4.dp))
         }
 
-        if (entries.isEmpty()) {
+        if (cards.isEmpty()) {
             Text(
                 text = context.getString(R.string.calendar_widget_empty),
                 modifier = GlanceModifier.padding(horizontal = 8.dp).clickable(openCalendar),
@@ -217,68 +189,37 @@ private fun AgendaContent(
             )
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                items(entries, itemId = { it.key }) { entry ->
-                    when (entry) {
-                        is Entry.MonthBand ->
-                            Band(monthName(entry.date, locale), false, compact, openCalendar)
-                        is Entry.DayBand -> {
-                            val isToday = entry.date == today
-                            val openDay =
-                                actionStartActivity(CalendarWidgetIntents.day(context, entry.date))
-                            Band(dayName(entry.date, locale), isToday, compact, openDay)
-                        }
-                        is Entry.Events ->
-                            EventBlock(
-                                entry.block,
-                                compact,
-                                allDay,
-                                actionStartActivity(
-                                    CalendarWidgetIntents.event(
-                                        context,
-                                        entry.date,
-                                        entry.block.rows.first().eventKey,
-                                    )
-                                ),
-                            )
-                    }
+                items(cards, itemId = { it.key }) { card ->
+                    EventCard(
+                        card,
+                        compact,
+                        labels,
+                        locale,
+                        actionStartActivity(
+                            CalendarWidgetIntents.event(context, card.date, card.row.eventKey)
+                        ),
+                    )
                 }
             }
         }
     }
 }
 
-/** A full-width band with centered, bold, upper-case text: a day's name or a month's. */
-@Composable
-private fun Band(text: String, highlight: Boolean, compact: Boolean, openCalendar: Action) {
-    Box(
-        modifier =
-            GlanceModifier.fillMaxWidth()
-                .height(if (compact) 16.dp else 22.dp)
-                .background(if (highlight) WidgetColors.today else WidgetColors.band)
-                .clickable(openCalendar),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            maxLines = 1,
-            style =
-                TextStyle(
-                    color = if (highlight) WidgetColors.onToday else WidgetColors.onCard,
-                    fontSize = if (compact) 10.sp else 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                ),
-        )
-    }
-}
+/** The words a card needs, read once per render. */
+private class CardLabels(
+    val allDay: String,
+    val reminder: String,
+    val repeats: String,
+    val linked: String,
+)
 
-/** "MONDAY 19", in the device's language. */
-private fun dayName(date: LocalDate, locale: Locale): String =
-    date.format(DateTimeFormatter.ofPattern("EEEE d", locale)).uppercase(locale)
+/** "MON OCT 19", in the device's language. */
+private fun headerDate(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofPattern("EEE MMM d", locale)).uppercase(locale)
 
-/** "NOVEMBER", in the device's language. */
-private fun monthName(date: LocalDate, locale: Locale): String =
-    date.format(DateTimeFormatter.ofPattern("LLLL", locale)).uppercase(locale)
+/** "TUE 20", in the device's language. */
+private fun dayLabel(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofPattern("EEE d", locale)).uppercase(locale)
 
 /** Black or white, whichever reads on [background]. */
 private fun readableOn(background: Color): ColorProvider {
@@ -287,65 +228,104 @@ private fun readableOn(background: Color): ColorProvider {
 }
 
 /**
- * One block in the calendar's color, each of its events as a bold title with the time under it (or
- * `time title` on one line in the compact strip). A block already over is a soft tint.
+ * One event as a rounded card in its calendar's color: the day (first card of a later day) with the
+ * icons at the right, the time, and the title large and bold. A card already over is a soft tint.
+ * In the compact strip it is one line: `TUE 20 · 10:00 Title`.
  */
 @Composable
-private fun EventBlock(block: Block, compact: Boolean, allDay: String, openCalendar: Action) {
-    val first = block.rows.first()
-    val base = first.colorOrNull()
-    val fill = if (block.past) first.chipTint() else first.glanceColor()
+private fun EventCard(
+    card: Card,
+    compact: Boolean,
+    labels: CardLabels,
+    locale: Locale,
+    open: Action,
+) {
+    val row = card.row
+    val base = row.colorOrNull()
+    val fill = if (card.past) row.chipTint() else row.glanceColor()
     val ink =
         when {
-            block.past -> WidgetColors.muted
+            card.past -> WidgetColors.muted
             base != null -> readableOn(base)
             else -> WidgetColors.onSolid
         }
+    val time = row.timeRange(labels.allDay)
+    val day = if (card.showDay) dayLabel(card.date, locale) else null
 
-    val gap = if (compact) 1.dp else 2.dp
+    val gap = if (compact) 1.dp else 3.dp
     Column(modifier = GlanceModifier.fillMaxWidth().padding(vertical = gap)) {
         Column(
             modifier =
                 GlanceModifier.fillMaxWidth()
                     .background(fill)
-                    .cornerRadius(if (compact) 4.dp else 6.dp)
-                    .padding(horizontal = 8.dp, vertical = if (compact) 1.dp else 4.dp)
-                    .clickable(openCalendar)
+                    .cornerRadius(if (compact) 6.dp else 14.dp)
+                    .padding(horizontal = 12.dp, vertical = if (compact) 2.dp else 8.dp)
+                    .clickable(open)
         ) {
-            block.rows.forEach { row ->
-                if (compact) CompactLine(row, ink, allDay) else FullLines(row, ink, allDay)
+            if (compact) {
+                Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
+                    Text(
+                        text =
+                            listOfNotNull(day, if (row.isAllDay) labels.allDay else row.shortTime())
+                                .joinToString(" · "),
+                        maxLines = 1,
+                        style = TextStyle(color = ink, fontSize = 11.sp),
+                    )
+                    Spacer(modifier = GlanceModifier.width(6.dp))
+                    Text(
+                        text = row.title,
+                        maxLines = 1,
+                        style =
+                            TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                    )
+                }
+                return@Column
             }
+
+            // Top line: the day when this card carries it, otherwise the time — with the icons.
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Vertical.CenterVertically,
+            ) {
+                Text(
+                    text = day ?: time,
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight(),
+                    style =
+                        if (day != null) {
+                            TextStyle(color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        },
+                )
+                if (row.hasAlerts) StatusIcon(R.drawable.ic_widget_bell, labels.reminder, ink)
+                if (row.isRecurring) StatusIcon(R.drawable.ic_widget_repeat, labels.repeats, ink)
+                if (row.isLinked) StatusIcon(R.drawable.ic_widget_link, labels.linked, ink)
+            }
+            if (day != null && time.isNotEmpty()) {
+                Text(
+                    text = time,
+                    maxLines = 1,
+                    style =
+                        TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                )
+            }
+            Text(
+                text = row.title,
+                maxLines = 2,
+                style = TextStyle(color = ink, fontSize = 18.sp, fontWeight = FontWeight.Bold),
+            )
         }
     }
 }
 
+/** A small icon in the card's ink: bell, repeat or link. */
 @Composable
-private fun FullLines(row: AgendaRow, ink: ColorProvider, allDay: String) {
-    Text(
-        text = row.title,
-        maxLines = 1,
-        style = TextStyle(color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+private fun StatusIcon(icon: Int, description: String, ink: ColorProvider) {
+    Image(
+        provider = ImageProvider(icon),
+        contentDescription = description,
+        colorFilter = ColorFilter.tint(ink),
+        modifier = GlanceModifier.size(20.dp).padding(start = 4.dp),
     )
-    Text(
-        text = row.timeRange(allDay),
-        maxLines = 1,
-        style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium),
-    )
-}
-
-@Composable
-private fun CompactLine(row: AgendaRow, ink: ColorProvider, allDay: String) {
-    Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
-        Text(
-            text = if (row.isAllDay) allDay else (row.shortTime() ?: ""),
-            maxLines = 1,
-            style = TextStyle(color = ink, fontSize = 11.sp),
-        )
-        Spacer(modifier = GlanceModifier.width(6.dp))
-        Text(
-            text = row.title,
-            maxLines = 1,
-            style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold),
-        )
-    }
 }

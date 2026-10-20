@@ -25,7 +25,12 @@ data class OccurrenceKey(val eventKey: String, val date: String)
  * A place to open the calendar on, from outside it — a tap on the home-screen agenda: a day, and
  * optionally one event on it to show.
  */
-data class CalendarOpenRequest(val date: java.time.LocalDate, val eventKey: String? = null)
+data class CalendarOpenRequest(
+    val date: java.time.LocalDate,
+    val eventKey: String? = null,
+    /** BearerMail: the widget's `+` — open the editor for a new event. */
+    val newEvent: Boolean = false,
+)
 
 /** What the editor was opened for. */
 sealed interface EditorRequest {
@@ -166,6 +171,11 @@ fun CalendarScreen(
         editing = null
         open = null
         viewModel.openDay(request.date)
+        if (request.newEvent) {
+            openEditor(EditorRequest.New)
+            onOpenRequestHandled()
+            return@LaunchedEffect
+        }
         val key = request.eventKey
         if (key != null) {
             val day = request.date.toString()
