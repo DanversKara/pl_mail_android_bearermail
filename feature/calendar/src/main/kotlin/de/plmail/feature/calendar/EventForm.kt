@@ -49,6 +49,13 @@ data class EventFormState(
     val repeat: Repeat = Repeat.NEVER,
     val location: String = "",
     val description: String = "",
+    /** Reminders, as offsets before the start (`-PT30M`, `-P1D`), in the order chosen. */
+    val alerts: List<String> = emptyList(),
+    /**
+     * Whether [alerts] is what the event really has. False while an existing event's reminders are
+     * still being read — saving then leaves them alone rather than clearing them.
+     */
+    val alertsKnown: Boolean = true,
 ) {
 
     val start: LocalDateTime
@@ -103,6 +110,7 @@ data class EventFormState(
             location = location.trim().takeIf { it.isNotBlank() },
             description = description.trim().takeIf { it.isNotBlank() },
             recurrenceRule = if (isCreating) repeat.toRule() else null,
+            alerts = if (isCreating || alertsKnown) alerts else null,
         )
 
     companion object {
@@ -184,6 +192,7 @@ data class EventFormState(
                 repeat = Repeat.NEVER,
                 location = event.location.orEmpty(),
                 description = event.description.orEmpty(),
+                alertsKnown = false,
             )
         }
     }

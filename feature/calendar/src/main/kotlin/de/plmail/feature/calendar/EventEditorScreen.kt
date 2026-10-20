@@ -73,11 +73,9 @@ import java.time.temporal.ChronoUnit
 /**
  * The event editor: one form for creating and for changing, matching the web's field list.
  *
- * **There is no reminders field, deliberately.** The web's editor has one and this cannot: `alerts`
- * is not writable over JMAP — `CalendarEvent/set` answers `invalidProperties` for it — so a control
- * here would be one whose most obvious use fails after the user has filled the whole form in. The
- * server refusing it is a decision rather than a gap, and `docs/SERVER_REQUESTS.md` is where an ask
- * would go if this ever needs to change.
+ * **Reminders** (BearerMail): any number of "N before" times, the night before included. They are
+ * stored on the server as the event's `alerts`, and the server sends each one as a notification —
+ * so a reminder set here rings on every device, and one set on the web rings here.
  *
  * **A full recurrence editor is also out of scope**, and the shape of what is here is what protects
  * elaborate rules rather than a shortcut around writing one. The dropdown appears on a *create*
@@ -250,6 +248,16 @@ internal fun EventEditorScreen(
                 repeat = form.repeat,
                 isCreating = request.isNew,
                 onSelect = { value -> viewModel.edit { it.copy(repeat = value) } },
+            )
+
+            ReminderField(
+                alerts = form.alerts,
+                known = form.alertsKnown,
+                start = form.start,
+                isAllDay = form.isAllDay,
+                onChange = { list ->
+                    viewModel.edit { it.copy(alerts = list, alertsKnown = true) }
+                },
             )
 
             OutlinedTextField(

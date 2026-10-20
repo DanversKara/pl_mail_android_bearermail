@@ -137,6 +137,21 @@ constructor(private val calendar: EventEditing, private val clock: Clock) : View
                                 isRecurring = event.isRecurring,
                             )
                     }
+
+                    // The reminders are not in the cache; read them from the server.
+                    // Until they arrive (or if they cannot), saving leaves them alone.
+                    val alerts = calendar.alertsOf(request.eventKey) ?: return@launch
+                    _state.update {
+                        if (it.loadedFor != session) it
+                        else
+                            it.copy(
+                                form =
+                                    it.form?.let { f ->
+                                        if (f.alertsKnown) f
+                                        else f.copy(alerts = alerts, alertsKnown = true)
+                                    }
+                            )
+                    }
                 }
             }
         }
