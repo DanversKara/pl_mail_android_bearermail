@@ -32,6 +32,7 @@ constructor(
      * ago.
      */
     private val bodies: BodyPrefetcher,
+    private val refreshers: Set<@JvmSuppressWildcards BackgroundRefresh> = emptySet(),
 ) {
 
     /**
@@ -65,7 +66,17 @@ constructor(
         // notification, for a table that fits in a screenful.
         val accounts = database.accounts().all()
 
+        // The calendar and the notes: refreshed (and their widgets redrawn) when
+        // the server says one of them changed, e.g. an edit on the web.
+        val other = changed.values.flatMap { it.keys }.toSet() intersect BackgroundRefresh.ALL
+        if (other.isNotEmpty()) {
+            refreshers.forEach { runCatching { it.refresh(other) } }
+        }
+
         changed.forEach { (accountId, states) ->
+            // Only calendar or notes news: no mail to fetch for it.
+            if (states.keys.all { it in BackgroundRefresh.ALL }) return@forEach
+
             accounts
                 .filter { it.accountId == accountId }
                 .forEach { account ->

@@ -56,6 +56,9 @@ abstract class DataModule {
     /** Declared for the reason the set above is: a graph with nobody listening must still build. */
     @Multibinds abstract fun reminderListeners(): Set<ReminderListener>
 
+    /** Declared for the same reason: calendar and notes refreshers live in `:app`. */
+    @Multibinds abstract fun backgroundRefreshers(): Set<BackgroundRefresh>
+
     /**
      * The queue's view of the label list.
      *
