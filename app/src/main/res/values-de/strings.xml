@@ -79,4 +79,8 @@
         <item quantity="one">+ %d weiterer</item>
         <item quantity="other">+ %d weitere</item>
     </plurals>
+    <string name="calendar_agenda_floating_widget_label">Kalender (Agenda, schwebend)</string>
+    <string name="calendar_agenda_floating_widget_description">Anstehende Termine als Karten direkt auf dem Hintergrundbild</string>
+    <string name="notes_floating_widget_label">Notizen (schwebend)</string>
+    <string name="notes_floating_widget_description">Deine Notizen als Karten direkt auf dem Hintergrundbild</string>
 </resources>

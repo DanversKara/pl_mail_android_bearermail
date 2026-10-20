@@ -131,6 +131,12 @@ internal fun AgendaRow.colorOrNull(): Color? = calendarColor?.let {
     runCatching { Color(it.toColorInt()) }.getOrNull()
 }
 
+/** A past event on the floating agenda: its colour, partly see-through, never washed out. */
+internal fun AgendaRow.pastOnWallpaper(): ColorProvider {
+    val base = colorOrNull() ?: Color(0xFF5F6368)
+    return ColorProvider(day = base.copy(alpha = 0.6f), night = base.copy(alpha = 0.6f))
+}
+
 /** The calendar's color as a Glance [ColorProvider], falling back to muted gray. */
 internal fun AgendaRow.glanceColor(): ColorProvider {
     val base = colorOrNull()

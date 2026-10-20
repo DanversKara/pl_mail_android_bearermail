@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.ColorFilter
@@ -27,6 +28,7 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -65,8 +67,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * the time line and shows `time title` on one line per event.
  *
  * Reads the cache straight from Room, so it renders even when the app process was not running.
+ *
+ * [floating] leaves out the panel behind the cards, so each event floats on the wallpaper; see
+ * [FloatingCalendarAgendaWidget].
  */
-class CalendarAgendaWidget : GlanceAppWidget() {
+open class CalendarAgendaWidget(private val floating: Boolean = false) : GlanceAppWidget() {
 
     override val sizeMode: SizeMode = SizeMode.Exact
 
@@ -91,7 +96,7 @@ class CalendarAgendaWidget : GlanceAppWidget() {
                     .getOrDefault(emptyList())
         }
 
-        provideContent { AgendaContent(context, today, now, rows) }
+        provideContent { AgendaContent(context, today, now, rows, floating) }
     }
 
     companion object {
@@ -100,6 +105,13 @@ class CalendarAgendaWidget : GlanceAppWidget() {
         private const val REFRESH_TIMEOUT_MS = 10_000L
     }
 }
+
+/**
+ * The agenda without its panel: only the event cards, and the date in a small pill of its own, on
+ * the wallpaper. A widget of its own in the launcher's list rather than a setting, so both looks
+ * can sit on different home screens.
+ */
+class FloatingCalendarAgendaWidget : CalendarAgendaWidget(floating = true)
 
 /** Below this height the widget switches to the one-line-per-event strip. */
 private val COMPACT_BELOW = 120.dp
@@ -150,6 +162,7 @@ private fun AgendaContent(
     today: LocalDate,
     now: LocalDateTime,
     rows: List<AgendaRow>,
+    floating: Boolean,
 ) {
     val locale = Locale.getDefault()
     val openCalendar = actionStartActivity(openCalendarIntent(context))
@@ -169,40 +182,57 @@ private fun AgendaContent(
         modifier =
             GlanceModifier.fillMaxSize()
                 .appWidgetBackground()
-                .background(WidgetColors.card)
-                .cornerRadius(20.dp)
+                .let {
+                    if (floating) it else it.background(WidgetColors.card).cornerRadius(20.dp)
+                }
                 .padding(horizontal = 6.dp, vertical = if (compact) 4.dp else 8.dp)
     ) {
         if (!compact) {
-            Text(
-                text = headerDate(today, locale, short = size.width < WIDE_HEADER_FROM),
-                maxLines = 1,
-                modifier =
-                    GlanceModifier.fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .clickable(openCalendar),
-                style =
-                    TextStyle(
-                        color = WidgetColors.onCard,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-            )
+            val header = headerDate(today, locale, short = size.width < WIDE_HEADER_FROM)
+            if (floating) {
+                // On the wallpaper the date needs a backing of its own to stay readable.
+                FloatingPill(header, openCalendar, fontSize = 18.sp, bold = true)
+            } else {
+                Text(
+                    text = header,
+                    maxLines = 1,
+                    modifier =
+                        GlanceModifier.fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .clickable(openCalendar),
+                    style =
+                        TextStyle(
+                            color = WidgetColors.onCard,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                )
+            }
             Spacer(modifier = GlanceModifier.height(6.dp))
         }
 
         if (cards.isEmpty()) {
-            Text(
-                text = context.getString(R.string.calendar_widget_empty),
-                modifier = GlanceModifier.padding(horizontal = 8.dp).clickable(openCalendar),
-                style = TextStyle(color = WidgetColors.muted, fontSize = 13.sp),
-            )
+            if (floating) {
+                FloatingPill(
+                    context.getString(R.string.calendar_widget_empty),
+                    openCalendar,
+                    fontSize = 13.sp,
+                    bold = false,
+                )
+            } else {
+                Text(
+                    text = context.getString(R.string.calendar_widget_empty),
+                    modifier = GlanceModifier.padding(horizontal = 8.dp).clickable(openCalendar),
+                    style = TextStyle(color = WidgetColors.muted, fontSize = 13.sp),
+                )
+            }
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(cards, itemId = { it.key }) { card ->
                     EventCard(
                         card,
                         compact,
+                        floating,
                         labels,
                         locale,
                         actionStartActivity(
@@ -233,6 +263,37 @@ private fun headerDate(date: LocalDate, locale: Locale, short: Boolean): String 
 private fun dayLabel(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofPattern("EEE d", locale)).uppercase(locale)
 
+/**
+ * A line of text on its own small rounded backing, for what would otherwise sit straight on the
+ * wallpaper in the floating agenda: the date, and "nothing coming up".
+ */
+@Composable
+private fun FloatingPill(
+    text: String,
+    onClick: Action,
+    fontSize: TextUnit,
+    bold: Boolean,
+) {
+    Box(
+        modifier =
+            GlanceModifier.background(WidgetColors.pill)
+                .cornerRadius(14.dp)
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .clickable(onClick)
+    ) {
+        Text(
+            text = text,
+            maxLines = 1,
+            style =
+                TextStyle(
+                    color = WidgetColors.onCard,
+                    fontSize = fontSize,
+                    fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+                ),
+        )
+    }
+}
+
 /** Black or white, whichever reads on [background]. */
 private fun readableOn(background: Color): ColorProvider {
     val ink = if (background.luminance() > 0.5f) Color.Black else Color.White
@@ -248,16 +309,24 @@ private fun readableOn(background: Color): ColorProvider {
 private fun EventCard(
     card: Card,
     compact: Boolean,
+    floating: Boolean,
     labels: CardLabels,
     locale: Locale,
     open: Action,
 ) {
     val row = card.row
     val base = row.colorOrNull()
-    val fill = if (card.past) row.chipTint() else row.glanceColor()
+    // A card already over is a soft tint on the panel. On the wallpaper a tint and grey text would
+    // vanish into the picture, so there it keeps its colour, a little see-through, and real ink.
+    val fill =
+        when {
+            !card.past -> row.glanceColor()
+            floating -> row.pastOnWallpaper()
+            else -> row.chipTint()
+        }
     val ink =
         when {
-            card.past -> WidgetColors.muted
+            card.past && !floating -> WidgetColors.muted
             base != null -> readableOn(base)
             else -> WidgetColors.onSolid
         }
