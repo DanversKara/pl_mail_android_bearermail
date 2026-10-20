@@ -165,6 +165,7 @@ dependencies {
     implementation(projects.feature.mail)
     implementation(projects.feature.calendar)
     implementation(projects.feature.contacts)
+    implementation(projects.feature.notes)
     implementation(projects.feature.compose)
     implementation(projects.feature.search)
     implementation(projects.feature.settings)

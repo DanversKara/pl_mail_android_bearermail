@@ -56,6 +56,10 @@ fun MailShell(
     onCalendar: (() -> Unit)?,
     /** The address book. Null where the server publishes no contacts capability. */
     onContacts: (() -> Unit)? = null,
+    /** Notes. Null where the server publishes no notes capability. */
+    onNotes: (() -> Unit)? = null,
+    /** Saves a conversation as a note. Null where the server has no notes. */
+    onSaveAsNote: ((subject: String, mailId: String) -> Unit)? = null,
     onCompose: () -> Unit,
     onReply: (accountKey: String, emailId: String, all: Boolean) -> Unit,
     onForward: (accountKey: String, emailId: String) -> Unit,
@@ -173,6 +177,13 @@ fun MailShell(
                             open()
                         }
                     },
+                onNotes =
+                    onNotes?.let { open ->
+                        {
+                            scope.launch { drawer.close() }
+                            open()
+                        }
+                    },
             )
         }
 
@@ -180,6 +191,7 @@ fun MailShell(
         @Composable {
             MailPane(
                 view = selected,
+                onSaveAsNote = onSaveAsNote,
                 // Null where the sidebar is already on screen: a hamburger that
                 // opens something already open is a control that does nothing.
                 onOpenSidebar = if (isWide) null else ({ scope.launch { drawer.open() } }),

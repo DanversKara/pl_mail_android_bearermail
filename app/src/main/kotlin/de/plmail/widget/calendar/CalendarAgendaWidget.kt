@@ -55,8 +55,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * color. The first card of each later day carries the day ("TUE 20"); today's do not, the header
  * already says it. Each card shows the time ("All day" for an all-day event), the title in large
  * bold type, and at the top right small icons: a bell when it has reminders, the repeat arrows when
- * it repeats, a link when it was taken from an email. Text and icons are black or white, whichever
- * reads on the card's color.
+ * it repeats, a link when it came from an email or a note links to it. Text and icons are black or
+ * white, whichever reads on the card's color.
  *
  * The days are a scrolling list, as in Google Calendar's own agenda widget: the widget fills
  * whatever height it really has and scrolls for the rest. It used to work out from the size the

@@ -10,7 +10,9 @@ import dagger.multibindings.IntoSet
 import de.plmail.core.data.BackgroundRefresh
 import de.plmail.core.data.CalendarRepository
 import de.plmail.core.data.CalendarWindow
+import de.plmail.core.data.NotesRepository
 import de.plmail.widget.calendar.CalendarWidgetUpdater
+import de.plmail.widget.notes.NotesWidget
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +31,7 @@ class WidgetBackgroundRefresh
 constructor(
     @param:ApplicationContext private val context: Context,
     private val calendar: CalendarRepository,
+    private val notes: NotesRepository,
 ) : BackgroundRefresh {
 
     override suspend fun refresh(types: Set<String>) {
@@ -40,6 +43,11 @@ constructor(
                 )
             }
             runCatching { CalendarWidgetUpdater.updateAll(context) }
+        }
+
+        if (BackgroundRefresh.NOTES in types) {
+            runCatching { notes.refresh() }
+            runCatching { NotesWidget.updateAll(context) }
         }
     }
 

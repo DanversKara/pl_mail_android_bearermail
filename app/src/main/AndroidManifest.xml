@@ -8,6 +8,9 @@
       off when there is nothing to reach rather than retrying into a flat
       battery.
     -->
+    <!-- Voice notes. Asked for the first time the microphone button in a note is
+         pressed, never before. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -372,6 +375,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/calendar_agenda_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.notes.NotesWidgetReceiver"
+            android:exported="false"
+            android:label="@string/notes_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/notes_widget_info" />
         </receiver>
 
         <receiver

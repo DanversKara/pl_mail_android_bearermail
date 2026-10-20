@@ -84,7 +84,7 @@ constructor(
         }
 
         changed.forEach { (accountId, states) ->
-            // Only calendar news: no mail to fetch for it.
+            // Only calendar or notes news: no mail to fetch for it.
             if (states.keys.all { it in BackgroundRefresh.ALL }) return@forEach
 
             accounts

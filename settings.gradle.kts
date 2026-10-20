@@ -68,3 +68,5 @@ include(":feature:settings")
 include(":feature:calendar")
 
 include(":feature:contacts")
+
+include(":feature:notes")

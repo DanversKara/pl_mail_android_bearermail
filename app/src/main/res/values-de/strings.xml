@@ -18,5 +18,15 @@
     <string name="calendar_widget_all_day">Ganztägig</string>
     <string name="calendar_widget_reminder">Erinnerung gesetzt</string>
     <string name="calendar_widget_repeats">Wiederholt sich</string>
-    <string name="calendar_widget_linked">Aus einer E-Mail übernommen</string>
+    <string name="calendar_widget_linked">Mit einer E-Mail oder Notiz verknüpft</string>
+    <string name="notes_widget_new">Neue Notiz</string>
+    <string name="notes_widget_label">Notizen</string>
+    <string name="notes_widget_description">Deine Notizen und Listen, angeheftete zuerst</string>
+    <string name="notes_widget_empty">Noch keine Notizen. Tippen, um eine zu schreiben.</string>
+    <string name="notes_widget_offline">Notizen konnten nicht geladen werden. Tippen, um sie zu öffnen.</string>
+    <string name="notes_widget_untitled">Leere Notiz</string>
+    <plurals name="notes_widget_more">
+        <item quantity="one">+ %d weiterer</item>
+        <item quantity="other">+ %d weitere</item>
+    </plurals>
 </resources>
