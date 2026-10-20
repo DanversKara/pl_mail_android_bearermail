@@ -123,8 +123,8 @@ data class CalendarEvent(
     val recurrenceId: String? = null,
     val recurrenceIdTimeZone: String? = null,
     /**
-     * BearerMail's extension: the event came from an email, or one of the user's notes links to
-     * it. Only sent when asked for.
+     * BearerMail's extension: the event came from an email, or one of the user's notes links to it.
+     * Only sent when asked for.
      */
     val isLinked: Boolean = false,
 ) {
