@@ -38,7 +38,9 @@ constructor(
         if (BackgroundRefresh.CALENDAR in types) {
             val today = LocalDate.now()
             runCatching {
-                calendar.refresh(CalendarWindow(today.minusDays(DAYS_BACK), today.plusDays(DAYS_AHEAD)))
+                calendar.refresh(
+                    CalendarWindow(today.minusDays(DAYS_BACK), today.plusDays(DAYS_AHEAD))
+                )
             }
             runCatching { CalendarWidgetUpdater.updateAll(context) }
         }
