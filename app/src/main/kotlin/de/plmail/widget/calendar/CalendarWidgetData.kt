@@ -9,6 +9,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import de.plmail.core.data.CalendarRepository
 import de.plmail.core.database.AgendaRow
 import de.plmail.core.database.CalendarEventDao
 import java.time.LocalDate
@@ -31,7 +32,13 @@ import kotlinx.coroutines.flow.first
 @InstallIn(SingletonComponent::class)
 interface CalendarWidgetDependencies {
     fun calendarEvents(): CalendarEventDao
+
+    fun calendarRepository(): CalendarRepository
 }
+
+internal fun widgetCalendarRepository(context: Context): CalendarRepository =
+    EntryPointAccessors.fromApplication(context, CalendarWidgetDependencies::class.java)
+        .calendarRepository()
 
 internal suspend fun widgetEventDao(context: Context): CalendarEventDao =
     EntryPointAccessors.fromApplication(context, CalendarWidgetDependencies::class.java)

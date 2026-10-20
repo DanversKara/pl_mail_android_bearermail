@@ -69,7 +69,6 @@
     <string name="calendar_widget_reminder">Erinnerung gesetzt</string>
     <string name="calendar_widget_repeats">Wiederholt sich</string>
     <string name="calendar_widget_linked">Mit einer E-Mail oder Notiz verknüpft</string>
-    <string name="calendar_widget_new">Neuer Termin</string>
     <string name="notes_widget_new">Neue Notiz</string>
     <string name="notes_widget_label">Notizen</string>
     <string name="notes_widget_description">Deine Notizen und Listen, angeheftete zuerst</string>
