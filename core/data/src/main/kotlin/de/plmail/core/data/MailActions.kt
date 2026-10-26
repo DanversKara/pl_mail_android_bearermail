@@ -10,6 +10,7 @@ import de.plmail.core.database.StoreKey
 import de.plmail.core.database.ThreadEntity
 import de.plmail.jmap.methods.EmailPatch
 import de.plmail.jmap.methods.EmailSet
+import de.plmail.jmap.methods.ThreadGet
 import de.plmail.jmap.methods.ThreadPatch
 import de.plmail.jmap.methods.ThreadSet
 import de.plmail.jmap.methods.isUnsupportedMove
@@ -210,9 +211,16 @@ constructor(
                 val threadUid = StoreKey.objectKey(target.accountKey, target.threadId)
 
                 when (action) {
-                    MailAction.Archive,
+                    MailAction.Archive ->
+                        database.clearFromInboxLists(target.accountKey, target.threadId)
+
+                    // Out of every list, not only the inbox's. Trash and spam
+                    // take a conversation out of its labels as well, and a row
+                    // swiped away in a label, in Sent or in search results
+                    // stayed parked over the trash icon until the next refresh.
                     MailAction.Trash,
-                    MailAction.MarkSpam -> clearFromInbox(threadUid)
+                    MailAction.MarkSpam ->
+                        database.feed().clearThreads(target.accountKey, listOf(target.threadId))
 
                     // Undoing a removal has to put the row back, or the list
                     // keeps the conversation hidden until the next refresh and
@@ -400,7 +408,7 @@ constructor(
     private suspend fun tabFeedOf(thread: ThreadEntity): String? =
         thread.inboxFeedId(
             enabled = database.enabledTabKeys(thread.accountKey),
-            classifies = database.threads().hasCategories(),
+            classifies = database.classifies(thread.accountKey),
             wantsTabs = database.wantsInboxTabs(thread.accountKey),
         )
 
@@ -555,20 +563,61 @@ constructor(
             .forEach { (accountKey, forAccount) ->
                 val account = database.accounts().byUid(accountKey) ?: return@forEach
                 val client = clients.forAccount(accountKey) ?: return@forEach
-                // Resolved from the cache rather than taken from the caller.
+                val accountId = AccountId(account.accountId)
+
                 // Thread ids and message ids are different id spaces, and a
-                // list row only knows the former.
+                // list row only knows the former. A message-scoped target names
+                // its own id; a conversation's messages are asked of the server.
+                //
+                // Not read from the cache, which is what this did: the list
+                // pages one message per conversation, so the cache holds the
+                // newest and nothing older until the reader opens it. Trashing
+                // a conversation from the list moved its newest message alone,
+                // the rest stayed in the inbox, and the next sync put the
+                // conversation back -- one message lighter each time round.
+                //
+                // Unless the phone holds the conversation whole: the list pages
+                // and the sync record how many messages each has, and holding
+                // that many, the cache is the answer and asking costs a round
+                // trip before the change can be sent. Most conversations are a
+                // single message, so most actions go out as one request.
+                val cached =
+                    forAccount
+                        .filter { it.emailId == null }
+                        .map { it.threadId }
+                        .distinct()
+                        .associateWith { database.emails().inThread(accountKey, it) }
+                val heldWhole = cached.filter { (threadId, emails) ->
+                    val counted = database.threads().byUid(StoreKey.objectKey(accountKey, threadId))
+                    counted != null && emails.size >= counted.messageCount
+                }
+                val conversations = (cached.keys - heldWhole.keys).map(::ThreadId)
+
+                val members =
+                    heldWhole.mapValues { (_, emails) -> emails.map { it.emailId } } +
+                        if (conversations.isEmpty()) {
+                            emptyMap()
+                        } else {
+                            val lookup = RequestBuilder()
+                            val get = lookup.add(ThreadGet(accountId, ids = conversations))
+
+                            client.send(lookup).result(get).list.associate { thread ->
+                                thread.id.value to thread.emailIds.map { it.value }
+                            }
+                        }
+
                 val ids =
                     forAccount
                         .flatMap { target ->
-                            // A message-scoped target names its own id and needs
-                            // no lookup. Everything else is a conversation, and
-                            // its messages are only known to the cache.
                             target.emailId?.let { listOf(it) }
-                                ?: database
-                                    .emails()
-                                    .inThread(target.accountKey, target.threadId)
-                                    .map { it.emailId }
+                                // The cache as well, for a conversation the
+                                // server no longer knows by that id: what this
+                                // phone has seen of it is still worth moving.
+                                ?: (members[target.threadId].orEmpty() +
+                                    database
+                                        .emails()
+                                        .inThread(target.accountKey, target.threadId)
+                                        .map { it.emailId })
                         }
                         .distinct()
                         .map(::EmailId)
@@ -576,7 +625,6 @@ constructor(
                 if (ids.isEmpty()) return@forEach
 
                 val request = RequestBuilder()
-                val accountId = AccountId(account.accountId)
 
                 // No `ifInState`, deliberately. The server bumps the account's
                 // Email state on every IMAP sync and flag change, and on the
@@ -739,7 +787,21 @@ constructor(
                 }
             }
 
-            MailAction.MoveToInbox -> inbox(accountKey)?.let { EmailPatch.build { addMailbox(it) } }
+            // Out of the bin as well as into the inbox, as the web's restore
+            // does: Trash, Spam and Archive all come off. Adding Inbox alone --
+            // which this did -- left an undone trash in the inbox and the bin
+            // at once, and the server's own trash had already taken Inbox away,
+            // so nothing else would ever clean it up.
+            MailAction.MoveToInbox -> {
+                val inbox = inbox(accountKey) ?: return null
+                val leaving =
+                    listOf("trash", "junk", "archive").mapNotNull { binding(accountKey, it) }
+
+                EmailPatch.build {
+                    addMailbox(inbox)
+                    leaving.forEach { removeMailbox(it) }
+                }
+            }
 
             MailAction.MarkSpam -> {
                 val junk = binding(accountKey, "junk") ?: return null
@@ -863,4 +925,23 @@ internal fun EmailEntity.withBinding(binding: MailboxId, applied: Boolean): Emai
     if (applied) current.add(binding.value) else current.remove(binding.value)
 
     return copy(mailboxIds = current.joinToString(","))
+}
+
+/**
+ * Takes an archived conversation out of every inbox list, whichever one it is listed in.
+ *
+ * Not by [inboxFeedId] the way `MailActions.clearFromInbox` does it: that names where the
+ * *projection* files a conversation, and a row the server's own query paged into Primary — before
+ * the classification arrived, or under a tab switched off since — is in a list that rule does not
+ * name, and stayed there with the row swiped aside over its icon. Labels and search results keep
+ * it: archiving takes away the inbox, nothing else.
+ */
+internal suspend fun PlMailDatabase.clearFromInboxLists(accountKey: String, threadId: String) {
+    feed()
+        .clearThreadFrom(
+            accountKey = accountKey,
+            threadId = threadId,
+            feedIds = listOf(Feed.UNIFIED_INBOX.id) + MailCategory.entries.map { it.feedId },
+            prefix = TAB_FEED_PREFIX,
+        )
 }

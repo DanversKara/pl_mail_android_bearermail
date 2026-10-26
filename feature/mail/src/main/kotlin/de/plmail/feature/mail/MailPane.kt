@@ -74,6 +74,7 @@ fun MailPane(
     onCompose: () -> Unit,
     onReply: (accountKey: String, emailId: String, all: Boolean) -> Unit,
     onForward: (accountKey: String, emailId: String) -> Unit,
+    onEditDraft: (accountKey: String, emailId: String) -> Unit,
     openThread: ThreadTarget? = null,
     onThreadOpened: () -> Unit = {},
     viewModel: MailViewModel = hiltViewModel(),
@@ -255,6 +256,8 @@ fun MailPane(
                                         },
                                     onReply = { emailId, all -> onReply(account, emailId, all) },
                                     onForward = { emailId -> onForward(account, emailId) },
+                                    onEditDraft = { emailId -> onEditDraft(account, emailId) },
+                                    fromBin = view.browsedLabel?.role == TRASH_ROLE,
                                     onAction = { action ->
                                         viewModel.apply(
                                             action,
@@ -418,3 +421,5 @@ private fun NothingSelected() {
         )
     }
 }
+
+private const val TRASH_ROLE = "trash"

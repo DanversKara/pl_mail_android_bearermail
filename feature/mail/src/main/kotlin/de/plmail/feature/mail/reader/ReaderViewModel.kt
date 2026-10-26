@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.plmail.core.data.ActionOutcome
 import de.plmail.core.data.ActionTarget
 import de.plmail.core.data.BlobStore
+import de.plmail.core.data.ComposeRepository
 import de.plmail.core.data.DecryptedContent
 import de.plmail.core.data.DecryptedFiles
 import de.plmail.core.data.DecryptionProblem
@@ -20,6 +21,7 @@ import de.plmail.core.data.MailActions
 import de.plmail.core.data.MailRepository
 import de.plmail.core.data.MessageDecryptor
 import de.plmail.core.data.MessageLoader
+import de.plmail.core.data.messagesShown
 import de.plmail.core.database.AttachmentEntity
 import de.plmail.core.database.EmailEntity
 import de.plmail.core.database.StoreKey
@@ -214,6 +216,7 @@ enum class FailedAt {
     DOWNLOAD,
     SAVE,
     SOURCE,
+    DISCARD,
 }
 
 private data class OpenedThread(val accountKey: String, val threadId: String)
@@ -238,6 +241,7 @@ constructor(
     private val blobs: BlobStore,
     private val decryptor: MessageDecryptor,
     private val decryptedFiles: DecryptedFiles,
+    private val compose: ComposeRepository,
     labels: LabelRepository,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -256,6 +260,9 @@ constructor(
 
     /** Which conversation is open, as the key the cache files it under. */
     private val opened = MutableStateFlow<OpenedThread?>(null)
+
+    /** Whether the conversation was opened from Trash, which shows its thrown-away messages. */
+    private var fromBin = false
 
     /**
      * Decrypted messages and decryptions under way, by message uid (#9).
@@ -296,7 +303,7 @@ constructor(
                             isStarred = thread?.isFlagged == true,
                             labels = known.filter { it.key in carried && !it.isSystem },
                             snoozedUntil = thread?.snoozedUntil,
-                            messageCount = thread?.messageCount ?: 0,
+                            messageCount = thread?.messagesShown(fromBin) ?: 0,
                             accountName =
                                 accounts
                                     .takeIf { it.size > 1 }
@@ -311,8 +318,9 @@ constructor(
                 initialValue = ReaderHeaderState(),
             )
 
-    fun open(accountKey: String, threadId: String, subject: String?) {
+    fun open(accountKey: String, threadId: String, subject: String?, fromBin: Boolean = false) {
         _state.update { ReaderUiState(subject = subject, isLoading = true) }
+        this.fromBin = fromBin
         opened.value = OpenedThread(accountKey, threadId)
 
         viewModelScope.launch {
@@ -341,7 +349,7 @@ constructor(
      * had just allowed — at an unpredictable moment, because it depends on the network.
      */
     private suspend fun show(accountKey: String, threadId: String, subject: String?) {
-        val emails = mail.messagesInThread(accountKey, threadId)
+        val emails = mail.messagesInThread(accountKey, threadId, fromBin)
         val thread = mail.thread(accountKey, threadId)
         val newest = emails.maxByOrNull { it.receivedAt ?: Long.MIN_VALUE }
         val existing = _state.value.messages.associateBy { it.email.uid }
@@ -593,6 +601,30 @@ constructor(
                     Log.w(TAG, "Could not download the source of ${message.email.uid}", failure)
                     _state.update { it.copy(source = null) }
                     announce(FailedAt.SOURCE, failure)
+                }
+        }
+    }
+
+    /**
+     * Throws away a draft listed in this conversation — a reply started and abandoned, which until
+     * now could be got rid of only from the browser.
+     *
+     * The composer's own discard, so the draft goes to Trash exactly as it does from there and can
+     * be fished back out. The conversation is redrawn from the cache afterwards, which no longer
+     * holds it.
+     */
+    fun discardDraft(message: ReaderMessage) {
+        if (!message.email.isDraft) return
+
+        // The conversation on screen, which is the one the draft was listed in.
+        val thread = opened.value ?: return
+
+        viewModelScope.launch {
+            runCatching { compose.discardDraft(thread.accountKey, message.email.emailId) }
+                .onSuccess { show(thread.accountKey, thread.threadId, _state.value.subject) }
+                .onFailure { failure ->
+                    Log.w(TAG, "Could not discard draft ${message.email.uid}", failure)
+                    announce(FailedAt.DISCARD, failure)
                 }
         }
     }

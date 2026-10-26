@@ -102,6 +102,10 @@ fun ReaderScreen(
     subject: String?,
     onReply: (emailId: String, all: Boolean) -> Unit,
     onForward: (emailId: String) -> Unit,
+    /** Opens one of the conversation's drafts in the composer. */
+    onEditDraft: (emailId: String) -> Unit = {},
+    /** Opened from Trash: shows the messages thrown away rather than the ones kept. */
+    fromBin: Boolean = false,
     /** Null where the list is already on screen beside this, and there is nothing to go back to. */
     onBack: (() -> Unit)? = null,
     /**
@@ -161,7 +165,9 @@ fun ReaderScreen(
     val context = LocalContext.current
     val snackbars = remember { SnackbarHostState() }
 
-    LaunchedEffect(accountKey, threadId) { viewModel.open(accountKey, threadId, subject) }
+    LaunchedEffect(accountKey, threadId, fromBin) {
+        viewModel.open(accountKey, threadId, subject, fromBin)
+    }
 
     // The attachment the save picker is currently being opened for. Held here
     // rather than passed through the launcher because `CreateDocument` hands
@@ -198,6 +204,7 @@ fun ReaderScreen(
                     FailedAt.DOWNLOAD -> R.string.attachment_download_failed
                     FailedAt.SAVE -> R.string.attachment_save_failed
                     FailedAt.SOURCE -> R.string.source_failed
+                    FailedAt.DISCARD -> R.string.draft_discard_failed
                 }
             )
 
@@ -248,15 +255,18 @@ fun ReaderScreen(
             bottomBar = {
                 // The conversation's newest message, expanded or not. A thread is
                 // answered at its end; the per-message row inside each card is what
-                // answers a particular one.
-                state.messages.lastOrNull()?.let { newest ->
-                    ReaderActionBar(
-                        canReplyAll = newest.hasOtherRecipients,
-                        onReply = { onReply(newest.email.emailId, false) },
-                        onReplyAll = { onReply(newest.email.emailId, true) },
-                        onForward = { onForward(newest.email.emailId) },
-                    )
-                }
+                // answers a particular one. Not counting the user's own drafts: a
+                // reply sitting unsent at the end of the thread is nobody to answer,
+                // and answering it addressed the next reply to nobody.
+                (state.messages.lastOrNull { !it.email.isDraft } ?: state.messages.lastOrNull())
+                    ?.let { newest ->
+                        ReaderActionBar(
+                            canReplyAll = newest.hasOtherRecipients,
+                            onReply = { onReply(newest.email.emailId, false) },
+                            onReplyAll = { onReply(newest.email.emailId, true) },
+                            onForward = { onForward(newest.email.emailId) },
+                        )
+                    }
             },
         ) { insets ->
             LazyColumn(
@@ -302,6 +312,8 @@ fun ReaderScreen(
                             savePicker.launch(attachment.name ?: DEFAULT_SAVE_NAME)
                         },
                         onShowSource = { viewModel.showSource(message) },
+                        onEditDraft = { onEditDraft(message.email.emailId) },
+                        onDiscardDraft = { viewModel.discardDraft(message) },
                         onRetryDecryption = { viewModel.retryDecryption(message.email.uid) },
                         onSwipe = { next -> (if (next) onNext else onPrevious)?.invoke() },
                     )
@@ -601,6 +613,8 @@ private fun Message(
     onOpenAttachment: (AttachmentEntity) -> Unit,
     onSaveAttachment: (AttachmentEntity) -> Unit,
     onShowSource: () -> Unit,
+    onEditDraft: () -> Unit,
+    onDiscardDraft: () -> Unit,
     onRetryDecryption: () -> Unit,
     onSwipe: (next: Boolean) -> Unit,
 ) {
@@ -661,7 +675,11 @@ private fun Message(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = message.email.fromName ?: message.email.fromAddress.orEmpty(),
+                    // Blank counts as missing: a sender with an empty display
+                    // name was drawn as a card with no sender at all.
+                    text =
+                        message.email.fromName?.takeIf { it.isNotBlank() }
+                            ?: message.email.fromAddress.orEmpty(),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     color = colors.ink,
@@ -696,9 +714,18 @@ private fun Message(
             // Per message, not per conversation, for the same reason reply is:
             // a thread has several messages and "the source" of a conversation
             // is not a thing that exists. Only offered once a message is open,
-            // because that is the one the user is looking at.
-            if (message.isExpanded && message.email.blobId != null) {
-                MessageMenu(onShowSource = onShowSource)
+            // because that is the one the user is looking at -- except on a
+            // draft, whose edit and delete are the reason to reach for it, and
+            // which nobody should have to expand first to find.
+            val hasSource = message.isExpanded && message.email.blobId != null
+
+            if (hasSource || message.email.isDraft) {
+                MessageMenu(
+                    onShowSource = onShowSource.takeIf { hasSource },
+                    draft =
+                        if (message.email.isDraft) DraftActions(onEditDraft, onDiscardDraft)
+                        else null,
+                )
             }
         }
 
@@ -805,9 +832,18 @@ private fun Message(
     }
 }
 
-/** The per-message overflow. One item today; a menu because the next ones belong beside it. */
+/** What a draft in the conversation offers, beside the source every message has. */
+private class DraftActions(val onEdit: () -> Unit, val onDiscard: () -> Unit)
+
+/**
+ * The per-message overflow: the source, and for a draft, editing or deleting it.
+ *
+ * Delete asks nothing first. It goes to Trash, as the composer's discard does, and is taken back
+ * out from there; a confirmation in front of a reversible move is a second tap on every abandoned
+ * reply.
+ */
 @Composable
-private fun MessageMenu(onShowSource: () -> Unit) {
+private fun MessageMenu(onShowSource: (() -> Unit)?, draft: DraftActions?) {
     var isOpen by remember { mutableStateOf(false) }
 
     Box {
@@ -819,13 +855,32 @@ private fun MessageMenu(onShowSource: () -> Unit) {
         }
 
         DropdownMenu(expanded = isOpen, onDismissRequest = { isOpen = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.source_show)) },
-                onClick = {
-                    isOpen = false
-                    onShowSource()
-                },
-            )
+            draft?.let { actions ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.draft_edit)) },
+                    onClick = {
+                        isOpen = false
+                        actions.onEdit()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.draft_discard)) },
+                    onClick = {
+                        isOpen = false
+                        actions.onDiscard()
+                    },
+                )
+            }
+
+            onShowSource?.let { show ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.source_show)) },
+                    onClick = {
+                        isOpen = false
+                        show()
+                    },
+                )
+            }
         }
     }
 }

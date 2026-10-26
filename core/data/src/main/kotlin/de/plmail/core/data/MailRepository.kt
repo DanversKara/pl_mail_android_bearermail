@@ -169,12 +169,18 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
      * Cached bodies that this page contradicts are dropped first — see [staleBodies]. Every path
      * that writes a message row comes through here, which is what makes this the one place that can
      * see a message change.
+     *
+     * [members] are the mailboxes and dates of every message in [threads], cached or not — see
+     * [memberMailboxes] — and are what [ThreadEntity.binnedCount], [ThreadEntity.binnedReceivedAt]
+     * and [ThreadEntity.latestReceivedAt] are worked out from. Without them the cache is, which
+     * holds the whole conversation only once it has been opened.
      */
     suspend fun storeEmails(
         accountKey: String,
         emails: List<Email>,
         threads: List<MailThread> = emptyList(),
         fetchedAt: Long,
+        members: List<Email> = emptyList(),
     ) {
         if (emails.isEmpty() && threads.isEmpty()) return
 
@@ -213,6 +219,13 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
             // the same reason.
             val inboxKey = database.mailboxes().byRole(accountKey, INBOX_ROLE)?.labelKey()
 
+            val bin = database.mailboxes().byRole(accountKey, TRASH_ROLE)?.mailboxId
+            val inbox = database.mailboxes().byRole(accountKey, INBOX_ROLE)?.mailboxId
+            val dates = members.associate { email ->
+                email.id.value to
+                    (email.mailboxIds.filterValues { it }.keys to email.receivedAt.toEpochMillis())
+            }
+
             // Read back rather than reusing `emails`: the summary has to cover
             // every message the thread now has, not just the ones in this page.
             database
@@ -222,12 +235,29 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
                         val uid = StoreKey.objectKey(accountKey, threadId)
                         val thread = fetched[threadId] ?: MailThread(id = ThreadId(threadId))
 
+                        val cached = database.emails().inThread(accountKey, threadId)
+
+                        // Each message's mailboxes and date: from the members
+                        // fetch where it covers the whole conversation, else
+                        // from the cache.
+                        val known = thread.emailIds.mapNotNull { dates[it.value] }
+                        val dated =
+                            if (known.isNotEmpty() && known.size == thread.emailIds.size) known
+                            else cached.map { it.mailboxIds.splitIds() to it.receivedAt }
+                        val (binned, kept) =
+                            dated.partition { (boxes, _) -> isBinned(boxes, bin, inbox) }
+
+                        val summary = thread.toEntity(accountKey, cached, bindings, inboxKey)
                         val row =
-                            thread.toEntity(
-                                accountKey,
-                                database.emails().inThread(accountKey, threadId),
-                                bindings,
-                                inboxKey,
+                            summary.copy(
+                                binnedCount = binned.size,
+                                // The kept messages' newest, or every message's
+                                // when nothing is kept: a conversation entirely
+                                // in Trash still needs a date everywhere.
+                                latestReceivedAt =
+                                    kept.ifEmpty { binned }.mapNotNull { it.second }.maxOrNull()
+                                        ?: summary.latestReceivedAt,
+                                binnedReceivedAt = binned.mapNotNull { it.second }.maxOrNull() ?: 0,
                             )
 
                         // Almost every field on that row is derived from the
@@ -291,9 +321,33 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
             .map { (_, uid) -> uid }
     }
 
-    /** One conversation's messages, oldest first, from the cache. */
-    suspend fun messagesInThread(accountKey: String, threadId: String): List<EmailEntity> =
-        database.emails().inThread(accountKey, threadId)
+    /**
+     * One conversation's messages, from the cache, without the ones thrown away.
+     *
+     * A message moved to Trash is still in its conversation — thread membership does not depend on
+     * the mailbox — so a draft deleted from the reader came straight back on the next sync, in
+     * Trash and drawn as though nothing had happened. The web hides them the same way.
+     *
+     * **Thrown away is Trash without Inbox.** A message carrying both is one an old undo put back
+     * without taking the bin off; counting it as binned made a whole conversation "in Trash", and a
+     * conversation entirely in Trash is shown whole — deleted drafts and all.
+     *
+     * Opened [fromBin], it is the other way round: the bin is being looked at, so what is shown is
+     * what was thrown away. A conversation whose drafts were deleted while its messages stayed put
+     * opened from Trash as those messages, and the drafts it was listed there for were nowhere.
+     */
+    suspend fun messagesInThread(
+        accountKey: String,
+        threadId: String,
+        fromBin: Boolean = false,
+    ): List<EmailEntity> {
+        val all = database.emails().inThread(accountKey, threadId)
+        val bin = database.mailboxes().byRole(accountKey, TRASH_ROLE)?.mailboxId ?: return all
+        val inbox = database.mailboxes().byRole(accountKey, INBOX_ROLE)?.mailboxId
+
+        return all.filter { email -> isBinned(email.mailboxIds.splitIds(), bin, inbox) == fromBin }
+            .ifEmpty { all }
+    }
 
     /**
      * The conversation's own row, for the things that are not properties of any message.
@@ -303,6 +357,8 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
      */
     suspend fun thread(accountKey: String, threadId: String): ThreadEntity? =
         database.threads().byUid(StoreKey.objectKey(accountKey, threadId))
+
+    suspend fun threadByUid(uid: String): ThreadEntity? = database.threads().byUid(uid)
 
     suspend fun body(emailUid: String): EmailBodyEntity? = database.emails().body(emailUid)
 
@@ -414,11 +470,11 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
 
     /** The composite key for one account on one server. */
     fun accountKey(server: String, accountId: String): String = StoreKey.account(server, accountId)
-
-    private companion object {
-        const val INBOX_ROLE = "inbox"
-    }
 }
+
+/** Thrown away: in Trash and not in the inbox. See [MailRepository.messagesInThread] for why. */
+private fun isBinned(mailboxIds: Collection<String>, bin: String?, inbox: String?): Boolean =
+    bin != null && bin in mailboxIds && inbox !in mailboxIds
 
 /**
  * Binding id to label collapse key, as a map.
@@ -428,3 +484,7 @@ class MailRepository @Inject constructor(private val database: PlMailDatabase) {
  */
 private suspend fun MailboxDao.bindingKeys(accountKey: String): Map<String, String> =
     bindingKeyRows(accountKey).associate { it.mailboxId to it.labelKey }
+
+private const val TRASH_ROLE = "trash"
+
+private const val INBOX_ROLE = "inbox"

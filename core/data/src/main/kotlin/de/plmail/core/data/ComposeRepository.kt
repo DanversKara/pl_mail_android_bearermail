@@ -126,11 +126,13 @@ constructor(
     override suspend fun sendingIdentities(): List<SendIdentity> = identities().first()
 
     /**
-     * Re-reads `Identity/get` for every account.
+     * Re-reads `Identity/get` for every account, in one request.
      *
      * Excluded from push and from delta sync on purpose: identities change only when the user edits
-     * their own addresses. This runs when a composer opens, which is the one moment a stale list
-     * would be visible.
+     * their own addresses, and the directory refresh reads them beside the mailboxes anyway. This
+     * is for the two moments a stale list is in the way: the From menu's refresh, and a send the
+     * server refused for an address it no longer allows. Not the composer opening — that waited on
+     * one round trip per account before it drew anything.
      */
     suspend fun refreshIdentities() {
         val client = clients.current() ?: return
@@ -142,21 +144,32 @@ constructor(
         // neither of them.
         val server = credentials.connection.first()?.address?.origin ?: return
 
-        client.session().accountIds.forEach { accountId ->
-            runCatching {
-                val request = RequestBuilder()
-                val get = request.add(IdentityGet(AccountId(accountId.value)))
-                val identities = client.send(request).result(get).list
+        client.session().accountIds.chunked(RequestBuilder.DEFAULT_MAX_CALLS).forEach { chunk ->
+            val request = RequestBuilder()
+            val gets = chunk.map { it to request.add(IdentityGet(AccountId(it.value))) }
+            val results = client.send(request)
 
-                mail.replaceIdentities(StoreKey.account(server, accountId.value), identities)
+            // Each account's answer on its own: one that failed keeps the
+            // addresses it had rather than taking the others' with it.
+            gets.forEach { (accountId, get) ->
+                results.resultOrNull(get)?.let {
+                    mail.replaceIdentities(StoreKey.account(server, accountId.value), it.list)
+                }
             }
         }
     }
 
     /**
      * The message a reply or forward is built from, with its body, from the cache or the server.
+     *
+     * The cache first — see [cachedOriginal] for when it can answer — because this stands between
+     * tapping Reply and seeing the composer.
      */
     override suspend fun original(accountKey: String, emailId: String): Email? {
+        database.cachedOriginal(accountKey, emailId)?.let {
+            return it
+        }
+
         val account = database.accounts().byUid(accountKey) ?: return null
         val client = clients.forAccount(accountKey) ?: return null
 
@@ -764,6 +777,26 @@ constructor(
         moveToTrash(client, AccountId(account.accountId), draft.accountKey, emailId)
     }
 
+    /**
+     * [discard] for a draft the composer does not hold: one listed in a conversation, thrown away
+     * from the reader.
+     *
+     * The cached copy goes too. The reader draws the conversation from the cache, and a draft still
+     * in it after the server has moved it to Trash is a delete that appears to have done nothing
+     * until the next sync. Thrown when the server could not be asked, so the reader can say so.
+     */
+    suspend fun discardDraft(accountKey: String, emailId: String) {
+        val account =
+            database.accounts().byUid(accountKey)
+                ?: error("This account is no longer on the phone.")
+        val client =
+            clients.forAccount(accountKey) ?: error("There is no connection to this server.")
+
+        moveToTrash(client, AccountId(account.accountId), accountKey, emailId)
+
+        database.emails().delete(listOf(StoreKey.objectKey(accountKey, emailId)))
+    }
+
     /** Reads the bytes of a picked file. Null when the URI has been revoked since it was staged. */
     private fun bytesOf(attachment: StagedAttachment): ByteArray? {
         val uri = attachment.uri ?: return null
@@ -953,19 +986,36 @@ constructor(
         accountKey: String,
         emailId: String,
     ) {
-        val trash = binding(accountKey, TRASH_ROLE) ?: return
+        // Thrown rather than returned quietly: every caller that may shrug it
+        // off already wraps this, and the one that must not -- a draft deleted
+        // from the reader -- has to be able to say it stayed where it was.
+        val trash =
+            binding(accountKey, TRASH_ROLE)
+                ?: error("This account has no Trash yet. Its labels have not been synced.")
         val drafts = binding(accountKey, DRAFTS_ROLE)
+        // Inbox off too, as the server's own trash takes it off. A draft has
+        // no business in the inbox, but one that got there -- an undone trash
+        // of its whole conversation used to put it there -- stayed listed
+        // after a discard that left it.
+        val inbox = binding(accountKey, INBOX_ROLE)
 
         val patch = EmailPatch.build {
             addMailbox(trash)
             drafts?.let { removeMailbox(it) }
+            inbox?.let { removeMailbox(it) }
         }
 
         val request = RequestBuilder()
         val set =
             request.add(EmailSet(accountId = accountId, update = mapOf(EmailId(emailId) to patch)))
 
-        client.send(request).result(set)
+        val result = client.send(request).result(set)
+
+        if (result.hasFailures) {
+            val failure = result.firstFailure()
+
+            error(failure?.description ?: failure?.type ?: "The server refused to move the draft.")
+        }
     }
 
     /**
@@ -1005,6 +1055,7 @@ constructor(
         const val DRAFTS_ROLE = "drafts"
         const val SENT_ROLE = "sent"
         const val TRASH_ROLE = "trash"
+        const val INBOX_ROLE = "inbox"
     }
 }
 

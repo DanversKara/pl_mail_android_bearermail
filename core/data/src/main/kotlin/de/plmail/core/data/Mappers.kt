@@ -204,6 +204,13 @@ fun Email.toBodyEntity(accountKey: String, fetchedAt: Long): EmailBodyEntity? {
         textBody = text,
         htmlBody = html,
         fetchedAt = fetchedAt,
+        // A body is only ever fetched with the reader's properties, which
+        // carry these -- see EmailBodyEntity.hasReplyHeaders.
+        hasReplyHeaders = true,
+        replyToJson = replyTo.encode(),
+        ccJson = cc.encode(),
+        messageId = messageId?.takeIf { it.isNotEmpty() }?.joinToString(" "),
+        references = references?.takeIf { it.isNotEmpty() }?.joinToString(" "),
     )
 }
 
@@ -378,12 +385,12 @@ private const val UNROLED_SORT_ORDER = 1_000
  * Puts back the facts that live on the conversation rather than on its messages.
  *
  * [MailThread.toEntity] summarises a thread out of the messages it is given, which is what lets a
- * page of mail with no `Thread/get` beside it still leave a usable row behind. Four of that row's
- * columns cannot be summarised from anything, because `Email/get` does not carry them:
- * [ThreadEntity.snoozedUntil], [ThreadEntity.category], [ThreadEntity.inboxTab] and
- * [ThreadEntity.isNew]. A caller that did not fetch the Thread has not learned that they are absent
- * — it has learned nothing about them — and writing the defaults anyway destroys the only local
- * copy.
+ * page of mail with no `Thread/get` beside it still leave a usable row behind. Five of that row's
+ * columns cannot be summarised from it, because `Email/get` does not carry them:
+ * [ThreadEntity.snoozedUntil], [ThreadEntity.category], [ThreadEntity.inboxTab],
+ * [ThreadEntity.isNew], and [ThreadEntity.binnedCount], which needs the mailboxes of messages the
+ * page did not hold. A caller that did not fetch the Thread has not learned that they are absent —
+ * it has learned nothing about them — and writing the defaults anyway destroys the only local copy.
  *
  * That was not a hypothetical. Snooze was carried forward from the day the column existed; category
  * and isNew were added later and were not, so [BodyPrefetcher] — which runs over the *newest*
@@ -401,5 +408,23 @@ internal fun ThreadEntity.carryConversationFacts(stored: ThreadEntity?): ThreadE
             category = it.category,
             inboxTab = it.inboxTab,
             isNew = it.isNew,
+            binnedCount = it.binnedCount,
+            binnedReceivedAt = it.binnedReceivedAt,
+            // The server's count, which a write of a few messages cannot know:
+            // without it a conversation of four read as one after a body
+            // download, and the reader took it to be cached whole.
+            messageCount = maxOf(messageCount, it.messageCount),
         )
     } ?: this
+
+/**
+ * How many messages the row counts in the list it is drawn in: the thrown-away ones in Trash, the
+ * others everywhere else. The whole conversation when that would be none, which is a row that is
+ * listed somewhere its count has not caught up with yet.
+ */
+fun ThreadEntity.messagesShown(inBin: Boolean): Int =
+    (if (inBin) binnedCount else messageCount - binnedCount).takeIf { it > 0 } ?: messageCount
+
+/** The conversation's date in the list it is drawn in, by the rule [messagesShown] counts by. */
+fun ThreadEntity.receivedShown(inBin: Boolean): Long =
+    binnedReceivedAt.takeIf { inBin && it > 0 } ?: latestReceivedAt
