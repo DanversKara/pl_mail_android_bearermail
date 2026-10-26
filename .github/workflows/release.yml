@@ -165,6 +165,13 @@ jobs:
                       cp "$apk" "$artifacts/plmail-$APP_VERSION-$flavour.apk"
                   done
 
+                  # BearerMail: the same APKs under names that never change, so a
+                  # link to releases/latest/download/<name> always gets the newest
+                  # (the download page on the docs site uses these). Not ending in
+                  # -google.apk / -foss.apk, which the in-app updater matches on.
+                  cp "$artifacts/plmail-$APP_VERSION-foss.apk" "$artifacts/BearerMail-Android.apk"
+                  cp "$artifacts/plmail-$APP_VERSION-google.apk" "$artifacts/BearerMail-Android-GooglePush.apk"
+
                   for aab in app/build/outputs/bundle/*Release/*.aab; do
                       variant="$(basename "$(dirname "$aab")")"
                       cp "$aab" "$artifacts/plmail-$APP_VERSION-${variant%Release}.aab"
