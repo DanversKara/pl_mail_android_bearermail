@@ -1,0 +1,53 @@
+name: iOS build probe
+
+# Throwaway: checks that DanversKara/pl_mail_ios builds into an unsigned .ipa
+# on GitHub's macOS runners, before the same steps go into that repository.
+on:
+    push:
+        branches: [ci/ios-probe]
+
+permissions:
+    contents: read
+
+jobs:
+    ipa:
+        runs-on: macos-26
+        timeout-minutes: 60
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  repository: DanversKara/pl_mail_ios
+
+            - name: Pick Xcode 26
+              run: |
+                  ls -d /Applications/Xcode*.app
+                  x="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+                  sudo xcode-select -s "$x"
+                  xcodebuild -version
+
+            - name: Build an unsigned archive
+              run: |
+                  set -o pipefail
+                  xcodebuild archive \
+                      -project plMail.xcodeproj -scheme plMail -configuration Release \
+                      -destination 'generic/platform=iOS' \
+                      -archivePath "$RUNNER_TEMP/plMail.xcarchive" \
+                      CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+                      2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: .*deprecated|\*\* ARCHIVE" || true
+                  test -d "$RUNNER_TEMP/plMail.xcarchive/Products/Applications"
+
+            - name: Package the .ipa
+              run: |
+                  mkdir -p "$RUNNER_TEMP/ipa/Payload"
+                  cp -R "$RUNNER_TEMP/plMail.xcarchive/Products/Applications/"*.app "$RUNNER_TEMP/ipa/Payload/"
+                  cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/BearerMail-iOS.ipa" Payload
+                  ls -l "$RUNNER_TEMP/BearerMail-iOS.ipa"
+
+            - name: Errors, as annotations
+              if: failure()
+              run: grep -E "error:" "$RUNNER_TEMP/build.log" | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: BearerMail-iOS
+                  path: ${{ runner.temp }}/BearerMail-iOS.ipa
