@@ -4,6 +4,8 @@ import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -63,9 +65,33 @@ internal fun Project.configureKotlin() {
  * directly and needs no third-party plugin — only the engine on the test runtime classpath. Worth
  * knowing, because the usual advice is to reach for one. (Instrumented `androidTest` is a different
  * runner entirely and stays on JUnit 4.)
+ *
+ * ## The `--add-exports`
+ *
+ * Robolectric 4.17 sets up shared memory for the newer platform images through
+ * `jdk.internal.access.SharedSecrets`, which JDK 21 does not export. Without the flag every
+ * Robolectric test fails before its first line, with `IllegalAccessException … does not export
+ * jdk.internal.access to unnamed module` — 216 of them at once when 4.17 first came in. Harmless on
+ * earlier versions and on the plain JVM tests, which never touch the package.
  */
 internal fun Project.configureUnitTestPlatform() {
-    tasks.withType<Test>().configureEach { useJUnitPlatform() }
+    // Run on Temurin, as CI does, whichever JDK the machine has. Oracle's JDK
+    // verifies the signature of the JCE framework itself, and that check cannot
+    // initialise once Robolectric has loaded Android's classes into the same
+    // JVM: every test that touches javax.crypto then failed on a developer's
+    // machine and passed on CI, so a local build was never green and a real
+    // failure among those tests looked like the usual noise.
+    val temurin =
+        extensions.getByType<JavaToolchainService>().launcherFor {
+            languageVersion.set(javaToolchainVersion())
+            vendor.set(JvmVendorSpec.ADOPTIUM)
+        }
+
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
+        javaLauncher.set(temurin)
+        jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+    }
 }
 
 /**

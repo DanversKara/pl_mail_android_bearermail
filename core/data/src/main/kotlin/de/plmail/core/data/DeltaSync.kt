@@ -1,16 +1,24 @@
 package de.plmail.core.data
 
+import de.plmail.core.database.AccountEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
 import de.plmail.core.datastore.NotificationPrefsStore
 import de.plmail.core.datastore.NotifiedMessageStore
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.methods.EmailChanges
+import de.plmail.jmap.methods.EmailChangesResult
 import de.plmail.jmap.methods.EmailGet
+import de.plmail.jmap.methods.EmailSubmissionChanges
+import de.plmail.jmap.methods.EmailSubmissionChangesResult
+import de.plmail.jmap.methods.ThreadChanges
+import de.plmail.jmap.methods.ThreadChangesResult
 import de.plmail.jmap.methods.ThreadGet
 import de.plmail.jmap.protocol.AccountId
+import de.plmail.jmap.protocol.Capability
 import de.plmail.jmap.protocol.EmailId
 import de.plmail.jmap.protocol.JmapError
+import de.plmail.jmap.protocol.MethodHandle
 import de.plmail.jmap.protocol.RequestBuilder
 import de.plmail.jmap.protocol.StateToken
 import javax.inject.Inject
@@ -122,8 +130,100 @@ constructor(
      * Sequential rather than concurrent. The accounts behind one credential share a server, and
      * that server advertises how many requests it will take at once — spending the whole budget on
      * catching up leaves nothing for the list the user is actually looking at.
+     *
+     * **But asked together first.** Most of the time nothing has changed, and every account can say
+     * so in one request rather than one each — see [unchanged]. Only an account that has something
+     * to catch up on, or could not answer, is then synced on its own.
      */
-    suspend fun syncAll(): List<SyncResult> = accounts.all().map { sync(it.uid) }
+    suspend fun syncAll(): List<SyncResult> {
+        val all = accounts.all()
+        // Nothing is lost when this fails: every account is then synced on its
+        // own, as it always was. A cancellation still cancels.
+        val quiet =
+            try {
+                unchanged(all)
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                emptyMap()
+            }
+
+        return all.map {
+            if (it.uid in quiet) settled(it.uid, SyncResult.UpToDate, quiet[it.uid])
+            else sync(it.uid)
+        }
+    }
+
+    /**
+     * The accounts whose mail has not changed since their cursors, asked in as few requests as the
+     * server's call limit allows, with their cursors moved on.
+     *
+     * An account is in the answer only when both changelogs came back empty and complete; one with
+     * changes, a method error, or a cursor the server could not answer from is left out, and [sync]
+     * then deals with it exactly as before — this only ever saves the request it replaces.
+     */
+    private suspend fun unchanged(all: List<AccountEntity>): Map<String, SubmissionDelta?> {
+        val asking = all.filter { it.emailState != null }
+        if (asking.isEmpty()) return emptyMap()
+
+        val client = clients.current() ?: return emptyMap()
+        val limit = client.session().core.maxCallsInRequest
+        val quiet = mutableMapOf<String, SubmissionDelta?>()
+
+        asking.chunked((limit / CALLS_PER_ACCOUNT).coerceAtLeast(1)).forEach { chunk ->
+            val request =
+                RequestBuilder(using = Capability.USING_MAIL_SUBMISSION, maxCallsInRequest = limit)
+            val calls = chunk.map { account ->
+                val accountId = AccountId(account.accountId)
+
+                Changes(
+                    account = account,
+                    emails = request.add(EmailChanges(accountId, StateToken(account.emailState!!))),
+                    threads =
+                        account.threadState?.let {
+                            request.add(ThreadChanges(accountId, StateToken(it)))
+                        },
+                    // The scheduled-send check every settled account makes, asked
+                    // here too so a quiet account needs no request of its own.
+                    submissions =
+                        request.add(
+                            EmailSubmissionChanges(accountId, schedules.changeCursor(account.uid))
+                        ),
+                )
+            }
+
+            val results = client.send(request)
+
+            calls.forEach { (account, emails, threads, submissions) ->
+                val email = results.resultOrNull(emails) ?: return@forEach
+                val thread = threads?.let { results.resultOrNull(it) ?: return@forEach }
+
+                val isQuiet =
+                    email.changed.isEmpty() &&
+                        email.destroyed.isEmpty() &&
+                        !email.hasMoreChanges &&
+                        (thread == null || (thread.destroyed.isEmpty() && !thread.hasMoreChanges))
+
+                if (!isQuiet) return@forEach
+
+                database.accounts().setEmailState(account.uid, email.newState)
+                thread?.let { database.accounts().setThreadState(account.uid, it.newState) }
+
+                // Null where the server did not answer it, and the reconcile
+                // then asks for itself.
+                quiet[account.uid] =
+                    results.resultOrNull(submissions)?.let {
+                        SubmissionDelta(
+                            newState = it.newState.ifBlank { schedules.changeCursor(account.uid) },
+                            changed = it.changed,
+                            hasMore = it.hasMoreChanges,
+                        )
+                    }
+            }
+        }
+
+        return quiet
+    }
 
     suspend fun sync(accountKey: String): SyncResult {
         val account = database.accounts().byUid(accountKey) ?: return SyncResult.UpToDate
@@ -136,29 +236,22 @@ constructor(
         val since = account.emailState ?: return SyncResult.NeedsRepage
 
         return try {
-            val outcome = run(client, AccountId(account.accountId), accountKey, StateToken(since))
+            val outcome =
+                run(
+                    client,
+                    AccountId(account.accountId),
+                    accountKey,
+                    StateToken(since),
+                    account.threadState?.let(::StateToken),
+                )
 
-            // The schedule lives on the server now, and `EmailSubmission` is one
-            // of the four types push announces -- so this is the path a hold
-            // created on a laptop, or cancelled there, actually arrives on. One
-            // `EmailSubmission/changes` when there is nothing waiting, and its
-            // own failures are swallowed inside: a theme is not worth failing a
-            // sync over and neither is a scheduled-send row.
-            runCatching { schedules.reconcile(accountKey) }
-
-            mail.recordSyncSucceeded(accountKey, at = System.currentTimeMillis())
-
-            // The account has just answered, so any banner saying it cannot be
-            // reached is describing an outage that is over. Said here rather
-            // than left to the next page load, which is what it used to wait
-            // for: nothing re-pages until somebody scrolls.
-            reachable.answered(accountKey)
-
-            outcome
+            settled(accountKey, outcome)
         } catch (resync: JmapError) {
             if (resync.requiresResync) {
-                // The one condition that justifies discarding a cursor.
-                database.accounts().setEmailState(accountKey, null)
+                // The one condition that justifies discarding a cursor. Both,
+                // whichever of the two the server could not answer from: the
+                // re-page that follows records them again from one page.
+                discardCursors(accountKey)
 
                 // Signalled as well as stored. The null cursor is what a list
                 // built *after* this reads; a list already on screen was built
@@ -177,13 +270,53 @@ constructor(
         }
     }
 
+    /** What follows a sync that reached the server, however little it found. */
+    private suspend fun settled(
+        accountKey: String,
+        outcome: SyncResult,
+        submissions: SubmissionDelta? = null,
+    ): SyncResult {
+        // The schedule lives on the server now, and `EmailSubmission` is one
+        // of the four types push announces -- so this is the path a hold
+        // created on a laptop, or cancelled there, actually arrives on. One
+        // `EmailSubmission/changes` when there is nothing waiting, and its
+        // own failures are swallowed inside: a theme is not worth failing a
+        // sync over and neither is a scheduled-send row.
+        runCatching { schedules.reconcile(accountKey, firstPage = submissions) }
+
+        mail.recordSyncSucceeded(accountKey, at = System.currentTimeMillis())
+
+        // The account has just answered, so any banner saying it cannot be
+        // reached is describing an outage that is over. Said here rather
+        // than left to the next page load, which is what it used to wait
+        // for: nothing re-pages until somebody scrolls.
+        reachable.answered(accountKey)
+
+        return outcome
+    }
+
+    /**
+     * One account's changes, round by round.
+     *
+     * `Thread/changes` travels in the same request as `Email/changes` (#59), so the common case
+     * still costs one request. It is there for one answer only: the conversations the server
+     * destroyed. `Email/changes` cannot say that — when mail is erased it reports the messages, and
+     * when conversations are merged it reports them as moved — and without it the conversation
+     * stayed in every list it was in, for good. Its created and updated ids need nothing: every
+     * conversation that gains or changes a message arrives through the Emails' hydration.
+     *
+     * Asked only once a page has given [threadSince]. An account paged before the cursor existed
+     * gets one on its next page, and until then syncs as it always did.
+     */
     private suspend fun run(
         client: JmapClient,
         accountId: AccountId,
         accountKey: String,
         since: StateToken,
+        threadSince: StateToken?,
     ): SyncResult {
         var cursor = since
+        var threadCursor = threadSince
         var fetched = 0
         var destroyed = 0
         var rounds = 0
@@ -191,7 +324,10 @@ constructor(
         while (true) {
             val request = RequestBuilder()
             val changes = request.add(EmailChanges(accountId, cursor))
-            val result = client.send(request).result(changes)
+            val threadChanges = threadCursor?.let { request.add(ThreadChanges(accountId, it)) }
+            val results = client.send(request)
+            val result = results.result(changes)
+            val threadResult = threadChanges?.let { results.result(it) }
 
             if (result.destroyed.isNotEmpty()) {
                 database
@@ -203,19 +339,28 @@ constructor(
 
             fetched += hydrate(client, accountId, accountKey, result.changed)
 
+            // After the hydration, so a merge has already re-filed the messages
+            // under the conversation they joined before the one they left goes.
+            threadResult?.let { threads ->
+                mail.forgetThreads(accountKey, threads.destroyed.map { it.value })
+                destroyed += threads.destroyed.size
+            }
+
             cursor = StateToken(result.newState)
+            threadCursor = threadResult?.let { StateToken(it.newState) }
 
             // Written every round rather than at the end: a sync interrupted
             // by the process dying should resume from where it got to, not
             // replay every change it had already applied.
             database.accounts().setEmailState(accountKey, cursor.value)
+            threadCursor?.let { database.accounts().setThreadState(accountKey, it.value) }
 
-            if (!result.hasMoreChanges) break
+            if (!result.hasMoreChanges && threadResult?.hasMoreChanges != true) break
 
             if (++rounds >= MAX_ROUNDS) {
                 // Further than this and a full re-page is cheaper than
                 // continuing to walk the log.
-                database.accounts().setEmailState(accountKey, null)
+                discardCursors(accountKey)
                 repages.repage(accountKey)
 
                 return SyncResult.NeedsRepage
@@ -224,6 +369,11 @@ constructor(
 
         return if (fetched == 0 && destroyed == 0) SyncResult.UpToDate
         else SyncResult.Updated(fetched, destroyed)
+    }
+
+    private suspend fun discardCursors(accountKey: String) {
+        database.accounts().setEmailState(accountKey, null)
+        database.accounts().setThreadState(accountKey, null)
     }
 
     /**
@@ -273,7 +423,15 @@ constructor(
         // nothing -- see notifyScopeKeys. Read once per hydration like the
         // others; it is a fact about the server, so it cannot change halfway
         // down one catch-up.
-        val classifies = database.threads().hasCategories()
+        val classifies = database.classifies(accountKey)
+
+        // And the reader's tabs, so a notification is raised under the tab the
+        // web shows the conversation in -- their own "Shipping", or Primary for a
+        // category they switched off -- rather than under its built-in category.
+        // Read once per hydration for the same reason; both are null and true on
+        // a server without the extension, which is the old behaviour exactly.
+        val enabledTabs = database.enabledTabKeys(accountKey)
+        val wantsTabs = database.wantsInboxTabs(accountKey)
 
         ids.chunked(HYDRATION_CHUNK).forEach { chunk ->
             val request = RequestBuilder()
@@ -287,6 +445,10 @@ constructor(
             // scheduled job, becomes true on the device.
             val threads =
                 request.add(ThreadGet.forEmailsOf(accountId, get.reference("/list/*/threadId")))
+            // And the mailboxes of everything in them, for the row's count: a draft
+            // deleted on the web changes no message this page carries.
+            val members =
+                request.add(memberMailboxes(accountId, threads.reference("/list/*/emailIds")))
 
             val results = client.send(request)
             val emails = results.result(get).list
@@ -329,6 +491,11 @@ constructor(
                         // mail lands in would be the harder bug to believe.
                         threadCategories = conversations.associate { it.id.value to it.category },
                         serverClassifies = classifies,
+                        // Off the same Thread/get: the request this path already
+                        // makes carries `inboxTab` beside `category`.
+                        threadInboxTabs = conversations.associate { it.id.value to it.inboxTab },
+                        enabledTabs = enabledTabs,
+                        inboxTabs = wantsTabs,
                     )
                 }
 
@@ -337,6 +504,7 @@ constructor(
                 emails,
                 conversations,
                 fetchedAt = System.currentTimeMillis(),
+                members = results.resultOrNull(members)?.list.orEmpty(),
             )
 
             // Immediately after the write, because the write is what the
@@ -406,7 +574,18 @@ constructor(
         return arrived.filter { keyOf(it) in claimed }
     }
 
+    /** One account's half of the shared check in [unchanged]. */
+    private data class Changes(
+        val account: AccountEntity,
+        val emails: MethodHandle<EmailChangesResult>,
+        val threads: MethodHandle<ThreadChangesResult>?,
+        val submissions: MethodHandle<EmailSubmissionChangesResult>,
+    )
+
     private companion object {
+        /** Mail, threads and scheduled sends: the calls [unchanged] makes per account. */
+        const val CALLS_PER_ACCOUNT = 3
+
         /**
          * 100, not the permitted 500.
          *

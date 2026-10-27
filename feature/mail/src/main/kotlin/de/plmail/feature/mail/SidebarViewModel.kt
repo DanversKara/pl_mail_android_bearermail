@@ -6,12 +6,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.plmail.core.data.ActionOutcome
 import de.plmail.core.data.ActionTarget
 import de.plmail.core.data.CategoryDigest
+import de.plmail.core.data.InboxTabRepository
 import de.plmail.core.data.Label
 import de.plmail.core.data.LabelRepository
 import de.plmail.core.data.MailAction
 import de.plmail.core.data.MailActions
 import de.plmail.core.data.MailCategory
 import de.plmail.core.data.MailRepository
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.SidebarSections
 import de.plmail.core.data.SidebarSettings
 import javax.inject.Inject
@@ -32,6 +34,7 @@ constructor(
     labels: LabelRepository,
     accounts: MailRepository,
     digest: CategoryDigest,
+    tabs: InboxTabRepository,
     private val sidebar: SidebarSettings,
 ) : ViewModel() {
 
@@ -89,21 +92,46 @@ constructor(
             )
 
     /**
-     * Which categories are worth a row, as [CategoryDigest.populated] decides.
+     * The inbox tabs in the order the strip draws them — see [InboxTabRepository.strip].
+     *
+     * The five built-ins to begin with, which is what every server has: on one that serves the
+     * reader's arrangement the strip then settles into it a frame later, rather than the drawer
+     * opening on no tabs at all.
+     */
+    val tabs: StateFlow<List<MailTab>> =
+        tabs.strip.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = MailTab.BUILT_IN,
+        )
+
+    /**
+     * Whether the user wants the inbox in tabs at all. True until told otherwise, so a saved tab is
+     * not thrown away on the frame before the accounts have been read.
+     */
+    val wantsTabs: StateFlow<Boolean> =
+        tabs.wantsTabs.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = true,
+        )
+
+    /**
+     * Which tabs are worth a row, by key, as [CategoryDigest.populated] decides.
      *
      * Primary alone to begin with, which is the set that is always true: it is drawn whatever the
      * cache holds, so the drawer never opens on a gap where the inbox should be and then fills it
      * in.
      */
-    val populatedCategories: StateFlow<Set<MailCategory>> =
+    val populatedTabs: StateFlow<Set<String>> =
         digest.populated.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-            initialValue = setOf(MailCategory.PRIMARY),
+            initialValue = setOf(MailCategory.PRIMARY.wire),
         )
 
-    /** Which categories carry a new-mail dot. */
-    val newCategories: StateFlow<Set<MailCategory>> =
+    /** Which tabs carry a new-mail dot, by key. */
+    val newTabs: StateFlow<Set<String>> =
         digest.hasNew.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),

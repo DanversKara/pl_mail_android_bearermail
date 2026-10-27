@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import de.plmail.core.data.Label
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 
 /**
@@ -67,6 +68,15 @@ internal fun MailCategory.displayName(): String =
     }
 
 /**
+ * What an inbox tab is called on screen: a built-in in the app's own words, as [displayName] above
+ * names it, and one the reader made by the name they gave it on the web.
+ *
+ * The key is the last resort and should never be reached — the server names every tab of the
+ * reader's own — but a tab drawn as `c12` is still one somebody can tap, where a blank row is not.
+ */
+@Composable internal fun MailTab.displayName(): String = builtIn?.displayName() ?: name ?: key
+
+/**
  * The title over whichever list is showing.
  *
  * Primary is titled **Inbox** where the server classifies nothing, because that is what it holds
@@ -84,6 +94,7 @@ internal fun MailView.displayTitle(hasCategories: Boolean): String =
             else category.displayName()
 
         is MailView.Labelled -> label.displayTitle()
+        is MailView.Tab -> name
     }
 
 /** The app's own word for a system role, or null for a label the user made. */

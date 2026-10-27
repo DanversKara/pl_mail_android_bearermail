@@ -12,6 +12,7 @@ import de.plmail.core.data.NotesRepository
 import de.plmail.core.data.PushTransportManager
 import de.plmail.core.data.SyncWorker
 import de.plmail.core.datastore.CredentialStore
+import de.plmail.core.datastore.KeyVault
 import de.plmail.feature.compose.ComposeRequest
 import de.plmail.feature.compose.SharedAttachmentStore
 import de.plmail.feature.compose.SharedMessage
@@ -51,6 +52,7 @@ constructor(
     contacts: ContactsRepository,
     notes: NotesRepository,
     private val pushTransports: PushTransportManager,
+    private val keys: KeyVault,
     private val shared: SharedAttachmentStore,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -157,6 +159,11 @@ constructor(
                     // a phone holding a Firebase token for a mailbox it is no
                     // longer signed into.
                     tidyPush { pushTransports.signedOut() }
+
+                    // The end-to-end keys go with the credential (#9). Beside the
+                    // connection state like push, and for the same reason: a
+                    // DataStore write is not something the launch should wait on.
+                    tidyPush { keys.forget() }
 
                     ConnectionState.None
                 } else {

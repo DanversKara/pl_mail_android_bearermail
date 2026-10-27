@@ -40,7 +40,7 @@ enum class MailCategory(val wire: String) {
 /**
  * Which list the app is showing — the one thing the sidebar selects and the feed layer pages.
  *
- * Two cases rather than a nullable [Label], which is what this replaced. Categories are genuinely a
+ * Cases rather than a nullable [Label], which is what this replaced. Categories are genuinely a
  * second kind of destination: they have no bindings, no name on the server, nothing to rename and
  * nothing to delete, and they are not labels dressed up as one. Modelling them as pseudo-labels was
  * the tempting shortcut and would have put a `Label` with an empty binding list through
@@ -82,6 +82,23 @@ sealed interface MailView {
     }
 
     /**
+     * One of the inbox tabs the reader made on the web — "Shipping", "Kita".
+     *
+     * A third case rather than a [Category] with a looser type, because the five built-ins are
+     * named, iconed and notified about by the app and these are not: they arrive with the name the
+     * reader gave them and nothing else, and a `MailCategory` that could hold anything would put
+     * that difference behind a null check in every place that draws one. Only ever reached on a
+     * server with `urn:plmail:params:jmap:inboxtabs`; see [MailTab].
+     *
+     * [name] rides along for the title over the list. Restored from the cached tabs rather than
+     * saved, so a tab renamed on the web is titled by its new name — see [restore].
+     */
+    data class Tab(val key: String, val name: String) : MailView {
+        override val feedId: String
+            get() = tabFeedId(key)
+    }
+
+    /**
      * The label this view is browsing, or null.
      *
      * What a row's chips are filtered against — every conversation in the Work list carries Work,
@@ -103,11 +120,13 @@ sealed interface MailView {
         when (this) {
             is Category -> CATEGORY_PREFIX + category.wire
             is Labelled -> LABEL_PREFIX + label.key
+            is Tab -> TAB_PREFIX + key
         }
 
     companion object {
         private const val CATEGORY_PREFIX = "category:"
         private const val LABEL_PREFIX = "label:"
+        private const val TAB_PREFIX = "tab:"
 
         /**
          * The key the retired whole-inbox destination was saved under.
@@ -132,22 +151,44 @@ sealed interface MailView {
         val START: MailView = Category(MailCategory.PRIMARY)
 
         /**
-         * Turns a saved key back into a view, against the labels the app now has.
+         * Turns a saved key back into a view, against the labels and tabs the app now has.
          *
          * Falls back to [START] for anything that no longer resolves — a label somebody deleted on
-         * the web, a category this build has stopped knowing about. Restoring to Primary is the one
-         * answer that is always valid, and the alternative is a list paging a mailbox the server
-         * has forgotten and reporting it as an unreachable account.
+         * the web, a category this build has stopped knowing about, a tab of the reader's own they
+         * deleted or one that has not been read off the cache yet.
+         *
+         * [tabbed] false is the user's "one list": no tab is a destination then, so a saved tab or
+         * category other than Primary restores to Primary, which holds the whole inbox. Restoring
+         * to Primary is the one answer that is always valid, and the alternative is a list paging a
+         * mailbox the server has forgotten and reporting it as an unreachable account.
          */
-        fun restore(key: String?, labels: List<Label>): MailView =
+        fun restore(
+            key: String?,
+            labels: List<Label>,
+            tabs: List<MailTab> = emptyList(),
+            tabbed: Boolean = true,
+        ): MailView =
             when {
                 key == null || key == RETIRED_INBOX_KEY -> START
+                !tabbed && (key.startsWith(CATEGORY_PREFIX) || key.startsWith(TAB_PREFIX)) -> START
                 key.startsWith(CATEGORY_PREFIX) ->
-                    MailCategory.fromWire(key.removePrefix(CATEGORY_PREFIX))?.let(::Category)
-                        ?: START
+                    MailCategory.fromWire(key.removePrefix(CATEGORY_PREFIX))
+                        // A built-in the reader has since switched off on the web is
+                        // no tab any more: it lists nothing there, and here it would
+                        // be a selected row over an empty list nothing can explain.
+                        ?.takeIf { category ->
+                            tabs.isEmpty() || tabs.any { it.builtIn == category }
+                        }
+                        ?.let(::Category) ?: START
                 key.startsWith(LABEL_PREFIX) ->
                     labels.firstOrNull { it.key == key.removePrefix(LABEL_PREFIX) }?.let(::Labelled)
                         ?: START
+                key.startsWith(TAB_PREFIX) ->
+                    tabs
+                        .firstOrNull {
+                            it.builtIn == null && it.key == key.removePrefix(TAB_PREFIX)
+                        }
+                        ?.view ?: START
                 else -> START
             }
     }

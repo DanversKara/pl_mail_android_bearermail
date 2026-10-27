@@ -69,8 +69,10 @@ android {
 
         create("google") {
             dimension = "distribution"
-            // A distinct id, so both can be installed side by side while the
-            // two push paths are being compared.
+            // BearerMail: com.bearermail.mail.google, as every installed copy
+            // already is. Upstream plMail moved its google build to its own
+            // Play id; BearerMail is not on Play, and changing the id would
+            // orphan every phone that has it.
             applicationIdSuffix = ".google"
             buildConfigField("boolean", "HAS_GOOGLE_PUSH", "true")
         }
@@ -155,6 +157,9 @@ android {
 }
 
 dependencies {
+    // Installs `src/main/baseline-prof.txt` on a device the app was not installed
+    // on by Play, which is every F-Droid and GitHub install.
+    implementation(libs.androidx.profileinstaller)
     implementation(projects.core.data)
     implementation(projects.core.datastore)
     implementation(projects.core.designsystem)

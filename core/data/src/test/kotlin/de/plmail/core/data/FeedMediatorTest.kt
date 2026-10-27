@@ -175,7 +175,121 @@ class FeedMediatorTest {
         assertEquals(1, database.feed().count(inbox))
     }
 
+    /**
+     * #41: the list is told to re-read once the rows are in the table, whatever Room's own observer
+     * saw. A source that queried just before the commit and registered just after it never heard
+     * about it, and showed "Fetching your mail…" over a full table until the app restarted.
+     */
+    @Test
+    fun `the list is told to re-read after the rows are committed, not before`() = runTest {
+        database.seedAccount()
+        val heldWhenTold = mutableListOf<Int>()
+
+        val result =
+            FeedMediator(
+                    feedId = inbox,
+                    database = database,
+                    sources = listOf(OneRow(sortDate = 9_000)),
+                    onWritten = {
+                        kotlinx.coroutines.runBlocking {
+                            heldWhenTold += database.feed().count(inbox)
+                        }
+                    },
+                )
+                .load(LoadType.REFRESH, state())
+
+        assertTrue(result is RemoteMediator.MediatorResult.Success)
+        assertEquals(listOf(1), heldWhenTold)
+    }
+
+    /** A pull that wrote nothing has nothing to re-read, and an error is not a write. */
+    @Test
+    fun `a cancelled pull does not ask the list to re-read`() = runTest {
+        database.seedAccount()
+        var told = 0
+
+        FeedMediator(
+                feedId = inbox,
+                database = database,
+                sources = listOf(Cancelling),
+                onWritten = { told++ },
+            )
+            .load(LoadType.REFRESH, state())
+
+        assertEquals(0, told)
+    }
+
+    /**
+     * One account that has to start over takes its own rows with it and no one else's.
+     *
+     * Refreshing the whole list for it cleared six accounts' rows to correct one, and fetched them
+     * all again.
+     */
+    @Test
+    fun `a re-page replaces one account's rows down to where the others reach`() = runTest {
+        val other = "https://nas.local/other"
+        database.seedEntry(inbox, "old1", sortDate = 9_000)
+        database.seedEntry(inbox, "old2", sortDate = 5_000)
+        database.seedEntry(inbox, "b1", accountKey = other, sortDate = 8_000)
+        database.seedEntry(inbox, "b2", accountKey = other, sortDate = 3_000)
+
+        val source = Dated(9_500, 7_000, 4_000, 2_000)
+        FeedMediator(
+                feedId = inbox,
+                database = database,
+                sources = listOf(source, Dated(accountKey = other)),
+            )
+            .repage(testAccountKey)
+
+        assertEquals(
+            listOf(
+                    "$inbox#$other#b1",
+                    "$inbox#$other#b2",
+                    "$inbox#$testAccountKey#m4000",
+                    "$inbox#$testAccountKey#m7000",
+                    "$inbox#$testAccountKey#m9500",
+                )
+                .sorted(),
+            database.entryIds(inbox),
+            "the other account's rows untouched, this one's to 3_000 and no deeper",
+        )
+
+        val cursor = database.feed().cursor(inbox, testAccountKey)
+        assertEquals(4_000, cursor?.lastSortDate)
+        assertEquals(false, cursor?.isExhausted, "2_000 is still to come")
+    }
+
+    /** An account that cannot be reached keeps what it had rather than going blank. */
+    @Test
+    fun `a re-page that cannot reach the account keeps its rows`() = runTest {
+        database.seedEntry(inbox, "old1", sortDate = 9_000)
+
+        mediator(Unreachable).repage(testAccountKey)
+
+        assertEquals(listOf("$inbox#$testAccountKey#old1"), database.entryIds(inbox))
+    }
+
     // -- helpers -----------------------------------------------------------
+
+    /** An account holding one message at each of [dates], newest first, served in pages of two. */
+    private class Dated(
+        vararg val dates: Long,
+        override val accountKey: String = testAccountKey,
+    ) : FeedSource {
+        override suspend fun page(
+            atOrBefore: Long?,
+            alreadyEmitted: Set<String>,
+            limit: Int,
+        ): FeedPage {
+            val rows =
+                dates
+                    .filter { atOrBefore == null || it <= atOrBefore }
+                    .map { FeedRow(accountKey, "m$it", "m$it", it) }
+                    .filterNot { it.id in alreadyEmitted }
+                    .take(2)
+            return FeedPage(rows, isExhausted = rows.isEmpty())
+        }
+    }
 
     private fun mediator(
         source: FeedSource,

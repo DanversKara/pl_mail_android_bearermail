@@ -6,6 +6,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import de.plmail.core.data.NewMessage
 import de.plmail.core.data.OtpDetector
+import de.plmail.crypto.EncryptedMessages
 
 /**
  * One conversation, as it sits in the shade.
@@ -30,22 +31,36 @@ internal fun conversationNotification(
 ): Notification {
     val notificationId = notificationId(message)
     val sender = Person.Builder().setName(message.sender).build()
+    val encrypted = context.getString(R.string.encrypted_message)
+    // The outer subject of an encrypted message is often only the placeholder
+    // its client put there ("..."); the real one is inside, out of reach here.
+    val subject =
+        if (message.isEncrypted && EncryptedMessages.isPlaceholderSubject(message.subject)) {
+            encrypted
+        } else {
+            message.subject ?: context.getString(R.string.no_subject)
+        }
 
     val style =
         messagingStyle(context)
-            .setConversationTitle(message.subject ?: context.getString(R.string.no_subject))
-            .addMessage(message.preview, message.receivedAt, sender)
+            .setConversationTitle(subject)
+            .addMessage(
+                if (message.isEncrypted) encrypted else message.preview,
+                message.receivedAt,
+                sender,
+            )
 
     // BearerMail: a one-time code in the subject or preview gets a "Copy code" button, first in
     // the row so it is the one the thumb lands on.
-    val code = OtpDetector.detect(message.subject, message.preview)
+    val code =
+        if (message.isEncrypted) null else OtpDetector.detect(message.subject, message.preview)
 
     val builder =
         NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification_mail)
             .setStyle(style)
             .setContentTitle(message.sender)
-            .setContentText(message.subject ?: context.getString(R.string.no_subject))
+            .setContentText(if (message.isEncrypted) encrypted else subject)
             .setWhen(message.receivedAt)
             .setShowWhen(true)
             .setCategory(NotificationCompat.CATEGORY_EMAIL)
@@ -90,7 +105,11 @@ internal fun conversationNotification(
         )
     }
 
-    return builder.addAction(inlineReplyAction(context, message)).build()
+    // Answering from the shade sends in the clear, and an encrypted
+    // conversation is the one place that must not happen by accident.
+    if (!message.isEncrypted) builder.addAction(inlineReplyAction(context, message))
+
+    return builder.build()
 }
 
 /**

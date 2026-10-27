@@ -10,6 +10,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import de.plmail.core.data.ActionOutcome
 import de.plmail.core.data.MailAction
+import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.UndoableAction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,11 +66,13 @@ fun UndoSnackbar(
     snackbars: SnackbarHostState,
     onUndo: (UndoableAction) -> Unit,
     onShown: (Long) -> Unit,
+    /** The reader's tabs, so a move into one of their own can say its name. */
+    tabs: List<MailTab> = emptyList(),
 ) {
     // Resolved through the composition's own resources rather than
     // LocalContext.resources, which does not recompose on a locale change --
     // the snackbar would keep the language the screen was first created in.
-    val message = announcement?.let { describe(it.outcome) }.orEmpty()
+    val message = announcement?.let { describe(it.outcome, tabs) }.orEmpty()
     val undoLabel = stringResource(R.string.undo)
     val accessibility = LocalAccessibilityManager.current
 
@@ -120,7 +124,7 @@ private const val UNDO_WINDOW_MILLIS = 6_000L
 
 /** What the snackbar says. Conversations, because conversations are what the user acted on. */
 @Composable
-private fun describe(outcome: ActionOutcome): String {
+private fun describe(outcome: ActionOutcome, tabs: List<MailTab>): String {
     val undoable = outcome.undoable
     val count = undoable.threadCount
 
@@ -150,6 +154,14 @@ private fun describe(outcome: ActionOutcome): String {
                     count,
                     action.target?.displayName() ?: stringResource(R.string.role_inbox),
                 )
+            // By the tab's name where the app knows it -- a built-in always, one
+            // of the reader's own once the strip has been read -- and as a plain
+            // "changed" in the one case it cannot: a tab deleted on the web
+            // since, which nobody would recognise by its key anyway.
+            action is MailAction.MoveToTab ->
+                tabName(action.tab, tabs)?.let {
+                    pluralStringResource(R.plurals.moved_to, count, count, it)
+                } ?: stringResource(R.string.changed)
             action is MailAction.Snooze && action.until != null ->
                 pluralStringResource(R.plurals.snoozed, count, count)
             action is MailAction.Snooze -> pluralStringResource(R.plurals.unsnoozed, count, count)
@@ -172,3 +184,8 @@ private fun describe(outcome: ActionOutcome): String {
                 ?: stringResource(R.string.action_queued, done)
     }
 }
+
+/** A tab's name from its key, or null for one of the reader's own the strip no longer lists. */
+@Composable
+private fun tabName(key: String, tabs: List<MailTab>): String? =
+    MailCategory.fromWire(key)?.displayName() ?: tabs.firstOrNull { it.key == key }?.name

@@ -97,7 +97,10 @@ class EventSourceClient(
     }
 
     companion object {
-        val DEFAULT_TYPES = listOf("Email", "Mailbox", "Thread", "EmailSubmission")
+        /**
+         * The same types a push subscription asks for — see `NewPushSubscription.DEFAULT_TYPES`.
+         */
+        val DEFAULT_TYPES = listOf("Email", "Mailbox", "Thread", "EmailSubmission", "InboxTab")
 
         /** The server's minimum is 5s; 30 is its default and plenty. */
         const val DEFAULT_PING_SECONDS = 30

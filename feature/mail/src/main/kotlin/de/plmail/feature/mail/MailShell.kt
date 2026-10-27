@@ -52,6 +52,8 @@ fun MailShell(
     onAppearance: () -> Unit,
     onGestures: () -> Unit,
     onAccounts: () -> Unit,
+    /** End-to-end encryption on this device (#9). */
+    onEncryption: () -> Unit = {},
     /** Null where this install has no calendar. See [LabelSidebar]. */
     onCalendar: (() -> Unit)?,
     /** BearerMail Drive. Null where the server publishes no Drive capability. */
@@ -73,6 +75,8 @@ fun MailShell(
     onAddToCalendar: ((de.plmail.core.data.PlanSuggestion) -> Unit)? = null,
     /** Saves a conversation as a note (subject, mail id). Null where there are no notes. */
     onSaveAsNote: ((subject: String, mailId: String) -> Unit)? = null,
+    /** Opens a draft from a conversation in the composer. */
+    onEditDraft: (accountKey: String, emailId: String) -> Unit,
     /** A conversation to open straight away, from a notification tap. */
     openThread: ThreadTarget? = null,
     onThreadOpened: () -> Unit = {},
@@ -81,8 +85,10 @@ fun MailShell(
     val labels by viewModel.labels.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
     val hasCategories by viewModel.hasCategories.collectAsStateWithLifecycle()
-    val populatedCategories by viewModel.populatedCategories.collectAsStateWithLifecycle()
-    val newCategories by viewModel.newCategories.collectAsStateWithLifecycle()
+    val tabs by viewModel.tabs.collectAsStateWithLifecycle()
+    val populatedTabs by viewModel.populatedTabs.collectAsStateWithLifecycle()
+    val newTabs by viewModel.newTabs.collectAsStateWithLifecycle()
+    val wantsTabs by viewModel.wantsTabs.collectAsStateWithLifecycle()
 
     // The key rather than the MailView, because a Labelled view carries a Label,
     // and a Label carries its bindings and its counts -- both of which change
@@ -104,7 +110,7 @@ fun MailShell(
     // row navigating -- would be the app remembering the wrong thing.
     var rearranging by remember { mutableStateOf(false) }
 
-    val selected = MailView.restore(selectedKey, labels)
+    val selected = MailView.restore(selectedKey, labels, tabs, tabbed = wantsTabs)
 
     val isWide =
         currentWindowAdaptiveInfoV2()
@@ -129,8 +135,9 @@ fun MailShell(
             LabelSidebar(
                 sections = sections,
                 showCategories = hasCategories,
-                populatedCategories = populatedCategories,
-                newCategories = newCategories,
+                tabs = tabs,
+                populatedTabs = populatedTabs,
+                newTabs = newTabs,
                 selected = selected,
                 onSelect = { view ->
                     selectedKey = view.toKey()
@@ -169,6 +176,10 @@ fun MailShell(
                 onAccounts = {
                     scope.launch { drawer.close() }
                     onAccounts()
+                },
+                onEncryption = {
+                    scope.launch { drawer.close() }
+                    onEncryption()
                 },
                 onCalendar =
                     onCalendar?.let { open ->
@@ -256,6 +267,7 @@ fun MailShell(
                 onForward = onForward,
                 onAddToCalendar = onAddToCalendar,
                 onSaveAsNote = onSaveAsNote,
+                onEditDraft = onEditDraft,
                 openThread = openThread,
                 onThreadOpened = onThreadOpened,
             )

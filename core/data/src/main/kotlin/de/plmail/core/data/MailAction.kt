@@ -83,6 +83,26 @@ sealed interface MailAction {
     }
 
     /**
+     * Filing a conversation in one of the inbox tabs — the web's drag onto a tab.
+     *
+     * Keys rather than [MailTab]s, for the reason a queued label is a key: the tab is the reader's
+     * and outlives the cached row that described it, so what is replayed later is the key and the
+     * server decides whether it is still a tab. `Thread/set { inboxTab }`, and only ever offered on
+     * a server with `urn:plmail:params:jmap:inboxtabs`.
+     *
+     * The move is *pinned*, as the drop is on the web: the next re-sort leaves it where it was put.
+     * Its inverse is therefore a second pinned move rather than an unpinning — the server has no
+     * "go back to wherever the classifier would have put it" — and, like [Snooze]'s, it is a guess
+     * the type can only make for a selection taken from one tab: [from] is the tab the user was
+     * looking at. [MailActions] reads each conversation's own tab out of the cache before it
+     * writes, and builds the exact way back from that.
+     */
+    data class MoveToTab(val tab: String, val from: String?) : MailAction {
+        override val inverse: MailAction
+            get() = MoveToTab(tab = from ?: MailCategory.PRIMARY.wire, from = tab)
+    }
+
+    /**
      * Putting a conversation away until a time, or bringing it back.
      *
      * `Thread/set` rather than `Email/set`, and a move rather than a flag: the server takes the
@@ -176,8 +196,22 @@ internal fun wayBackFrom(
     action: MailAction,
     targets: List<ActionTarget>,
     snoozedBefore: Map<ActionTarget, Long?>,
+    /** Each conversation's tab before a [MailAction.MoveToTab], where it had one. */
+    tabBefore: Map<ActionTarget, String?> = emptyMap(),
 ): List<UndoStep> =
     when (action) {
+        // Grouped by where each conversation was, for snooze's reason: a
+        // selection is usually one tab, but a conversation that was in no tab at
+        // all has nowhere to be put back to and is left where it was moved.
+        is MailAction.MoveToTab ->
+            targets
+                .groupBy { tabBefore[it] ?: action.from }
+                .mapNotNull { (previous, group) ->
+                    previous
+                        ?.takeIf { it != action.tab }
+                        ?.let { UndoStep(MailAction.MoveToTab(tab = it, from = action.tab), group) }
+                }
+
         // Grouped by what each conversation was sleeping until. Ordinarily they
         // were all awake and this collapses to the single step every other
         // action produces; it only fans out where the times genuinely differ.

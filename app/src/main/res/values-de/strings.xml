@@ -83,4 +83,6 @@
     <string name="calendar_agenda_floating_widget_description">Anstehende Termine als Karten direkt auf dem Hintergrundbild</string>
     <string name="notes_floating_widget_label">Notizen (schwebend)</string>
     <string name="notes_floating_widget_description">Deine Notizen als Karten direkt auf dem Hintergrundbild</string>
+    <string name="unlock_title">Verschlüsselte Mails öffnen</string>
+    <string name="unlock_subtitle">Bestätige, dass du es bist, um deine Schlüssel auf diesem Gerät zu nutzen</string>
 </resources>

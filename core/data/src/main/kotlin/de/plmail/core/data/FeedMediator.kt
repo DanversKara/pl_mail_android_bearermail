@@ -10,6 +10,9 @@ import de.plmail.core.database.FeedEntryEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
 import de.plmail.core.database.ThreadEntity
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Fills the materialised feed table from the network, one page at a time.
@@ -49,10 +52,25 @@ class FeedMediator(
      * to a question nobody asked, and it would arrive instantly and look authoritative.
      */
     private val cachedRowsAnswerThis: Boolean = true,
+    /**
+     * Told after every write has committed, so the list re-reads the table (#41).
+     *
+     * Room is meant to do this by itself, and nearly always does: the list's PagingSource observes
+     * the tables it reads. But a source that runs its query just before this commit, and registers
+     * its observer just after it, never hears about the commit, and keeps the empty page it read.
+     * On a first launch after pairing the list then stayed on "Fetching your mail…" with every row
+     * on disk, until the app was restarted. Reproduced on a busy emulator in one pairing out of
+     * three or four. The pager passes an [androidx.paging.InvalidatingPagingSourceFactory]'s
+     * `invalidate` here; it costs one local query per page, which Room would have run anyway.
+     */
+    private val onWritten: () -> Unit = {},
 ) : RemoteMediator<Int, ThreadEntity>() {
 
     private val feed = UnifiedFeed(sources)
     private var restored = false
+
+    /** Holds [load] and [repage] apart: both move the merge and write the same rows. */
+    private val writing = Mutex()
 
     /**
      * Cached rows are shown immediately and refreshed behind them — unless there are none.
@@ -90,6 +108,11 @@ class FeedMediator(
     }
 
     override suspend fun load(
+        loadType: LoadType,
+        state: PagingState<Int, ThreadEntity>,
+    ): MediatorResult = writing.withLock { loadLocked(loadType, state) }
+
+    private suspend fun loadLocked(
         loadType: LoadType,
         state: PagingState<Int, ThreadEntity>,
     ): MediatorResult {
@@ -143,6 +166,7 @@ class FeedMediator(
             }
 
             onRowsHeld(held)
+            onWritten()
 
             // Exhaustion comes from the merge, not from the row count: a batch
             // can be short because one account failed while others still have
@@ -154,6 +178,79 @@ class FeedMediator(
             // already turns a single unreachable account into a recorded
             // failure rather than a throw.
             MediatorResult.Error(failed)
+        }
+    }
+
+    /**
+     * Pages one account again from the top, leaving every other account's rows where they are.
+     *
+     * What a sync asks for when it can no longer describe one account incrementally. Refreshing the
+     * whole list for it cleared every account's rows and fetched them all again, so one account's
+     * server losing its change log reloaded the unified inbox for all six.
+     *
+     * Paged as deep as the list already is — down to the other accounts' oldest row, or as many
+     * rows as this account held when it is alone — so scrolling finds no gap where its mail was. An
+     * account that cannot be reached keeps the rows it had.
+     */
+    suspend fun repage(accountKey: String) {
+        val source = sources.firstOrNull { it.accountKey == accountKey } ?: return
+
+        writing.withLock {
+            val depth = database.feed().oldestExcept(feedId, accountKey)
+            val held = database.feed().countFor(feedId, accountKey)
+
+            val rows = mutableListOf<FeedRow>()
+            var cursor = FeedCursor(accountKey = accountKey, atOrBefore = null)
+
+            try {
+                while (!cursor.isExhausted) {
+                    val page = source.page(cursor.atOrBefore, cursor.emittedAtCursor, PAGE_SIZE)
+                    val wanted = page.rows.takeWhile { depth == null || it.sortDate >= depth }
+
+                    wanted.forEach { row ->
+                        rows += row
+                        cursor =
+                            if (row.sortDate == cursor.atOrBefore)
+                                cursor.copy(emittedAtCursor = cursor.emittedAtCursor + row.id)
+                            else
+                                cursor.copy(
+                                    atOrBefore = row.sortDate,
+                                    emittedAtCursor = setOf(row.id),
+                                )
+                    }
+
+                    // And never more rows than it held before, whatever the
+                    // others reach: an account with years of newer mail than
+                    // theirs would otherwise be paged through all of it here.
+                    // What is left the next append brings, as it always did.
+                    val reachedDepth =
+                        depth != null && wanted.size < page.rows.size ||
+                            rows.size >= maxOf(held, PAGE_SIZE)
+                    // The end of this account only when every row it sent was
+                    // kept: rows left below the depth are still to come.
+                    if (page.rows.isEmpty() || page.isExhausted && wanted.size == page.rows.size)
+                        cursor = cursor.copy(isExhausted = true)
+                    if (reachedDepth) break
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (unreachable: Exception) {
+                onFailures(listOf(SourceFailure(accountKey, unreachable)))
+                return
+            }
+
+            database.withTransaction {
+                database.feed().clearAccountFromFeed(feedId, accountKey)
+                database.feed().upsertEntries(rows.map { it.toEntry(feedId) })
+                database.feed().upsertCursor(cursor.toEntity(feedId))
+            }
+
+            // The merge resumes this account from where the rows now end, and
+            // the others from wherever they were.
+            feed.restore(listOf(cursor))
+
+            onRowsHeld(database.feed().count(feedId))
+            onWritten()
         }
     }
 
@@ -188,6 +285,8 @@ class FeedMediator(
         restored = true
     }
 }
+
+private const val PAGE_SIZE = UnifiedFeed.DEFAULT_PAGE_SIZE
 
 private fun FeedRow.toEntry(feedId: String): FeedEntryEntity =
     FeedEntryEntity(

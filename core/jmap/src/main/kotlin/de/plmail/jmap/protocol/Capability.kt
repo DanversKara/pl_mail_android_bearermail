@@ -42,6 +42,25 @@ object Capability {
      */
     const val DRIVE = "urn:bearermail:params:drive"
 
+    /**
+     * The inbox tabs as the reader arranged them on the web: `InboxTab/get` and `/changes`,
+     * `Thread.inboxTab`, the `threadInboxTab` filter and `Thread/set { inboxTab }`.
+     *
+     * Advertised on **every account** rather than only at the top level, though the tabs are the
+     * user's: `Thread.inboxTab` is account-scoped and so is the change log a push is sent from. Its
+     * absence is the signal that the server predates the extension, and the app then draws the five
+     * built-in categories off `Thread.category` exactly as it did before.
+     */
+    const val INBOX_TABS = "urn:plmail:params:jmap:inboxtabs"
+
+    /**
+     * End-to-end encryption (#9): `Keyring/get`, the `ContactKey` and `DecryptedMail` methods, and
+     * the constants an app needs to open what the browser wrapped — the KDF's info string and the
+     * purpose of every wrapping. Per user at the top level; each account's entry says only whether
+     * the account keeps decrypted copies of encrypted mail.
+     */
+    const val KEYS = "urn:plmail:params:jmap:keys"
+
     /** The usual declaration for a mail request. */
     val USING_MAIL = listOf(CORE, MAIL)
 
@@ -60,6 +79,17 @@ object Capability {
 
     /** For `Note/get` and `Note/set`. Per user, so no mail capability is involved. */
     val USING_NOTES = listOf(CORE, NOTES)
+    /**
+     * For the `InboxTab` methods and a `Thread/set` that files a conversation in a tab.
+     *
+     * Only ever sent to an account that advertises [INBOX_TABS]: a server older than the extension
+     * would refuse the whole request with `unknownCapability`, so a request that might reach one
+     * declares [USING_MAIL] and does not call these methods at all.
+     */
+    val USING_INBOX_TABS = listOf(CORE, MAIL, INBOX_TABS)
+
+    /** For `Keyring/get`. Per user like appearance, so no mail capability is involved. */
+    val USING_KEYS = listOf(CORE, KEYS)
 
     /** For `Appearance/get` and `Appearance/set`. Per user, so no mail capability is involved. */
     val USING_APPEARANCE = listOf(CORE, APPEARANCE)

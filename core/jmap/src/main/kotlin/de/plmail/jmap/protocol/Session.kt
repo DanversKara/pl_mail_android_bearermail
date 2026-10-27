@@ -109,6 +109,16 @@ data class Session(
     val supportsNotes: Boolean
         get() = capabilities.containsKey(Capability.NOTES)
 
+    /**
+     * Whether this account serves the reader's own inbox tabs — see [Capability.INBOX_TABS].
+     *
+     * Per account, because that is where the server puts it. Every account of one user answers
+     * `InboxTab/get` with the same list, so asking the first one that says yes would do; asking
+     * each is what keeps the state token the push names in the account it belongs to.
+     */
+    fun supportsInboxTabs(id: AccountId): Boolean =
+        account(id)?.accountCapabilities?.containsKey(Capability.INBOX_TABS) == true
+
     /** Whether this server exposes calendars at all. */
     val supportsCalendars: Boolean
         get() = capabilities.containsKey(Capability.CALENDARS)
@@ -151,6 +161,38 @@ data class Session(
      */
     val appearance: AppearanceCapability?
         get() = capabilities[Capability.APPEARANCE]?.let(AppearanceCapability::from)
+
+    /**
+     * Whether the user wants the inbox in tabs — see [AppearanceCapability.inboxTabs].
+     *
+     * True unless the server says false. Absent is a server older than the switch, where every
+     * inbox was tabbed, and reading silence as "one list" would take the tabs away from everybody
+     * on it.
+     */
+    val wantsInboxTabs: Boolean
+        get() = appearance?.inboxTabs != false
+
+    /**
+     * The constants for end-to-end encryption, or null on an instance without it.
+     *
+     * Null is a supported instance: the app pairs, reads and sends as before, and shows encrypted
+     * mail it cannot open as such.
+     */
+    val keys: KeysCapability?
+        get() = capabilities[Capability.KEYS]?.let(KeysCapability::from)
+
+    /**
+     * Whether [id] keeps a decrypted copy of encrypted mail on the server, which the app then has
+     * to provide (`DecryptedMail/pending` and `/store`). False wherever the server does not say.
+     */
+    fun keepsDecryptedMail(id: AccountId): Boolean =
+        account(id)
+            ?.accountCapabilities
+            ?.get(Capability.KEYS)
+            ?.get("keepsDecryptedMail")
+            ?.let { it as? JsonPrimitive }
+            ?.content
+            ?.toBooleanStrictOrNull() ?: false
 
     /**
      * How much of one account this server has fetched so far.
@@ -392,6 +434,16 @@ data class AppearanceCapability(
      * has to round.
      */
     val ranges: Map<String, ClosedRange> = emptyMap(),
+    /**
+     * Whether this person wants the inbox in tabs at all, or null where the server does not say.
+     *
+     * Not an appearance property — `Appearance/get` does not carry it and `Appearance/set` cannot
+     * change it — but published beside the hint for the same reason the hint is here: it is one
+     * user-level choice about how the lists are drawn, and `Thread.category` is served either way,
+     * so the category alone cannot tell a client that tabs were switched off. A hint like [hint],
+     * and as stale as the Session it came in.
+     */
+    val inboxTabs: Boolean? = null,
 ) {
     /** The bounds for one numeric knob, or null when this server does not publish it. */
     fun range(property: String): ClosedRange? = ranges[property]
@@ -420,6 +472,7 @@ data class AppearanceCapability(
                 densities = strings("densities"),
                 unreadEmphases = strings("unreadEmphases"),
                 fontFamilies = strings("fontFamilies"),
+                inboxTabs = (json["inboxTabs"] as? JsonPrimitive)?.booleanOrNull,
                 ranges =
                     (json["ranges"] as? JsonObject)
                         .orEmpty()

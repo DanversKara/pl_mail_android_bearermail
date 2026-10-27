@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import de.plmail.core.data.AppLocaleOverride
+import de.plmail.core.data.DeviceUnlock
 import de.plmail.core.designsystem.PlMailTheme
 import de.plmail.crash.CrashReportPrompt
 import de.plmail.feature.calendar.CalendarScreen
@@ -51,6 +53,7 @@ import de.plmail.feature.settings.AccountsScreen
 import de.plmail.feature.settings.AppearanceScreen
 import de.plmail.feature.settings.AppearanceViewModel
 import de.plmail.feature.settings.DiagnosticsScreen
+import de.plmail.feature.settings.EncryptionScreen
 import de.plmail.feature.settings.NotificationsScreen
 import de.plmail.feature.settings.PushLogScreen
 import de.plmail.feature.settings.PushScreen
@@ -64,9 +67,13 @@ import de.plmail.notifications.notificationRequest
 import de.plmail.update.AppUpdater
 import de.plmail.update.UpdateChecks
 import de.plmail.update.UpdatePrompt
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    /** Asks for the person when protected end-to-end keys are needed (#9, phase 5). */
+    @Inject lateinit var deviceUnlock: DeviceUnlock
 
     /**
      * The `plmail://` URI this activity was opened with, if any.
@@ -136,6 +143,8 @@ class MainActivity : ComponentActivity() {
         // rather than being inset and then jumping.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        lifecycle.addObserver(UnlockPromptHost(this, deviceUnlock))
 
         // Only on a fresh create, and this is a fix rather than tidiness.
         //
@@ -285,6 +294,7 @@ private fun PlMailApp(
     var isSettingGestures by rememberSaveable { mutableStateOf(false) }
     var isSettingLock by rememberSaveable { mutableStateOf(false) }
     var isManagingAccounts by rememberSaveable { mutableStateOf(false) }
+    var isManagingEncryption by rememberSaveable { mutableStateOf(false) }
     var isCalendaring by rememberSaveable { mutableStateOf(false) }
     var isDriving by rememberSaveable { mutableStateOf(false) }
     var isContacting by rememberSaveable { mutableStateOf(false) }
@@ -418,250 +428,268 @@ private fun PlMailApp(
                 // list below is a slot rather than a sibling because the two
                 // cases disagree about whether it should exist at all -- see
                 // ComposeHost.
+                // Kept while the composer is up. On a phone the composer takes
+                // the screen and the mail shell leaves the composition, and
+                // rememberSaveable state is restored after a rotation or a
+                // process death -- not after leaving and coming back. Without
+                // this every close of the composer landed on the inbox, the
+                // list and the conversation it was opened from forgotten.
+                val behind = rememberSaveableStateHolder()
+
                 ComposeHost(request = composing, onClose = { composing = null }) {
-                    // One value rather than a chain read twice. The system
-                    // back handler below has to dismiss *whichever* screen is on
-                    // top, and the flags are not exclusive -- opening appearance
-                    // from a search leaves both set, and a notification arriving
-                    // outranks all of them -- so deriving the answer once is
-                    // what stops back closing a screen nobody can see.
-                    val screen =
-                        when {
-                            openThread != null -> Screen.MAIL
-                            isManagingAccounts -> Screen.ACCOUNTS
-                            isCalendaring -> Screen.CALENDAR
-                            isDriving -> Screen.DRIVE
-                            isContacting -> Screen.CONTACTS
-                            isNoting -> Screen.NOTES
-                            isAdjustingAppearance -> Screen.APPEARANCE
-                            isSettingGestures -> Screen.GESTURES
-                            isSettingLock -> Screen.APP_LOCK
-                            isReadingPushLog -> Screen.PUSH_LOG
-                            isChoosingPush -> Screen.PUSH
-                            isChoosingNotifications -> Screen.NOTIFICATIONS
-                            isDiagnosing -> Screen.DIAGNOSTICS
-                            isSearching -> Screen.SEARCH
-                            else -> Screen.MAIL
+                    behind.SaveableStateProvider(BEHIND_THE_COMPOSER) {
+                        // One value rather than a chain read twice. The system
+                        // back handler below has to dismiss *whichever* screen is on
+                        // top, and the flags are not exclusive -- opening appearance
+                        // from a search leaves both set, and a notification arriving
+                        // outranks all of them -- so deriving the answer once is
+                        // what stops back closing a screen nobody can see.
+                        val screen =
+                            when {
+                                openThread != null -> Screen.MAIL
+                                isManagingAccounts -> Screen.ACCOUNTS
+                                isManagingEncryption -> Screen.ENCRYPTION
+                                isCalendaring -> Screen.CALENDAR
+                                isDriving -> Screen.DRIVE
+                                isContacting -> Screen.CONTACTS
+                                isNoting -> Screen.NOTES
+                                isAdjustingAppearance -> Screen.APPEARANCE
+                                isSettingGestures -> Screen.GESTURES
+                                isSettingLock -> Screen.APP_LOCK
+                                isReadingPushLog -> Screen.PUSH_LOG
+                                isChoosingPush -> Screen.PUSH
+                                isChoosingNotifications -> Screen.NOTIFICATIONS
+                                isDiagnosing -> Screen.DIAGNOSTICS
+                                isSearching -> Screen.SEARCH
+                                else -> Screen.MAIL
+                            }
+
+                        // Without this, back on any of these three left the *app*.
+                        // They are swapped in by state rather than pushed onto a
+                        // back stack, so nothing else was going to consume the
+                        // gesture -- and a settings screen you can only leave by
+                        // finding the arrow is a settings screen people back out of
+                        // and lose the app from.
+                        BackHandler(enabled = screen != Screen.MAIL) {
+                            when (screen) {
+                                Screen.ACCOUNTS -> isManagingAccounts = false
+                                Screen.ENCRYPTION -> isManagingEncryption = false
+                                Screen.CALENDAR -> isCalendaring = false
+                                Screen.DRIVE -> isDriving = false
+                                Screen.CONTACTS -> isContacting = false
+                                Screen.NOTES -> isNoting = false
+                                Screen.APPEARANCE -> isAdjustingAppearance = false
+                                Screen.GESTURES -> isSettingGestures = false
+                                Screen.APP_LOCK -> isSettingLock = false
+                                // The log closes back onto the push screen it was
+                                // opened from, rather than all the way to mail:
+                                // somebody who just compared a log against their
+                                // server is one tap from switching transport.
+                                Screen.PUSH_LOG -> isReadingPushLog = false
+                                Screen.PUSH -> isChoosingPush = false
+                                Screen.NOTIFICATIONS -> isChoosingNotifications = false
+                                Screen.DIAGNOSTICS -> isDiagnosing = false
+                                Screen.SEARCH -> isSearching = false
+                                Screen.MAIL -> Unit
+                            }
                         }
 
-                    // Without this, back on any of these three left the *app*.
-                    // They are swapped in by state rather than pushed onto a
-                    // back stack, so nothing else was going to consume the
-                    // gesture -- and a settings screen you can only leave by
-                    // finding the arrow is a settings screen people back out of
-                    // and lose the app from.
-                    BackHandler(enabled = screen != Screen.MAIL) {
-                        when (screen) {
-                            Screen.ACCOUNTS -> isManagingAccounts = false
-                            Screen.CALENDAR -> isCalendaring = false
-                            Screen.DRIVE -> isDriving = false
-                            Screen.CONTACTS -> isContacting = false
-                            Screen.NOTES -> isNoting = false
-                            Screen.APPEARANCE -> isAdjustingAppearance = false
-                            Screen.GESTURES -> isSettingGestures = false
-                            Screen.APP_LOCK -> isSettingLock = false
-                            // The log closes back onto the push screen it was
-                            // opened from, rather than all the way to mail:
-                            // somebody who just compared a log against their
-                            // server is one tap from switching transport.
-                            Screen.PUSH_LOG -> isReadingPushLog = false
-                            Screen.PUSH -> isChoosingPush = false
-                            Screen.NOTIFICATIONS -> isChoosingNotifications = false
-                            Screen.DIAGNOSTICS -> isDiagnosing = false
-                            Screen.SEARCH -> isSearching = false
-                            Screen.MAIL -> Unit
-                        }
-                    }
-
-                    if (screen == Screen.ACCOUNTS) {
-                        AccountsScreen(onBack = { isManagingAccounts = false })
-                    } else if (screen == Screen.CALENDAR) {
-                        // The calendar owns its own detail and editor and its
-                        // own back between them; what :app decides is only
-                        // whether the calendar or the mail is on screen, the
-                        // same way it does for every other swapped screen here.
-                        CalendarScreen(
-                            onBack = { isCalendaring = false },
-                            pending = pendingCalendarEditor,
-                            onPendingHandled = { pendingCalendarEditor = null },
-                        )
-                    } else if (screen == Screen.DRIVE) {
-                        DriveScreen(
-                            onBack = { isDriving = false },
-                            incoming = driveUpload,
-                            onIncomingHandled = onDriveUploadHandled,
-                        )
-                    } else if (screen == Screen.CONTACTS) {
-                        // The contacts module owns its own detail, editor and
-                        // duplicates screens and its own back between them;
-                        // what :app decides is only whether contacts or mail
-                        // is on screen, the same way it does for the calendar.
-                        ContactsScreen(onBack = { isContacting = false })
-                    } else if (screen == Screen.NOTES) {
-                        // Notes own their editor and its back; what :app adds is
-                        // the two bridges notes cannot build themselves: turning
-                        // a note into a calendar event, and opening the area a
-                        // link points into.
-                        NotesScreen(
-                            onBack = { isNoting = false },
-                            seed = pendingNote,
-                            onSeedHandled = { pendingNote = null },
-                            onAddToCalendar =
-                                if (hasCalendar) {
-                                    { title, description ->
-                                        pendingCalendarEditor =
-                                            EditorRequest.NewFrom(
-                                                startWire =
-                                                    java.time.LocalDateTime.now()
-                                                        .plusHours(1)
-                                                        .withMinute(0)
-                                                        .withSecond(0)
-                                                        .withNano(0)
-                                                        .toString()
-                                                        .take(16),
-                                                title = title,
-                                                location = "",
-                                                description = description,
-                                            )
-                                        isNoting = false
-                                        isCalendaring = true
-                                    }
-                                } else {
-                                    null
-                                },
-                            onOpenLink = { link ->
-                                when (link.type) {
-                                    "event" ->
-                                        if (hasCalendar) {
+                        if (screen == Screen.ACCOUNTS) {
+                            AccountsScreen(onBack = { isManagingAccounts = false })
+                        } else if (screen == Screen.ENCRYPTION) {
+                            EncryptionScreen(onBack = { isManagingEncryption = false })
+                        } else if (screen == Screen.CALENDAR) {
+                            // The calendar owns its own detail and editor and its
+                            // own back between them; what :app decides is only
+                            // whether the calendar or the mail is on screen, the
+                            // same way it does for every other swapped screen here.
+                            CalendarScreen(
+                                onBack = { isCalendaring = false },
+                                pending = pendingCalendarEditor,
+                                onPendingHandled = { pendingCalendarEditor = null },
+                            )
+                        } else if (screen == Screen.DRIVE) {
+                            DriveScreen(
+                                onBack = { isDriving = false },
+                                incoming = driveUpload,
+                                onIncomingHandled = onDriveUploadHandled,
+                            )
+                        } else if (screen == Screen.CONTACTS) {
+                            // The contacts module owns its own detail, editor and
+                            // duplicates screens and its own back between them;
+                            // what :app decides is only whether contacts or mail
+                            // is on screen, the same way it does for the calendar.
+                            ContactsScreen(onBack = { isContacting = false })
+                        } else if (screen == Screen.NOTES) {
+                            // Notes own their editor and its back; what :app adds is
+                            // the two bridges notes cannot build themselves: turning
+                            // a note into a calendar event, and opening the area a
+                            // link points into.
+                            NotesScreen(
+                                onBack = { isNoting = false },
+                                seed = pendingNote,
+                                onSeedHandled = { pendingNote = null },
+                                onAddToCalendar =
+                                    if (hasCalendar) {
+                                        { title, description ->
+                                            pendingCalendarEditor =
+                                                EditorRequest.NewFrom(
+                                                    startWire =
+                                                        java.time.LocalDateTime.now()
+                                                            .plusHours(1)
+                                                            .withMinute(0)
+                                                            .withSecond(0)
+                                                            .withNano(0)
+                                                            .toString()
+                                                            .take(16),
+                                                    title = title,
+                                                    location = "",
+                                                    description = description,
+                                                )
                                             isNoting = false
                                             isCalendaring = true
                                         }
-                                    "contact" ->
-                                        if (hasContacts) {
-                                            isNoting = false
-                                            isContacting = true
-                                        }
-                                    "file" ->
-                                        if (hasDrive) {
-                                            isNoting = false
-                                            isDriving = true
-                                        }
-                                    else -> Unit
-                                }
-                            },
-                        )
-                    } else if (screen == Screen.APPEARANCE) {
-                        AppearanceScreen(onBack = { isAdjustingAppearance = false })
-                    } else if (screen == Screen.GESTURES) {
-                        SwipeScreen(onBack = { isSettingGestures = false })
-                    } else if (screen == Screen.APP_LOCK) {
-                        AppLockSettings(onBack = { isSettingLock = false })
-                    } else if (screen == Screen.PUSH_LOG) {
-                        PushLogScreen(onBack = { isReadingPushLog = false })
-                    } else if (screen == Screen.PUSH) {
-                        PushScreen(
-                            onBack = { isChoosingPush = false },
-                            onLog = { isReadingPushLog = true },
-                        )
-                    } else if (screen == Screen.NOTIFICATIONS) {
-                        NotificationsScreen(onBack = { isChoosingNotifications = false })
-                    } else if (screen == Screen.DIAGNOSTICS) {
-                        // Above search in this chain rather than beside it,
-                        // because a notification tap has to win over both: mail
-                        // arriving is a reason to leave a screen the user opened
-                        // to find out why mail was not arriving.
-                        DiagnosticsScreen(onBack = { isDiagnosing = false })
-                    } else if (screen == Screen.SEARCH) {
-                        SearchScreen(
-                            // Closing search as well as picking: Back from the
-                            // opened conversation should return to the mail
-                            // list, not to a query the user has finished with.
-                            onOpenThread = { accountKey, threadId ->
-                                isSearching = false
-                                searchPick = ThreadTarget(accountKey, threadId)
-                            },
-                            onBack = { isSearching = false },
-                        )
-                    } else {
-                        MailShell(
-                            onSearch = { isSearching = true },
-                            onPush = { isChoosingPush = true },
-                            onNotifications = { isChoosingNotifications = true },
-                            onDiagnostics = { isDiagnosing = true },
-                            onAppearance = { isAdjustingAppearance = true },
-                            onGestures = { isSettingGestures = true },
-                            onAppLock = { isSettingLock = true },
-                            onCheckUpdates =
-                                if (AppUpdater.enabled) ({ UpdateChecks.checkNow() }) else null,
-                            onAccounts = { isManagingAccounts = true },
-                            // Null hides the drawer entry outright, which is
-                            // what an instance publishing no calendars
-                            // capability has to look like: a product without a
-                            // calendar, rather than a control that opens an
-                            // empty one.
-                            onCalendar = if (hasCalendar) ({ isCalendaring = true }) else null,
-                            onDrive = if (hasDrive) ({ isDriving = true }) else null,
-                            // BearerMail Contacts: null hides the drawer entry
-                            // outright, which is what an instance publishing no
-                            // contacts capability has to look like.
-                            onContacts = if (hasContacts) ({ isContacting = true }) else null,
-                            onNotes = if (hasNotes) ({ isNoting = true }) else null,
-                            onSaveAsNote =
-                                if (hasNotes) {
-                                    { subject, mailId ->
-                                        pendingNote =
-                                            NoteSeed(
-                                                title = subject,
-                                                links =
-                                                    listOf(
-                                                        de.plmail.jmap.methods.NoteLink(
-                                                            type =
-                                                                de.plmail.jmap.methods.NoteLink
-                                                                    .MAIL,
-                                                            id = mailId,
-                                                            title = subject.ifBlank { null },
-                                                        )
-                                                    ),
-                                            )
-                                        isNoting = true
+                                    } else {
+                                        null
+                                    },
+                                onOpenLink = { link ->
+                                    when (link.type) {
+                                        "event" ->
+                                            if (hasCalendar) {
+                                                isNoting = false
+                                                isCalendaring = true
+                                            }
+                                        "contact" ->
+                                            if (hasContacts) {
+                                                isNoting = false
+                                                isContacting = true
+                                            }
+                                        "file" ->
+                                            if (hasDrive) {
+                                                isNoting = false
+                                                isDriving = true
+                                            }
+                                        else -> Unit
                                     }
-                                } else {
-                                    null
                                 },
-                            onNewAlias = { isMakingAlias = true },
-                            onAddToCalendar =
-                                if (hasCalendar) {
-                                    { plan ->
-                                        pendingCalendarEditor =
-                                            EditorRequest.NewFrom(
-                                                startWire = plan.startWire,
-                                                title = plan.title,
-                                                location = plan.location.orEmpty(),
-                                                description = plan.description,
-                                            )
-                                        isCalendaring = true
-                                    }
-                                } else {
-                                    null
+                            )
+                        } else if (screen == Screen.APPEARANCE) {
+                            AppearanceScreen(onBack = { isAdjustingAppearance = false })
+                        } else if (screen == Screen.GESTURES) {
+                            SwipeScreen(onBack = { isSettingGestures = false })
+                        } else if (screen == Screen.APP_LOCK) {
+                            AppLockSettings(onBack = { isSettingLock = false })
+                        } else if (screen == Screen.PUSH_LOG) {
+                            PushLogScreen(onBack = { isReadingPushLog = false })
+                        } else if (screen == Screen.PUSH) {
+                            PushScreen(
+                                onBack = { isChoosingPush = false },
+                                onLog = { isReadingPushLog = true },
+                            )
+                        } else if (screen == Screen.NOTIFICATIONS) {
+                            NotificationsScreen(onBack = { isChoosingNotifications = false })
+                        } else if (screen == Screen.DIAGNOSTICS) {
+                            // Above search in this chain rather than beside it,
+                            // because a notification tap has to win over both: mail
+                            // arriving is a reason to leave a screen the user opened
+                            // to find out why mail was not arriving.
+                            DiagnosticsScreen(onBack = { isDiagnosing = false })
+                        } else if (screen == Screen.SEARCH) {
+                            SearchScreen(
+                                // Closing search as well as picking: Back from the
+                                // opened conversation should return to the mail
+                                // list, not to a query the user has finished with.
+                                onOpenThread = { accountKey, threadId ->
+                                    isSearching = false
+                                    searchPick = ThreadTarget(accountKey, threadId)
                                 },
-                            onCompose = { composing = ComposeRequest.New },
-                            onReply = { accountKey, emailId, all ->
-                                composing = ComposeRequest.Reply(accountKey, emailId, all)
-                            },
-                            onForward = { accountKey, emailId ->
-                                composing = ComposeRequest.Forward(accountKey, emailId)
-                            },
-                            openThread = openThread,
-                            // Both cleared, not just whichever produced this
-                            // target: acknowledging is what stops back-then-
-                            // rotate from reopening the conversation, and a
-                            // stale pick would do exactly that the moment the
-                            // notification ahead of it was consumed.
-                            onThreadOpened = {
-                                searchPick = null
-                                onNotificationHandled()
-                            },
-                        )
+                                onBack = { isSearching = false },
+                            )
+                        } else {
+                            MailShell(
+                                onSearch = { isSearching = true },
+                                onPush = { isChoosingPush = true },
+                                onNotifications = { isChoosingNotifications = true },
+                                onDiagnostics = { isDiagnosing = true },
+                                onAppearance = { isAdjustingAppearance = true },
+                                onGestures = { isSettingGestures = true },
+                                onAppLock = { isSettingLock = true },
+                                onCheckUpdates =
+                                    if (AppUpdater.enabled) ({ UpdateChecks.checkNow() }) else null,
+                                onAccounts = { isManagingAccounts = true },
+                                onEncryption = { isManagingEncryption = true },
+                                // Null hides the drawer entry outright, which is
+                                // what an instance publishing no calendars
+                                // capability has to look like: a product without a
+                                // calendar, rather than a control that opens an
+                                // empty one.
+                                onCalendar = if (hasCalendar) ({ isCalendaring = true }) else null,
+                                onDrive = if (hasDrive) ({ isDriving = true }) else null,
+                                // BearerMail Contacts: null hides the drawer entry
+                                // outright, which is what an instance publishing no
+                                // contacts capability has to look like.
+                                onContacts = if (hasContacts) ({ isContacting = true }) else null,
+                                onNotes = if (hasNotes) ({ isNoting = true }) else null,
+                                onSaveAsNote =
+                                    if (hasNotes) {
+                                        { subject, mailId ->
+                                            pendingNote =
+                                                NoteSeed(
+                                                    title = subject,
+                                                    links =
+                                                        listOf(
+                                                            de.plmail.jmap.methods.NoteLink(
+                                                                type =
+                                                                    de.plmail.jmap.methods.NoteLink
+                                                                        .MAIL,
+                                                                id = mailId,
+                                                                title = subject.ifBlank { null },
+                                                            )
+                                                        ),
+                                                )
+                                            isNoting = true
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                onNewAlias = { isMakingAlias = true },
+                                onAddToCalendar =
+                                    if (hasCalendar) {
+                                        { plan ->
+                                            pendingCalendarEditor =
+                                                EditorRequest.NewFrom(
+                                                    startWire = plan.startWire,
+                                                    title = plan.title,
+                                                    location = plan.location.orEmpty(),
+                                                    description = plan.description,
+                                                )
+                                            isCalendaring = true
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                onCompose = { composing = ComposeRequest.New },
+                                onReply = { accountKey, emailId, all ->
+                                    composing = ComposeRequest.Reply(accountKey, emailId, all)
+                                },
+                                onForward = { accountKey, emailId ->
+                                    composing = ComposeRequest.Forward(accountKey, emailId)
+                                },
+                                onEditDraft = { accountKey, emailId ->
+                                    composing = ComposeRequest.Edit(accountKey, emailId)
+                                },
+                                openThread = openThread,
+                                // Both cleared, not just whichever produced this
+                                // target: acknowledging is what stops back-then-
+                                // rotate from reopening the conversation, and a
+                                // stale pick would do exactly that the moment the
+                                // notification ahead of it was consumed.
+                                onThreadOpened = {
+                                    searchPick = null
+                                    onNotificationHandled()
+                                },
+                            )
+                        }
                     }
                 }
 
@@ -745,4 +773,8 @@ private enum class Screen {
     GESTURES,
     APP_LOCK,
     ACCOUNTS,
+    ENCRYPTION,
 }
+
+/** The key the screens behind the composer keep their state under. */
+private const val BEHIND_THE_COMPOSER = "behind-the-composer"

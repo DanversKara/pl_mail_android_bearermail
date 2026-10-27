@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.Density
 import de.plmail.core.data.Label
 import de.plmail.core.data.LabelBinding
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 import de.plmail.core.data.SidebarSections
 import de.plmail.core.designsystem.PlMailDensity
@@ -56,8 +57,9 @@ class SidebarReachabilityTest {
                     LabelSidebar(
                         sections = sections,
                         showCategories = true,
-                        populatedCategories = MailCategory.entries.toSet(),
-                        newCategories = setOf(MailCategory.PROMOTIONS),
+                        tabs = MailTab.BUILT_IN,
+                        populatedTabs = MailCategory.entries.mapTo(mutableSetOf()) { it.wire },
+                        newTabs = setOf(MailCategory.PROMOTIONS.wire),
                         selected = MailView.START,
                         onSelect = {},
                         onCreate = {},
@@ -105,8 +107,9 @@ class SidebarReachabilityTest {
                     LabelSidebar(
                         sections = sections,
                         showCategories = true,
-                        populatedCategories = MailCategory.entries.toSet(),
-                        newCategories = emptySet(),
+                        tabs = MailTab.BUILT_IN,
+                        populatedTabs = MailCategory.entries.mapTo(mutableSetOf()) { it.wire },
+                        newTabs = emptySet(),
                         selected = MailView.START,
                         onSelect = {},
                         onCreate = {},

@@ -8,14 +8,21 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
 import de.plmail.core.datastore.CredentialStore
+import de.plmail.crypto.EncryptedMessages
+import de.plmail.crypto.OpenedPart
+import de.plmail.crypto.OutgoingFile
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.mail.DraftComposer
 import de.plmail.jmap.mail.Email
 import de.plmail.jmap.mail.EmailAddress
+import de.plmail.jmap.mail.EmailBodyPart
+import de.plmail.jmap.mail.EmailBodyValue
+import de.plmail.jmap.mail.Keyword
 import de.plmail.jmap.methods.CANNOT_UNSEND
 import de.plmail.jmap.methods.DraftAttachment
 import de.plmail.jmap.methods.DraftEmail
 import de.plmail.jmap.methods.EmailGet
+import de.plmail.jmap.methods.EmailImport
 import de.plmail.jmap.methods.EmailPatch
 import de.plmail.jmap.methods.EmailSet
 import de.plmail.jmap.methods.EmailSubmissionChanges
@@ -24,6 +31,7 @@ import de.plmail.jmap.methods.EmailSubmissionSet
 import de.plmail.jmap.methods.FORBIDDEN_FROM
 import de.plmail.jmap.methods.IdentityCreate
 import de.plmail.jmap.methods.IdentityGet
+import de.plmail.jmap.methods.ImportedEmail
 import de.plmail.jmap.methods.SendHold
 import de.plmail.jmap.methods.SetError
 import de.plmail.jmap.methods.SubmissionRecord
@@ -35,6 +43,7 @@ import de.plmail.jmap.protocol.IdentityId
 import de.plmail.jmap.protocol.MailboxId
 import de.plmail.jmap.protocol.RequestBuilder
 import de.plmail.jmap.protocol.SubmissionCapability
+import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -71,6 +80,9 @@ constructor(
     private val credentials: CredentialStore,
     private val mail: MailRepository,
     private val accounts: AccountsRepository,
+    private val sealing: OutgoingEncryption,
+    private val decryptor: MessageDecryptor,
+    private val decryptedFiles: DecryptedFiles,
 ) : DraftSender, SubmissionDirectory, ReplySource {
 
     /**
@@ -115,11 +127,13 @@ constructor(
     override suspend fun sendingIdentities(): List<SendIdentity> = identities().first()
 
     /**
-     * Re-reads `Identity/get` for every account.
+     * Re-reads `Identity/get` for every account, in one request.
      *
      * Excluded from push and from delta sync on purpose: identities change only when the user edits
-     * their own addresses. This runs when a composer opens, which is the one moment a stale list
-     * would be visible.
+     * their own addresses, and the directory refresh reads them beside the mailboxes anyway. This
+     * is for the two moments a stale list is in the way: the From menu's refresh, and a send the
+     * server refused for an address it no longer allows. Not the composer opening — that waited on
+     * one round trip per account before it drew anything.
      */
     suspend fun refreshIdentities() {
         val client = clients.current() ?: return
@@ -131,13 +145,17 @@ constructor(
         // neither of them.
         val server = credentials.connection.first()?.address?.origin ?: return
 
-        client.session().accountIds.forEach { accountId ->
-            runCatching {
-                val request = RequestBuilder()
-                val get = request.add(IdentityGet(AccountId(accountId.value)))
-                val identities = client.send(request).result(get).list
+        client.session().accountIds.chunked(RequestBuilder.DEFAULT_MAX_CALLS).forEach { chunk ->
+            val request = RequestBuilder()
+            val gets = chunk.map { it to request.add(IdentityGet(AccountId(it.value))) }
+            val results = client.send(request)
 
-                mail.replaceIdentities(StoreKey.account(server, accountId.value), identities)
+            // Each account's answer on its own: one that failed keeps the
+            // addresses it had rather than taking the others' with it.
+            gets.forEach { (accountId, get) ->
+                results.resultOrNull(get)?.let {
+                    mail.replaceIdentities(StoreKey.account(server, accountId.value), it.list)
+                }
             }
         }
     }
@@ -192,8 +210,15 @@ constructor(
 
     /**
      * The message a reply or forward is built from, with its body, from the cache or the server.
+     *
+     * The cache first — see [cachedOriginal] for when it can answer — because this stands between
+     * tapping Reply and seeing the composer.
      */
     override suspend fun original(accountKey: String, emailId: String): Email? {
+        database.cachedOriginal(accountKey, emailId)?.let {
+            return it
+        }
+
         val account = database.accounts().byUid(accountKey) ?: return null
         val client = clients.forAccount(accountKey) ?: return null
 
@@ -264,7 +289,78 @@ constructor(
                     )
                 }
 
-        return ReopenedDraft(draft(accountKey, emailId, identity, email), sender)
+        val plain = draft(accountKey, emailId, identity, email)
+
+        if (email.sealedDraft) {
+            return ReopenedDraft(plain, sender, ReopenedEncryption.SEALED_ON_WEB)
+        }
+        if (!email.needsDecryption) return ReopenedDraft(plain, sender)
+
+        // An encrypted draft this device (or another) imported: the text is
+        // in the ciphertext, encrypted to the person's own key among others.
+        val content =
+            (decrypted(accountKey, email) as? DecryptionResult.Opened)?.content
+                ?: return ReopenedDraft(plain, sender, ReopenedEncryption.UNREADABLE)
+        val files = content.attachments.map(::outgoingAttachment)
+
+        return ReopenedDraft(
+            plain.copy(
+                subject =
+                    content.subject
+                        ?: email.subject
+                            .orEmpty()
+                            .takeUnless {
+                                EncryptedMessages.isPlaceholderSubject(it)
+                            }
+                            .orEmpty(),
+                bodyHtml = content.html.withSignatureMarker(),
+                attachments = files,
+                savedAttachments = files,
+                savedSealed = true,
+            ),
+            sender,
+            ReopenedEncryption.OPENED,
+        )
+    }
+
+    /**
+     * What the server knows about the keys of [addresses], for a message from [from] (#9). See
+     * [OutgoingEncryption.keysFor]; throws when the server cannot be asked.
+     */
+    suspend fun recipientKeys(
+        accountKey: String,
+        from: String,
+        addresses: List<String>,
+        lookUp: Boolean,
+    ): RecipientKeys {
+        val account = database.accounts().byUid(accountKey) ?: return RecipientKeys.Unavailable
+
+        return sealing.keysFor(account.accountId, from, addresses, lookUp)
+    }
+
+    /** See [OutgoingEncryption.openKeys]. */
+    suspend fun openSigningKeys(): Boolean = sealing.openKeys()
+
+    /**
+     * [email], an end-to-end encrypted message, decrypted: the original of a reply or forward, or a
+     * draft being reopened.
+     */
+    suspend fun decrypted(accountKey: String, email: Email): DecryptionResult =
+        decryptor.open(accountKey, email.blobId?.value, email.from.firstOrNull()?.email)
+
+    /**
+     * A decrypted file as an attachment of a new message: written where the send queue can read it
+     * again after the composer has gone, and named by that file.
+     */
+    fun outgoingAttachment(part: OpenedPart): StagedAttachment {
+        val file = decryptedFiles.writeOutgoing(part)
+
+        return StagedAttachment(
+            name = file.name,
+            type = part.type,
+            size = part.bytes.size.toLong(),
+            uri = Uri.fromFile(file).toString(),
+        )
     }
 
     private fun draft(
@@ -308,6 +404,25 @@ constructor(
 
         val accountId = AccountId(account.accountId)
 
+        draft.sealAs?.let { from ->
+            return saveSealed(client, accountId, draft, from)
+        }
+
+        if (draft.savedSealed) {
+            // The draft on the server is encrypted and this save is not to
+            // be: a plain draft replaces it, written from scratch, and the
+            // encrypted one goes to Trash.
+            val replaced = draft.emailId
+            val saved =
+                save(
+                    draft.copy(emailId = null, savedAttachments = emptyList(), savedSealed = false)
+                )
+
+            replaced?.let { runCatching { moveToTrash(client, accountId, draft.accountKey, it) } }
+
+            return saved
+        }
+
         if (draft.needsCreate) {
             val uploaded = upload(client, accountId, draft.attachments)
             val created = create(client, accountId, draft, uploaded)
@@ -329,6 +444,115 @@ constructor(
         val attached = readBack(client, accountId, draft.emailId!!)
 
         return draft.copy(attachments = attached, savedAttachments = attached)
+    }
+
+    /**
+     * Saves an end-to-end encrypted draft (#9, phase 4): the whole message built and encrypted
+     * here, uploaded, and imported into Drafts.
+     *
+     * The server cannot patch what it cannot read, so there is no update: each save is a new import
+     * and the draft it replaces goes to Trash. That is also why the composer saves an encrypted
+     * draft when it closes and when it sends, not as the person types — every save would leave a
+     * copy in Trash.
+     *
+     * The import names every key the message is encrypted to, and the server refuses it unless
+     * those are each recipient's current key; the send checks the same again. Either way nothing
+     * leaves that a recipient cannot read.
+     */
+    private suspend fun saveSealed(
+        client: JmapClient,
+        accountId: AccountId,
+        draft: ComposeDraft,
+        from: SealAs,
+    ): ComposeDraft {
+        // Any mailbox of the account will do: the server files a `$draft`
+        // import under Drafts whatever this names, but refuses an empty set.
+        // Drafts when this device knows it; a freshly paired one may not yet.
+        val drafts =
+            binding(draft.accountKey, DRAFTS_ROLE)
+                ?: database.mailboxes().forAccount(draft.accountKey).firstOrNull()?.let {
+                    MailboxId(it.mailboxId)
+                }
+                ?: error("This account's mailboxes have not been loaded yet. Try again shortly.")
+
+        val files =
+            draft.attachments.map { attachment ->
+                OutgoingFile(
+                    attachment.name,
+                    attachment.type,
+                    contentOf(client, accountId, attachment),
+                )
+            }
+
+        val sealed = sealing.seal(client, accountId, draft, from, files)
+        val blob = client.upload(sealed.raw, MESSAGE_TYPE, accountId)
+
+        val request = RequestBuilder(listOf(Capability.CORE, Capability.MAIL, Capability.KEYS))
+        val import =
+            request.add(
+                EmailImport(
+                    accountId = accountId,
+                    emails =
+                        mapOf(
+                            CREATION_ID to
+                                ImportedEmail(
+                                    blobId = BlobId(blob.blobId),
+                                    mailboxIds = listOf(drafts),
+                                    keywords = setOf(Keyword.DRAFT.wire, Keyword.SEEN.wire),
+                                    fingerprints = sealed.fingerprints,
+                                    signer = sealed.signer,
+                                )
+                        ),
+                )
+            )
+
+        val result = client.send(request).result(import)
+
+        result.notCreated[CREATION_ID]?.let { failure ->
+            // `forbidden` names `fingerprints`: a recipient's current key is not
+            // among them, which after the lookup a moment ago means it changed.
+            if (failure.type == "forbidden") throw EncryptionRefused.KeysChanged
+
+            error(
+                failure.description ?: failure.type.ifBlank { "The server refused to save this." }
+            )
+        }
+
+        val created =
+            result.created[CREATION_ID]?.id?.takeIf { it.isNotBlank() }
+                ?: error("The server saved the draft without telling us its id.")
+
+        draft.emailId?.let { runCatching { moveToTrash(client, accountId, draft.accountKey, it) } }
+
+        return draft.copy(
+            emailId = created,
+            savedAttachments = draft.attachments,
+            savedSealed = true,
+        )
+    }
+
+    /**
+     * The bytes of an attachment going into an encrypted message: a picked file, a decrypted one,
+     * or one on a draft already on the server, downloaded — the ciphertext has to carry it.
+     */
+    private suspend fun contentOf(
+        client: JmapClient,
+        accountId: AccountId,
+        attachment: StagedAttachment,
+    ): ByteArray {
+        attachment.uri?.let { _ ->
+            return bytesOf(attachment)
+                ?: error(
+                    "\"${attachment.name}\" could not be read. It may have been moved or " +
+                        "deleted since you attached it."
+                )
+        }
+
+        val blobId = attachment.blobId ?: error("\"${attachment.name}\" is not on this device.")
+        val out = ByteArrayOutputStream()
+        client.download(accountId, blobId, attachment.name, attachment.type, out)
+
+        return out.toByteArray()
     }
 
     /**
@@ -602,6 +826,26 @@ constructor(
         moveToTrash(client, AccountId(account.accountId), draft.accountKey, emailId)
     }
 
+    /**
+     * [discard] for a draft the composer does not hold: one listed in a conversation, thrown away
+     * from the reader.
+     *
+     * The cached copy goes too. The reader draws the conversation from the cache, and a draft still
+     * in it after the server has moved it to Trash is a delete that appears to have done nothing
+     * until the next sync. Thrown when the server could not be asked, so the reader can say so.
+     */
+    suspend fun discardDraft(accountKey: String, emailId: String) {
+        val account =
+            database.accounts().byUid(accountKey)
+                ?: error("This account is no longer on the phone.")
+        val client =
+            clients.forAccount(accountKey) ?: error("There is no connection to this server.")
+
+        moveToTrash(client, AccountId(account.accountId), accountKey, emailId)
+
+        database.emails().delete(listOf(StoreKey.objectKey(accountKey, emailId)))
+    }
+
     /** Reads the bytes of a picked file. Null when the URI has been revoked since it was staged. */
     private fun bytesOf(attachment: StagedAttachment): ByteArray? {
         val uri = attachment.uri ?: return null
@@ -791,19 +1035,36 @@ constructor(
         accountKey: String,
         emailId: String,
     ) {
-        val trash = binding(accountKey, TRASH_ROLE) ?: return
+        // Thrown rather than returned quietly: every caller that may shrug it
+        // off already wraps this, and the one that must not -- a draft deleted
+        // from the reader -- has to be able to say it stayed where it was.
+        val trash =
+            binding(accountKey, TRASH_ROLE)
+                ?: error("This account has no Trash yet. Its labels have not been synced.")
         val drafts = binding(accountKey, DRAFTS_ROLE)
+        // Inbox off too, as the server's own trash takes it off. A draft has
+        // no business in the inbox, but one that got there -- an undone trash
+        // of its whole conversation used to put it there -- stayed listed
+        // after a discard that left it.
+        val inbox = binding(accountKey, INBOX_ROLE)
 
         val patch = EmailPatch.build {
             addMailbox(trash)
             drafts?.let { removeMailbox(it) }
+            inbox?.let { removeMailbox(it) }
         }
 
         val request = RequestBuilder()
         val set =
             request.add(EmailSet(accountId = accountId, update = mapOf(EmailId(emailId) to patch)))
 
-        client.send(request).result(set)
+        val result = client.send(request).result(set)
+
+        if (result.hasFailures) {
+            val failure = result.firstFailure()
+
+            error(failure?.description ?: failure?.type ?: "The server refused to move the draft.")
+        }
     }
 
     /**
@@ -838,11 +1099,13 @@ constructor(
 
     private companion object {
         const val CREATION_ID = "c1"
+        const val MESSAGE_TYPE = "message/rfc822"
         const val FALLBACK_NAME = "attachment"
         const val DRAFTS_ROLE = "drafts"
         const val SENT_ROLE = "sent"
         const val TRASH_ROLE = "trash"
         val ALIAS_LOCAL_PART = Regex("^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$")
+        const val INBOX_ROLE = "inbox"
     }
 }
 
@@ -867,7 +1130,50 @@ fun randomAliasLocalPart(prefix: String? = null): String {
  *
  * [sender] is null whenever [draft] names a listed identity, which is nearly always.
  */
-data class ReopenedDraft(val draft: ComposeDraft, val sender: SendIdentity? = null)
+data class ReopenedDraft(
+    val draft: ComposeDraft,
+    val sender: SendIdentity? = null,
+    val encryption: ReopenedEncryption = ReopenedEncryption.NONE,
+)
+
+/** What a reopened draft's end-to-end encryption means for the composer (#9). */
+enum class ReopenedEncryption {
+    NONE,
+
+    /** An encrypted draft, decrypted here; it stays encrypted. */
+    OPENED,
+
+    /** An encrypted draft this device cannot open: its keys are not here. */
+    UNREADABLE,
+
+    /** A draft the web app sealed, which only a browser can open. */
+    SEALED_ON_WEB,
+}
+
+/**
+ * [this] with its text replaced by what was decrypted, for a reply or forward to quote: the body as
+ * [DraftComposer] reads it, and the subject the sender protected inside, unless there was none.
+ */
+fun Email.withDecrypted(content: DecryptedContent): Email =
+    copy(
+        subject = content.subject ?: subject,
+        textBody = emptyList(),
+        htmlBody = listOf(EmailBodyPart(partId = DECRYPTED_PART, type = "text/html")),
+        // Inline images are parts of the original, not of the answer: a quote
+        // that kept `cid:` references would show broken images everywhere.
+        bodyValues = mapOf(DECRYPTED_PART to EmailBodyValue(content.html.replace(CID_IMAGE, ""))),
+    )
+
+private const val DECRYPTED_PART = "decrypted"
+private val CID_IMAGE = Regex("<img[^>]*src=\"cid:[^\"]*\"[^>]*>", RegexOption.IGNORE_CASE)
+
+/**
+ * The sign-off marker as [de.plmail.jmap.mail.Signatures] finds it. The sanitiser writes the bare
+ * attribute out as `data-pl-signature=""`, and the signature would then be doubled on the next save
+ * rather than swapped.
+ */
+private fun String.withSignatureMarker(): String =
+    replace("data-pl-signature=\"\"", "data-pl-signature")
 
 /**
  * Attachment parts as things the composer can show and re-send.

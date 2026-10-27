@@ -67,7 +67,7 @@ internal fun CategoryDigestBar(arrivals: List<CategoryArrivals>, onClick: () -> 
     // `joinToString`'s transform is a *nullable* function type -- so it cannot
     // be inlined, and a @Composable call inside it will not compile. `map`'s
     // lambda is inline and non-nullable, which is the whole difference.
-    val names = arrivals.map { it.category.displayName() }.joinToString(", ")
+    val names = arrivals.map { it.tab.displayName() }.joinToString(", ")
 
     // Summed rather than per-category, because the bar has one line and four
     // counts do not fit on it. The split is a tap away, and the total is the
@@ -113,7 +113,7 @@ internal fun CategoryDigestBar(arrivals: List<CategoryArrivals>, onClick: () -> 
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = bundle.category.icon(),
+                            imageVector = bundle.tab.icon(),
                             contentDescription = null,
                             tint = theme.colors.accent,
                             modifier = Modifier.size(GLYPH),
