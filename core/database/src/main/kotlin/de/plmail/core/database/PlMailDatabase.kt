@@ -53,7 +53,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ],
     version = 13,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 11, to = 12, spec = PlMailDatabase.FromV11::class)],
 )
 abstract class PlMailDatabase : RoomDatabase() {
 
@@ -88,8 +87,16 @@ abstract class PlMailDatabase : RoomDatabase() {
                 .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                 .build()
 
-        /** Every version before the first one migrated from. */
-        private val BEFORE_MIGRATIONS = (1..10).toList().toIntArray()
+        /**
+         * Every version before the first one migrated from.
+         *
+         * BearerMail: through 12. A BearerMail phone is on the fork's own v9 schema (notes,
+         * contacts, Drive and the widgets' columns), which is not upstream's v9 and has no path to
+         * v13 but a rebuild; upstream's v11 -> v12 migration only ever applied to upstream's own
+         * builds. One full re-sync on this update, as every BearerMail schema bump has been;
+         * migrations start from 13.
+         */
+        private val BEFORE_MIGRATIONS = (1..12).toList().toIntArray()
     }
 
     /**

@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import de.plmail.core.database.PlMailDatabase
 import java.io.File
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -19,11 +18,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Updating from v0.4.1 keeps the cache.
+ * Opening a database the app finds on a phone.
  *
- * Every schema bump up to that release dropped the database, and with it every downloaded body: to
- * somebody updating the app, their mail reloading from nothing. This builds a version 11 database
- * from its exported schema, as v0.4.1 left it on a phone, and opens it the way the app does.
+ * BearerMail: every version through 12 is rebuilt (see `PlMailDatabase.BEFORE_MIGRATIONS`), so the
+ * upstream tests for keeping the cache across v11 -> v12 do not apply here. What does: the current
+ * export is the compiled schema, and an old or newer database is rebuilt rather than a crash.
  */
 @RunWith(RobolectricTestRunner::class)
 // sdk = 36 for the reason FeedProjectionTest gives.
@@ -37,40 +36,6 @@ class DatabaseUpgradeTest {
     fun close() {
         opened?.close()
         context.deleteDatabase(PlMailDatabase.NAME)
-    }
-
-    @Test
-    fun `the bodies already downloaded survive the update`() = runTest {
-        seed(version = 11) {
-            execSQL("INSERT INTO email_bodies (uid, textBody, fetchedAt) VALUES ('e1', 'Hello', 1)")
-        }
-
-        val database = PlMailDatabase.create(context).also { opened = it }
-
-        val body = database.emails().body("e1")
-        assertEquals("Hello", body?.textBody)
-        assertEquals(false, body?.hasReplyHeaders)
-    }
-
-    /** The new counts are wrong at their defaults, so the lists are paged again to rewrite them. */
-    @Test
-    fun `every account is paged again after the update`() = runTest {
-        seed(version = 11) {
-            execSQL(
-                """
-                INSERT INTO accounts (uid, serverId, accountId, name, isPersonal, isReadOnly,
-                  sortIndex, wantsInboxTabs, emailState, threadState)
-                VALUES ('a1', 's', '13', 'Me', 1, 0, 0, 0, 'e5', 't5')
-                """
-            )
-        }
-
-        val database = PlMailDatabase.create(context).also { opened = it }
-
-        val account = database.accounts().byUid("a1")
-        assertEquals("Me", account?.name)
-        assertNull(account?.emailState)
-        assertNull(account?.threadState)
     }
 
     /**
@@ -148,6 +113,6 @@ class DatabaseUpgradeTest {
         val SCHEMAS = File("../database/schemas/de.plmail.core.database.PlMailDatabase")
 
         /** The version the app opens at, which `PlMailDatabase` declares. */
-        const val CURRENT = 12
+        const val CURRENT = 13
     }
 }
