@@ -6,9 +6,11 @@ import de.plmail.core.data.LabelBinding
 import de.plmail.core.data.LabelSelection
 import de.plmail.core.data.MailAction
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import de.plmail.core.data.MailView
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * What "Move to" offers, and what each row does.
@@ -147,6 +149,59 @@ class MoveDestinationsTest {
 
         assertEquals(listOf("receipts"), offered.matching(" REC ", named).labelKeys())
         assertEquals(offered, offered.matching("  ", named))
+    }
+
+    /**
+     * From a tab, the other tabs lead the sheet — the web's drag onto a tab — and the one being
+     * looked at is left off, as the list being looked at always is.
+     */
+    @Test
+    fun `from a tab the other tabs are offered first`() {
+        val shipping = MailTab(key = "c12", name = "Shipping", sortOrder = 5)
+        val tabs = MailTab.BUILT_IN.filter { it.builtIn != MailCategory.FORUMS } + shipping
+
+        val offered =
+            moveDestinations(
+                MailView.Category(MailCategory.PROMOTIONS),
+                labels,
+                targets,
+                LabelSelection(),
+                tabs,
+            )
+
+        assertEquals(
+            listOf("primary", "social", "updates", "c12"),
+            offered.filterIsInstance<MoveDestination.ToTab>().map { it.tab.key },
+        )
+        assertEquals(
+            MoveDestination.ToTab(shipping, MailAction.MoveToTab("c12", from = "promotions")),
+            offered.filterIsInstance<MoveDestination.ToTab>().last(),
+        )
+        assertTrue(offered.first() is MoveDestination.ToTab)
+
+        // From the reader's own tab, back into a built-in.
+        val fromShipping = moveDestinations(shipping.view, labels, targets, LabelSelection(), tabs)
+        assertEquals(
+            MoveDestination.ToTab(tabs.first(), MailAction.MoveToTab("primary", from = "c12")),
+            fromShipping.first(),
+        )
+    }
+
+    /**
+     * A tab is an inbox idea, and a server without the extension has no way to file mail in one, so
+     * neither a label list nor such a server offers any.
+     */
+    @Test
+    fun `tabs are offered only from a tab and only where the server serves them`() {
+        val tabs = MailTab.BUILT_IN
+
+        assertTrue(
+            moveDestinations(MailView.Labelled(receipts), labels, targets, LabelSelection(), tabs)
+                .none { it is MoveDestination.ToTab }
+        )
+        assertTrue(
+            from(MailView.Category(MailCategory.PROMOTIONS)).none { it is MoveDestination.ToTab }
+        )
     }
 
     private fun from(view: MailView, selection: LabelSelection = LabelSelection()) =

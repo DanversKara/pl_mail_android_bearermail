@@ -242,6 +242,20 @@ class OutboxTest {
         )
     }
 
+    /** A tab move is replayed by its keys: the tab is the reader's and outlives any cached row. */
+    @Test
+    fun `a queued tab move is rebuilt as the same move`() = runTest {
+        val outbox = outbox(labels = emptyMap())
+
+        outbox.enqueue(MailAction.MoveToTab(tab = "c12", from = "promotions"), targets, at = 1)
+
+        val attempted = mutableListOf<MailAction>()
+
+        outbox.drain { action, _ -> attempted += action }
+
+        assertEquals(listOf<MailAction>(MailAction.MoveToTab("c12", "promotions")), attempted)
+    }
+
     /**
      * A side that named a label which has gone is not read as the Inbox.
      *

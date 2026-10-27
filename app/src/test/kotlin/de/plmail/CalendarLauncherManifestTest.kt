@@ -135,7 +135,7 @@ class CalendarLauncherManifestTest {
 
         // A leading colon, so the affinity is expanded against the applicationId
         // at install time: de.plmail:calendar for foss and
-        // de.plmail.google:calendar for the other, with .debug folded in. Two
+        // de.pluetzner.plmail:calendar for the other, with .debug folded in. Two
         // flavours side by side on one device therefore cannot share a calendar
         // task. Asserted as the literal because the expansion is the platform's
         // and happens well after this file is written.

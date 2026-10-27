@@ -36,6 +36,9 @@ internal data class PendingMutation(
     /**
      * [Kind.MOVE]'s other side, with [labelKey] as the target. Null is the Inbox on both, which is
      * resolved by role per account and so needs no key.
+     *
+     * [Kind.TAB] reuses the pair for tab keys: [labelKey] is the tab moved to, this the one moved
+     * from. Tab keys are the reader's and stable, so they are replayed as they are.
      */
     val leavingKey: String? = null,
 ) {
@@ -50,6 +53,7 @@ internal data class PendingMutation(
         LABEL,
         SNOOZE,
         MOVE,
+        TAB,
     }
 
     /**
@@ -274,6 +278,14 @@ private fun MailAction.asPending(
                 labelKey = target?.key,
                 leavingKey = leaving?.key,
             )
+        is MailAction.MoveToTab ->
+            PendingMutation(
+                PendingMutation.Kind.TAB,
+                stored,
+                at,
+                labelKey = tab,
+                leavingKey = from,
+            )
     }
 }
 
@@ -298,6 +310,9 @@ private fun PendingMutation.asAction(known: Map<String, Label>): MailAction? =
                     target = labelKey?.let { known[it] },
                     leaving = leavingKey?.let { known[it] },
                 )
+        // Replayed as stored. A tab the reader has since deleted is refused by
+        // the server by name, which is an answer and ends the entry.
+        PendingMutation.Kind.TAB -> labelKey?.let { MailAction.MoveToTab(it, leavingKey) }
     }
 
 private fun String?.isUnknownIn(known: Map<String, Label>): Boolean = this != null && this !in known

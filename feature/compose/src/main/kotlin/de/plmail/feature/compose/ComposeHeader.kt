@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -61,6 +62,8 @@ internal fun ComposeHeader(
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onIdentity: (SendIdentity) -> Unit,
+    /** Asks the server for the addresses again, from the bottom of the From menu. */
+    onRefreshIdentities: () -> Unit,
     onTo: (List<EmailAddress>) -> Unit,
     onCc: (List<EmailAddress>) -> Unit,
     onBcc: (List<EmailAddress>) -> Unit,
@@ -107,13 +110,19 @@ internal fun ComposeHeader(
             return@Column
         }
 
-        FromRow(state = state, onSelected = onIdentity, onNewAlias = onNewAlias)
+        FromRow(
+            state = state,
+            onSelected = onIdentity,
+            onNewAlias = onNewAlias,
+            onRefresh = onRefreshIdentities,
+        )
         PlMailDivider()
 
         RecipientField(
             label = stringResource(R.string.compose_to),
             addresses = state.draft.to,
             onChanged = onTo,
+            lockOf = state::lockOf,
             suggestions = state.suggestions,
             onQueryChanged = onQueryChanged,
             focusRequester = toField,
@@ -133,6 +142,7 @@ internal fun ComposeHeader(
                 label = stringResource(R.string.compose_cc),
                 addresses = state.draft.cc,
                 onChanged = onCc,
+                lockOf = state::lockOf,
                 suggestions = state.suggestions,
                 onQueryChanged = onQueryChanged,
             )
@@ -141,6 +151,7 @@ internal fun ComposeHeader(
                 label = stringResource(R.string.compose_bcc),
                 addresses = state.draft.bcc,
                 onChanged = onBcc,
+                lockOf = state::lockOf,
                 suggestions = state.suggestions,
                 onQueryChanged = onQueryChanged,
             )
@@ -372,6 +383,7 @@ private fun FromRow(
     state: ComposeUiState,
     onSelected: (SendIdentity) -> Unit,
     onNewAlias: (random: Boolean) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     var isOpen by remember { mutableStateOf(false) }
     val theme = PlMailTheme.values
@@ -380,7 +392,8 @@ private fun FromRow(
     Row(
         modifier =
             Modifier.fillMaxWidth()
-                // Always openable: the menu also holds "New alias…".
+                // Always, even with one address: the menu is also where a new
+                // one is asked for.
                 .clickable { isOpen = true }
                 .padding(horizontal = theme.spacing.gutter, vertical = theme.spacing.medium),
         horizontalArrangement = Arrangement.spacedBy(theme.spacing.small),
@@ -400,12 +413,10 @@ private fun FromRow(
             modifier = Modifier.weight(1f),
         )
 
-        if (choices.isNotEmpty()) {
-            Icon(
-                imageVector = Icons.Filled.MoreHoriz,
-                contentDescription = stringResource(R.string.compose_choose_sender),
-            )
-        }
+        Icon(
+            imageVector = Icons.Filled.MoreHoriz,
+            contentDescription = stringResource(R.string.compose_choose_sender),
+        )
 
         DropdownMenu(expanded = isOpen, onDismissRequest = { isOpen = false }) {
             choices.forEach { identity ->
@@ -449,6 +460,17 @@ private fun FromRow(
                 onClick = {
                     isOpen = false
                     onNewAlias(true)
+                },
+            )
+            // The one place the list is fetched again. An address added on the
+            // web since the last directory refresh is rare, and waiting for it
+            // every time the composer opened was the price of not having this.
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.compose_refresh_senders)) },
+                leadingIcon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                onClick = {
+                    onRefresh()
+                    isOpen = false
                 },
             )
         }

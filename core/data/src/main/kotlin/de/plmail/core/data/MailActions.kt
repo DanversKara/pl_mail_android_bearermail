@@ -7,17 +7,19 @@ import de.plmail.core.database.EmailEntity
 import de.plmail.core.database.FeedEntryEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
+import de.plmail.core.database.ThreadEntity
 import de.plmail.jmap.methods.EmailPatch
 import de.plmail.jmap.methods.EmailSet
+import de.plmail.jmap.methods.ThreadGet
 import de.plmail.jmap.methods.ThreadPatch
 import de.plmail.jmap.methods.ThreadSet
 import de.plmail.jmap.methods.isUnsupportedMove
 import de.plmail.jmap.protocol.AccountId
+import de.plmail.jmap.protocol.Capability
 import de.plmail.jmap.protocol.EmailId
 import de.plmail.jmap.protocol.JmapError
 import de.plmail.jmap.protocol.MailboxId
 import de.plmail.jmap.protocol.RequestBuilder
-import de.plmail.jmap.protocol.StateToken
 import de.plmail.jmap.protocol.ThreadId
 import java.io.IOException
 import java.time.Instant
@@ -163,8 +165,8 @@ constructor(
     /**
      * [wayBackFrom], with the pre-state read out of the cache.
      *
-     * Only snooze needs the read, and only snooze pays for it: every other action's inverse is a
-     * property of the action itself.
+     * Only snooze and a tab move need the read, and only they pay for it: every other action's
+     * inverse is a property of the action itself.
      */
     private suspend fun wayBack(action: MailAction, targets: List<ActionTarget>): List<UndoStep> {
         val before =
@@ -179,7 +181,21 @@ constructor(
                 emptyMap()
             }
 
-        return wayBackFrom(action, targets, before)
+        // The same argument for a tab move: the way back is where each
+        // conversation was, and the local write is about to overwrite it.
+        val tabs =
+            if (action is MailAction.MoveToTab) {
+                targets.associateWith { target ->
+                    database
+                        .threads()
+                        .byUid(StoreKey.objectKey(target.accountKey, target.threadId))
+                        ?.tabKey(database.enabledTabKeys(target.accountKey))
+                }
+            } else {
+                emptyMap()
+            }
+
+        return wayBackFrom(action, targets, before, tabs)
     }
 
     /**
@@ -195,9 +211,16 @@ constructor(
                 val threadUid = StoreKey.objectKey(target.accountKey, target.threadId)
 
                 when (action) {
-                    MailAction.Archive,
+                    MailAction.Archive ->
+                        database.clearFromInboxLists(target.accountKey, target.threadId)
+
+                    // Out of every list, not only the inbox's. Trash and spam
+                    // take a conversation out of its labels as well, and a row
+                    // swiped away in a label, in Sent or in search results
+                    // stayed parked over the trash icon until the next refresh.
                     MailAction.Trash,
-                    MailAction.MarkSpam -> clearFromInbox(threadUid)
+                    MailAction.MarkSpam ->
+                        database.feed().clearThreads(target.accountKey, listOf(target.threadId))
 
                     // Undoing a removal has to put the row back, or the list
                     // keeps the conversation hidden until the next refresh and
@@ -296,6 +319,33 @@ constructor(
                         mail.refreshLabelsOf(target.accountKey, target.threadId)
                     }
 
+                    // Out of the tab it was in and into the one it was put in,
+                    // in the same write as the column both are decided from. The
+                    // new tab gets a row only while the conversation is in the
+                    // inbox: a tab is an inbox idea, and filing archived mail in
+                    // one changes where it would land, not what is listed.
+                    is MailAction.MoveToTab -> {
+                        val before = database.threads().byUid(threadUid)
+
+                        if (before != null) {
+                            val tabs = database.enabledTabKeys(target.accountKey)
+
+                            before.tabKey(tabs)?.let {
+                                database.feed().clearThread(tabFeedId(it), threadUid)
+                            }
+
+                            database.threads().setInboxTab(threadUid, action.tab)
+
+                            if (before.isInInbox) {
+                                database
+                                    .feed()
+                                    .upsertEntries(
+                                        listOf(entryFor(tabFeedId(action.tab), target, before))
+                                    )
+                            }
+                        }
+                    }
+
                     is MailAction.Snooze -> {
                         database.threads().setSnoozedUntil(threadUid, action.until)
 
@@ -346,13 +396,21 @@ constructor(
     private suspend fun clearFromInbox(threadUid: String) {
         database.feed().clearThread(Feed.UNIFIED_INBOX.id, threadUid)
 
-        // From the row's own stored category, which is the same value the
+        // From the row's own stored placement, decided by the same rule the
         // projection places it by. A second source for "which tab is this in"
         // would eventually put a row in one list and take it out of another.
-        val category = MailCategory.fromWire(database.threads().byUid(threadUid)?.category)
+        val thread = database.threads().byUid(threadUid) ?: return
 
-        category?.let { database.feed().clearThread(it.feedId, threadUid) }
+        tabFeedOf(thread)?.let { database.feed().clearThread(it, threadUid) }
     }
+
+    /** The tab list an inbox conversation sits in, by [inboxFeedId] — the projection's rule. */
+    private suspend fun tabFeedOf(thread: ThreadEntity): String? =
+        thread.inboxFeedId(
+            enabled = database.enabledTabKeys(thread.accountKey),
+            classifies = database.classifies(thread.accountKey),
+            wantsTabs = database.wantsInboxTabs(thread.accountKey),
+        )
 
     /**
      * Puts a conversation back into the unified inbox's list.
@@ -372,32 +430,35 @@ constructor(
         val feeds =
             listOfNotNull(
                 Feed.UNIFIED_INBOX.id,
-                MailCategory.fromWire(thread.category)?.feedId,
+                tabFeedOf(thread),
             )
 
-        database
-            .feed()
-            .upsertEntries(
-                feeds.map { feedId ->
-                    FeedEntryEntity(
-                        // Exactly the key FeedMediator writes and clearThread
-                        // deletes, and it has to be: a row keyed any other way is
-                        // a second copy of the same conversation the next time
-                        // the list pages, and one nothing can ever remove. This
-                        // was a literal `${Feed…}#$threadUid` for a while -- the
-                        // same constant string for every conversation, so
-                        // restoring two of them left one row that matched
-                        // neither.
-                        uid = "$feedId#$threadUid",
-                        feedId = feedId,
-                        sortDate = thread.latestReceivedAt,
-                        accountKey = target.accountKey,
-                        threadId = target.threadId,
-                        emailId = target.threadId,
-                    )
-                }
-            )
+        database.feed().upsertEntries(feeds.map { feedId -> entryFor(feedId, target, thread) })
     }
+
+    /**
+     * A feed row for one conversation, keyed exactly as [FeedMediator] writes it and `clearThread`
+     * deletes it.
+     */
+    private fun entryFor(
+        feedId: String,
+        target: ActionTarget,
+        thread: ThreadEntity,
+    ): FeedEntryEntity =
+        FeedEntryEntity(
+            // Exactly the key FeedMediator writes and clearThread deletes, and it
+            // has to be: a row keyed any other way is a second copy of the same
+            // conversation the next time the list pages, and one nothing can ever
+            // remove. This was a literal `${Feed…}#$threadUid` for a while -- the
+            // same constant string for every conversation, so restoring two of
+            // them left one row that matched neither.
+            uid = "$feedId#${thread.uid}",
+            feedId = feedId,
+            sortDate = thread.latestReceivedAt,
+            accountKey = target.accountKey,
+            threadId = target.threadId,
+            emailId = target.threadId,
+        )
 
     /** Where this account's snoozed mail is listed, or null if it has never snoozed anything. */
     private suspend fun snoozedFeedId(accountKey: String): String? =
@@ -413,6 +474,7 @@ constructor(
         when (action) {
             is MailAction.Snooze -> sendSnooze(action, targets)
             is MailAction.MoveTo -> sendMove(action, targets)
+            is MailAction.MoveToTab -> sendTab(action, targets)
             else -> sendEmailSet(action, targets)
         }
     }
@@ -501,20 +563,61 @@ constructor(
             .forEach { (accountKey, forAccount) ->
                 val account = database.accounts().byUid(accountKey) ?: return@forEach
                 val client = clients.forAccount(accountKey) ?: return@forEach
-                // Resolved from the cache rather than taken from the caller.
+                val accountId = AccountId(account.accountId)
+
                 // Thread ids and message ids are different id spaces, and a
-                // list row only knows the former.
+                // list row only knows the former. A message-scoped target names
+                // its own id; a conversation's messages are asked of the server.
+                //
+                // Not read from the cache, which is what this did: the list
+                // pages one message per conversation, so the cache holds the
+                // newest and nothing older until the reader opens it. Trashing
+                // a conversation from the list moved its newest message alone,
+                // the rest stayed in the inbox, and the next sync put the
+                // conversation back -- one message lighter each time round.
+                //
+                // Unless the phone holds the conversation whole: the list pages
+                // and the sync record how many messages each has, and holding
+                // that many, the cache is the answer and asking costs a round
+                // trip before the change can be sent. Most conversations are a
+                // single message, so most actions go out as one request.
+                val cached =
+                    forAccount
+                        .filter { it.emailId == null }
+                        .map { it.threadId }
+                        .distinct()
+                        .associateWith { database.emails().inThread(accountKey, it) }
+                val heldWhole = cached.filter { (threadId, emails) ->
+                    val counted = database.threads().byUid(StoreKey.objectKey(accountKey, threadId))
+                    counted != null && emails.size >= counted.messageCount
+                }
+                val conversations = (cached.keys - heldWhole.keys).map(::ThreadId)
+
+                val members =
+                    heldWhole.mapValues { (_, emails) -> emails.map { it.emailId } } +
+                        if (conversations.isEmpty()) {
+                            emptyMap()
+                        } else {
+                            val lookup = RequestBuilder()
+                            val get = lookup.add(ThreadGet(accountId, ids = conversations))
+
+                            client.send(lookup).result(get).list.associate { thread ->
+                                thread.id.value to thread.emailIds.map { it.value }
+                            }
+                        }
+
                 val ids =
                     forAccount
                         .flatMap { target ->
-                            // A message-scoped target names its own id and needs
-                            // no lookup. Everything else is a conversation, and
-                            // its messages are only known to the cache.
                             target.emailId?.let { listOf(it) }
-                                ?: database
-                                    .emails()
-                                    .inThread(target.accountKey, target.threadId)
-                                    .map { it.emailId }
+                                // The cache as well, for a conversation the
+                                // server no longer knows by that id: what this
+                                // phone has seen of it is still worth moving.
+                                ?: (members[target.threadId].orEmpty() +
+                                    database
+                                        .emails()
+                                        .inThread(target.accountKey, target.threadId)
+                                        .map { it.emailId })
                         }
                         .distinct()
                         .map(::EmailId)
@@ -522,17 +625,21 @@ constructor(
                 if (ids.isEmpty()) return@forEach
 
                 val request = RequestBuilder()
-                val accountId = AccountId(account.accountId)
 
+                // No `ifInState`, deliberately. The server bumps the account's
+                // Email state on every IMAP sync and flag change, and on the
+                // action before this one, so a token read from the cache is
+                // often stale by the time a second swipe arrives. The server
+                // then answers `stateMismatch` and nothing is changed -- which
+                // the user sees as "may not have reached the server" for a
+                // plain archive or trash. These are relocations of named
+                // messages, each one undoable; last writer wins is the right
+                // answer, not a refusal.
                 val set =
                     if (action == MailAction.Trash) {
                         // `destroy` is the move to Trash. The server has no
                         // hard-delete path, so this is a relocation.
-                        EmailSet(
-                            accountId = accountId,
-                            destroy = ids,
-                            ifInState = state(account.emailState),
-                        )
+                        EmailSet(accountId = accountId, destroy = ids)
                     } else {
                         // A missing binding is reported, never skipped. Silently
                         // doing nothing here is the worst possible outcome: the
@@ -546,14 +653,7 @@ constructor(
                                         "relative to yet. Its labels have not been synced."
                                 )
 
-                        EmailSet(
-                            accountId = accountId,
-                            update = ids.associateWith { patch },
-                            // The state the local copy was built from. Two
-                            // clients editing one conversation otherwise take
-                            // turns overwriting each other silently.
-                            ifInState = state(account.emailState),
-                        )
+                        EmailSet(accountId = accountId, update = ids.associateWith { patch })
                     }
 
                 val handle = request.add(set)
@@ -611,6 +711,38 @@ constructor(
     }
 
     /**
+     * A tab move, which is `Thread/set { inboxTab }` and declares the extension it belongs to.
+     *
+     * A refusal is reported rather than retried: the key is one the reader no longer has — a
+     * built-in switched off on the web, a tab of their own deleted there — and the server answers
+     * that with `invalidProperties` rather than filing the conversation under Primary. The local
+     * write has already moved the row, so the user is shown the refusal and given the way back.
+     */
+    private suspend fun sendTab(action: MailAction.MoveToTab, targets: List<ActionTarget>) {
+        targets
+            .groupBy { it.accountKey }
+            .forEach { (accountKey, forAccount) ->
+                val account = database.accounts().byUid(accountKey) ?: return@forEach
+                val client = clients.forAccount(accountKey) ?: return@forEach
+
+                val request = RequestBuilder(using = Capability.USING_INBOX_TABS)
+                val handle =
+                    request.add(
+                        ThreadSet.moveToTab(
+                            accountId = AccountId(account.accountId),
+                            threadIds = forAccount.map { ThreadId(it.threadId) },
+                            tab = action.tab,
+                        )
+                    )
+
+                val result = client.send(request).result(handle)
+                val failure = result.notUpdated.values.firstOrNull() ?: return@forEach
+
+                error(failure.description ?: failure.type)
+            }
+    }
+
+    /**
      * The wire form of a snooze time: UTC, seconds, `Z`.
      *
      * Spelled out rather than left to a default formatter. JMAP's UTCDate is a specific shape and a
@@ -620,8 +752,6 @@ constructor(
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .withZone(ZoneOffset.UTC)
             .format(Instant.ofEpochMilli(epochMillis))
-
-    private fun state(token: String?): StateToken? = token?.let(::StateToken)
 
     /**
      * The patch for an action, resolved against this account's own bindings.
@@ -657,7 +787,21 @@ constructor(
                 }
             }
 
-            MailAction.MoveToInbox -> inbox(accountKey)?.let { EmailPatch.build { addMailbox(it) } }
+            // Out of the bin as well as into the inbox, as the web's restore
+            // does: Trash, Spam and Archive all come off. Adding Inbox alone --
+            // which this did -- left an undone trash in the inbox and the bin
+            // at once, and the server's own trash had already taken Inbox away,
+            // so nothing else would ever clean it up.
+            MailAction.MoveToInbox -> {
+                val inbox = inbox(accountKey) ?: return null
+                val leaving =
+                    listOf("trash", "junk", "archive").mapNotNull { binding(accountKey, it) }
+
+                EmailPatch.build {
+                    addMailbox(inbox)
+                    leaving.forEach { removeMailbox(it) }
+                }
+            }
 
             MailAction.MarkSpam -> {
                 val junk = binding(accountKey, "junk") ?: return null
@@ -724,8 +868,9 @@ constructor(
                 }
             }
 
-            // Handled by sendSnooze, which speaks Thread/set.
-            is MailAction.Snooze -> null
+            // Handled by sendSnooze and sendTab, which speak Thread/set.
+            is MailAction.Snooze,
+            is MailAction.MoveToTab -> null
 
             MailAction.Trash -> null
         }
@@ -780,4 +925,23 @@ internal fun EmailEntity.withBinding(binding: MailboxId, applied: Boolean): Emai
     if (applied) current.add(binding.value) else current.remove(binding.value)
 
     return copy(mailboxIds = current.joinToString(","))
+}
+
+/**
+ * Takes an archived conversation out of every inbox list, whichever one it is listed in.
+ *
+ * Not by [inboxFeedId] the way `MailActions.clearFromInbox` does it: that names where the
+ * *projection* files a conversation, and a row the server's own query paged into Primary — before
+ * the classification arrived, or under a tab switched off since — is in a list that rule does not
+ * name, and stayed there with the row swiped aside over its icon. Labels and search results keep
+ * it: archiving takes away the inbox, nothing else.
+ */
+internal suspend fun PlMailDatabase.clearFromInboxLists(accountKey: String, threadId: String) {
+    feed()
+        .clearThreadFrom(
+            accountKey = accountKey,
+            threadId = threadId,
+            feedIds = listOf(Feed.UNIFIED_INBOX.id) + MailCategory.entries.map { it.feedId },
+            prefix = TAB_FEED_PREFIX,
+        )
 }

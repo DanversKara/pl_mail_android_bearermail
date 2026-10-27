@@ -24,6 +24,12 @@ data class NewMessage(
     val subject: String?,
     val preview: String,
     val receivedAt: Long,
+    /**
+     * End-to-end encrypted and not readable on the server (#9). The notification then says
+     * "Encrypted message" and nothing else — the documented rule for clients — and offers no reply
+     * from the shade, which could only answer in the clear.
+     */
+    val isEncrypted: Boolean = false,
 )
 
 /**
@@ -119,6 +125,17 @@ internal fun newArrivals(
      * announced every category as Primary.
      */
     serverClassifies: Boolean,
+    /**
+     * Thread id to `Thread.inboxTab`, off the same `Thread/get` as [threadCategories]. Empty on a
+     * server without the inbox-tabs extension.
+     */
+    threadInboxTabs: Map<String, String?> = emptyMap(),
+    /** The tabs the reader has switched on, or null where the server serves none. */
+    enabledTabs: Set<String>? = null,
+    /**
+     * Whether the reader wants the inbox in tabs at all. False is one list, and all of it Primary.
+     */
+    inboxTabs: Boolean = true,
 ): List<NewMessage> =
     emails
         .filter { de.plmail.core.database.StoreKey.objectKey(accountKey, it.id.value) !in known }
@@ -130,6 +147,9 @@ internal fun newArrivals(
                     threadCategory = email.threadId?.value?.let { threadCategories[it] },
                     bindingKeys = bindingKeys,
                     serverClassifies = serverClassifies,
+                    threadInboxTab = email.threadId?.value?.let { threadInboxTabs[it] },
+                    enabledTabs = enabledTabs,
+                    inboxTabs = inboxTabs,
                 )
                 .any(prefs::allows)
         }

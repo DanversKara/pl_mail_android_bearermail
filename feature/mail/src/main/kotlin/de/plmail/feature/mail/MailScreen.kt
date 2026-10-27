@@ -54,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -71,9 +72,10 @@ import de.plmail.core.data.ActionTarget
 import de.plmail.core.data.CategoryArrivals
 import de.plmail.core.data.Label
 import de.plmail.core.data.MailAction
-import de.plmail.core.data.MailCategory
 import de.plmail.core.data.MailView
 import de.plmail.core.data.SwipeActions
+import de.plmail.core.data.messagesShown
+import de.plmail.core.data.receivedShown
 import de.plmail.core.data.rowLabels
 import de.plmail.core.database.ThreadEntity
 import de.plmail.core.designsystem.PaneTone
@@ -83,6 +85,8 @@ import de.plmail.core.designsystem.PlMailEmptyState
 import de.plmail.core.designsystem.PlMailTheme
 import de.plmail.core.ui.rowLabelSlots
 import java.time.Instant
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 /**
@@ -127,6 +131,12 @@ fun MailScreen(
      */
     onNavigate: (MailView) -> Unit,
     viewModel: MailViewModel = hiltViewModel(),
+    /**
+     * The rows, collected by whoever also needs their order. [MailPane] does: a swipe in the reader
+     * opens the row beside the open one, and two collectors of the same pager would be two copies
+     * of the list that need not agree on what is loaded.
+     */
+    threads: LazyPagingItems<ThreadEntity> = viewModel.threads.collectAsLazyPagingItems(),
 ) {
     // The label this list is browsing, if it is browsing one. A category list is
     // not: the conversations in Promotions carry whatever labels the user put on
@@ -140,7 +150,6 @@ fun MailScreen(
     // somebody's NAS whenever a message was read.
     LaunchedEffect(view.feedId) { viewModel.show(view) }
 
-    val threads = viewModel.threads.collectAsLazyPagingItems()
     val rowsInFeed by viewModel.rowsInFeed.collectAsStateWithLifecycle()
     // The same list the "Label as" sheet is drawn from, and the same list the
     // sidebar orders. A row stores label *keys*, so this is what turns them into
@@ -167,13 +176,6 @@ fun MailScreen(
     // `MailViewModel.badgedNew`.
     val badgedNew by viewModel.badgedNew.collectAsStateWithLifecycle()
 
-    // The in-process half of making `NeedsRepage` mean anything. A sync that
-    // finds the server can no longer answer from this account's stored position
-    // clears the cursor, which is what a list built *afterwards* reads -- this
-    // list was built before it, and without being told would go on drawing rows
-    // that nothing can bring up to date.
-    LaunchedEffect(Unit) { viewModel.repagedAccounts.collect { threads.refresh() } }
-
     // Back clears a selection before it leaves the screen: a selection is a
     // mode, and leaving a mode is what back is for.
     BackHandler(enabled = selection.isNotEmpty()) { viewModel.clearSelection() }
@@ -194,6 +196,9 @@ fun MailScreen(
     LaunchedEffect(view.feedId) {
         if (viewModel.claimStartAtTop(view.feedId)) listState.scrollToItem(0)
     }
+
+    // And it stays there while new mail arrives above the first row (#60).
+    StayAtTopOnArrivals(listState)
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -399,14 +404,21 @@ fun MailScreen(
                 isRefreshing =
                     threads.loadState.mediator?.refresh is LoadState.Loading || isSyncing,
                 onRefresh = {
-                    // The sync first, and it is not the redundant half. Re-paging
-                    // rebuilds *this* list from the server's query; the sync is
-                    // one `Email/changes` per account, which is what moves
-                    // conversations into and out of every other feed and corrects
-                    // read and starred state everywhere the user has touched mail
-                    // on another device.
+                    // The sync alone. It is one `Email/changes` per account, and
+                    // the projection writes what changed into every list it now
+                    // belongs to -- this one included, so new mail lands at the
+                    // top without the list being thrown away. Re-paging as well
+                    // cleared the list and fetched its first page again, and
+                    // everything scrolled past had to be fetched a second time.
+                    //
+                    // Re-paged only where there is nothing to correct: a list
+                    // that failed to load, or holds no rows.
                     viewModel.refresh()
-                    threads.refresh()
+                    if (
+                        threads.loadState.mediator?.refresh is LoadState.Error ||
+                            threads.itemCount == 0
+                    )
+                        threads.refresh()
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
@@ -423,8 +435,10 @@ fun MailScreen(
                     badgedNew = badgedNew,
                     swipes = swipes,
                     onMove = { thread -> viewModel.openMoveSheet(view, listOf(thread.target())) },
-                    onOpenCategory = { onNavigate(MailView.Category(it)) },
+                    onOpenCategory = onNavigate,
                     onShown = viewModel::threadsShown,
+                    onRowsAtRest = viewModel::rowsAtRest,
+                    onRowPressed = viewModel::rowPressed,
                     onThreadSelected = { thread ->
                         // The badge is spent by *opening* the conversation, not
                         // by the row having been drawn -- see
@@ -551,7 +565,8 @@ internal fun ThreadList(
      * [MailViewModel.badgedNew].
      */
     badgedNew: Set<String>,
-    onOpenCategory: (MailCategory) -> Unit,
+    /** Opens the tab a bundle is about — a built-in category or one of the reader's own. */
+    onOpenCategory: (MailView) -> Unit,
     /**
      * Told which conversations have actually been drawn, so the New marker can be retired.
      *
@@ -560,6 +575,10 @@ internal fun ThreadList(
      * See [de.plmail.core.data.ShownThreads].
      */
     onShown: (List<ThreadEntity>) -> Unit,
+    /** The conversations in view whenever the list comes to rest, by uid. */
+    onRowsAtRest: (List<String>) -> Unit = {},
+    /** A finger has landed on a row, which is usually the start of opening it. */
+    onRowPressed: (ThreadEntity) -> Unit = {},
     onThreadSelected: (ThreadEntity) -> Unit,
     onToggleSelected: (String) -> Unit,
     onAction: (ThreadEntity, MailAction) -> Unit,
@@ -618,6 +637,22 @@ internal fun ThreadList(
                 derivedStateOf { digestHasScrolledAway(listState.firstVisibleItemIndex, arrivals) }
             }
 
+        // Once a scroll has settled rather than on every row it passes: a
+        // fling across two hundred conversations is not a request to download
+        // them.
+        LaunchedEffect(listState) {
+            snapshotFlow {
+                    if (listState.isScrollInProgress) null
+                    else
+                        listState.layoutInfo.visibleItemsInfo.mapNotNull { item ->
+                            (item.key as? String)?.takeUnless { it.startsWith("bundle:") }
+                        }
+                }
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect(onRowsAtRest)
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -641,10 +676,10 @@ internal fun ThreadList(
             // would hold four rows of other people's promotions permanently
             // over the list somebody opened the app to read; scrolling away is
             // what makes this a courtesy rather than a tax.
-            items(items = arrivals, key = { "bundle:${it.category.wire}" }) { bundle ->
+            items(items = arrivals, key = { "bundle:${it.tab.key}" }) { bundle ->
                 CategoryBundleRow(
                     arrivals = bundle,
-                    onClick = { onOpenCategory(bundle.category) },
+                    onClick = { onOpenCategory(bundle.tab.view) },
                 )
             }
 
@@ -676,7 +711,15 @@ internal fun ThreadList(
                     }
 
                     SwipeableThreadRow(
-                        thread = thread,
+                        // Counted and dated for this list: by the deleted messages
+                        // in Trash, by the others everywhere else.
+                        thread =
+                            (viewing?.role == TRASH_ROLE).let { inBin ->
+                                thread.copy(
+                                    messageCount = thread.messagesShown(inBin),
+                                    latestReceivedAt = thread.receivedShown(inBin),
+                                )
+                            },
                         isSelected = thread.uid in selection,
                         showsAccount = isMerged,
                         isNew = thread.uid in badgedNew || thread.isNew,
@@ -693,6 +736,7 @@ internal fun ThreadList(
                             if (selection.isEmpty()) onThreadSelected(thread)
                             else onToggleSelected(thread.uid)
                         },
+                        onPress = { if (selection.isEmpty()) onRowPressed(thread) },
                         onLongClick = { onToggleSelected(thread.uid) },
                         onAction = { action -> onAction(thread, action) },
                         onMove = { onMove(thread) },
@@ -1051,3 +1095,5 @@ private fun ThreadEntity.target(): ActionTarget =
  */
 private fun LazyPagingItems<ThreadEntity>.targetsFor(selection: Set<String>): List<ActionTarget> =
     (0 until itemCount).mapNotNull { peek(it) }.filter { it.uid in selection }.map { it.target() }
+
+private const val TRASH_ROLE = "trash"

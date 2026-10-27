@@ -26,6 +26,15 @@ sealed interface NotifiableScope {
             get() = NotifyScope.Category(category).key
     }
 
+    /**
+     * One of the inbox tabs the reader made on the web, drawn among the categories in the strip's
+     * own order and named by the name they gave it. See [NotifyScope.Tab] for why it starts off.
+     */
+    data class Tab(val tab: MailTab, override val isEnabled: Boolean) : NotifiableScope {
+        override val key: String
+            get() = NotifyScope.Tab(tab.key).key
+    }
+
     data class Labelled(val label: Label, override val isEnabled: Boolean) : NotifiableScope {
         override val key: String
             get() = NotifyScope.Labelled(label.key).key
@@ -49,7 +58,12 @@ sealed interface NotifiableScope {
  * not, Inbox is.
  */
 data class NotifiableScopes(
-    val categories: List<NotifiableScope.Category> = emptyList(),
+    /**
+     * The inbox's switches, one per tab in the strip's order: the built-in categories the reader
+     * has on, and their own tabs among them. A built-in they switched off on the web is not listed
+     * — its mail is Primary's there, and so it is here.
+     */
+    val categories: List<NotifiableScope> = emptyList(),
     val labels: List<NotifiableScope.Labelled> = emptyList(),
 )
 
@@ -64,22 +78,29 @@ data class NotifiableScopes(
 @Singleton
 class NotificationSettingsRepository
 @Inject
-constructor(private val labels: LabelRepository, private val store: NotificationPrefsStore) {
+constructor(
+    private val labels: LabelRepository,
+    private val store: NotificationPrefsStore,
+    private val tabs: InboxTabRepository,
+) {
 
     val scopes: Flow<NotifiableScopes> =
-        combine(labels.observeLabels(), labels.observeHasCategories(), store.prefs) {
+        combine(labels.observeLabels(), labels.observeHasCategories(), tabs.strip, store.prefs) {
             all,
             hasCategories,
+            strip,
             prefs ->
             NotifiableScopes(
+                // `hasCategories` is false on one list as well as on a server
+                // that classifies nothing, and both get the Inbox switch instead.
                 categories =
                     if (!hasCategories) emptyList()
                     else
-                        MailCategory.entries.map {
-                            NotifiableScope.Category(
-                                category = it,
-                                isEnabled = prefs.allows(NotifyScope.Category(it).key),
-                            )
+                        strip.map { tab ->
+                            val enabled = prefs.allows(NotifyScope.ofTab(tab.key).key)
+
+                            tab.builtIn?.let { NotifiableScope.Category(it, enabled) }
+                                ?: NotifiableScope.Tab(tab, enabled)
                         },
                 labels =
                     all.filter { it.role !in NEVER_NOTIFIABLE_ROLES }

@@ -1,6 +1,7 @@
 package de.plmail.core.data
 
 import androidx.paging.ExperimentalPagingApi
+import androidx.paging.InvalidatingPagingSourceFactory
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -11,17 +12,24 @@ import de.plmail.core.datastore.CredentialStore
 import de.plmail.jmap.client.JmapClient
 import de.plmail.jmap.mail.EmailFilter
 import de.plmail.jmap.methods.IdentityGet
+import de.plmail.jmap.methods.InboxTabGet
 import de.plmail.jmap.methods.MailboxGet
 import de.plmail.jmap.protocol.AccountId
+import de.plmail.jmap.protocol.Capability
 import de.plmail.jmap.protocol.MailboxId
 import de.plmail.jmap.protocol.RequestBuilder
+import de.plmail.jmap.protocol.Session
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -70,7 +78,7 @@ class FeedRepository
 constructor(
     private val database: PlMailDatabase,
     private val credentials: CredentialStore,
-    private val transports: TransportFactory,
+    private val clients: AccountClients,
     private val mail: MailRepository,
     /**
      * Where the directory refresh runs when a cached list is already on screen.
@@ -81,7 +89,7 @@ constructor(
      * moment it was started.
      */
     @ApplicationScope private val scope: CoroutineScope,
-    repages: RepageSignal,
+    private val repages: RepageSignal,
 ) : ReachableAccounts {
 
     private val _failures = MutableStateFlow<List<SourceFailure>>(emptyList())
@@ -113,16 +121,6 @@ constructor(
      * the whole point is that three working accounts keep drawing while a fourth is down.
      */
     val failures = _failures.asStateFlow()
-
-    /**
-     * Accounts a sync has decided cannot be brought up to date incrementally.
-     *
-     * Re-exposed here for the same reason [failures] is: the list layer already holds this
-     * repository and should not have to reach past it to a signal class in this module to learn
-     * something about the list it is drawing. A plain [Flow] rather than the `SharedFlow` behind
-     * it, because the only thing a collector may do with it is collect.
-     */
-    val repagedAccounts: Flow<String> = repages.accounts
 
     /**
      * Withdraws the claim that this account cannot be reached.
@@ -207,13 +205,55 @@ constructor(
             // install's life, on the sync that first brings back a classified
             // conversation, and a pager built before that is rebuilt when the
             // user next switches view.
-            if (category == MailCategory.PRIMARY && !database.threads().hasCategories()) {
+            //
+            // The same where the user has asked for one list: Primary is then
+            // the whole inbox, unfiltered, as the web's single list is. Read per
+            // account because it is kept per account row; it is the same answer
+            // on every one of them.
+            if (
+                category == MailCategory.PRIMARY &&
+                    (!database.classifies(accountKey) || !database.wantsInboxTabs(accountKey))
+            ) {
                 return@feed inbox
             }
 
-            val inCategory = EmailFilter.ThreadCategory(category.wire)
+            // The reader's arrangement where the server has one, because that is
+            // what the web lists under this tab: without it Promotions would go on
+            // holding the mail one of their filters filed in a tab of their own,
+            // and Primary would lose a category they switched off. The tabs are
+            // read from the cache, which the directory refresh fills before a
+            // pager is built.
+            val inCategory =
+                if (database.enabledTabKeys(accountKey) != null)
+                    EmailFilter.ThreadInboxTab(category.wire)
+                else EmailFilter.ThreadCategory(category.wire)
 
             inbox?.let { EmailFilter.And(listOf(it, inCategory)) } ?: inCategory
+        }
+
+    /**
+     * One of the inbox tabs the reader made on the web, merged across accounts.
+     *
+     * [category] with `threadInboxTab` as the only possible condition: a tab of the reader's own
+     * exists only on a server with the extension, and there is no category to fall back to. An
+     * account with no cached tabs is dropped from the merge rather than queried unfiltered, for the
+     * reason [labelled] drops one without a binding — the alternative is that account's whole inbox
+     * under a tab called "Shipping".
+     */
+    fun tab(view: MailView.Tab, pageSize: Int = PAGE_SIZE): Flow<PagingData<ThreadEntity>> =
+        feed(view.feedId, pageSize, skipAccountsWithoutFilter = true) { accountKey, _ ->
+            if (
+                !database.wantsInboxTabs(accountKey) ||
+                    database.enabledTabKeys(accountKey)?.contains(view.key) != true
+            ) {
+                return@feed null
+            }
+
+            val inTab = EmailFilter.ThreadInboxTab(view.key)
+
+            database.mailboxes().byRole(accountKey, INBOX_ROLE)?.let {
+                EmailFilter.And(listOf(EmailFilter.InMailbox(MailboxId(it.mailboxId)), inTab))
+            } ?: inTab
         }
 
     /**
@@ -237,6 +277,7 @@ constructor(
         when (view) {
             is MailView.Category -> category(view.category, pageSize)
             is MailView.Labelled -> labelled(view.label, pageSize)
+            is MailView.Tab -> tab(view, pageSize)
         }
 
     private fun feed(
@@ -254,12 +295,14 @@ constructor(
             return@flow
         }
 
+        // The shared client, whose Session is already known: a client of its
+        // own asked the server for it again on every switch of list.
         val client =
-            JmapClient(
-                discoveryUrl = connection.address.discoveryUrl,
-                credential = connection.credential,
-                transport = transports.create(connection.address, connection.pinnedKey),
-            )
+            clients.current()
+                ?: run {
+                    emitAll(flowOf(PagingData.empty()))
+                    return@flow
+                }
 
         val server = connection.address.origin
 
@@ -323,13 +366,16 @@ constructor(
 
         // Written before the first page, so the sidebar and the per-account
         // banner have names to show even while the first query is in flight.
-        mail.replaceAccounts(server, session)
+        // The user switching the inbox between tabs and one list on the web
+        // changes what Primary holds, so a Primary on screen is re-paged under
+        // its new filter rather than left holding the old one's rows.
+        mail.replaceAccounts(server, session).forEach(repages::repage)
 
         // And the label bindings, because everything else needs them: the inbox
         // filter below, and every move action, which is expressed as adding or
         // removing a binding id that differs per account. Without this the list
         // silently pages the whole mailbox and archiving silently does nothing.
-        refreshBindings(client, server, session.accountIds.map { AccountId(it.value) })
+        refreshBindings(client, server, session)
 
         // This *was* the directory refresh, so the throttle counts it. Without
         // this the very next view switch after pairing -- which is now a cached
@@ -386,38 +432,58 @@ constructor(
                 accountId = accountId,
                 client = client,
                 filter = filter,
-                onPage = { emails, threads, state ->
-                    mail.storeEmails(accountKey, emails, threads, fetchedAt = now())
+                onPage = { emails, threads, states, members ->
+                    mail.storeEmails(accountKey, emails, threads, fetchedAt = now(), members)
 
-                    // The cursor delta sync resumes from. Recorded here
-                    // because a page is the only place it is reported, and
-                    // without it every push triggers a sync that finds no
+                    // The cursors delta sync resumes from. Recorded here
+                    // because a page is the only place they are reported, and
+                    // without them every push triggers a sync that finds no
                     // cursor and gives up.
-                    mail.recordEmailState(accountKey, state)
+                    mail.recordEmailState(accountKey, states.email)
+                    mail.recordThreadState(accountKey, states.thread)
                 },
             )
         }
 
-        return Pager(
-                config =
-                    PagingConfig(
-                        pageSize = pageSize,
-                        // Room's PagingSource reads from disk, so a generous
-                        // prefetch costs a query rather than a round trip.
-                        prefetchDistance = pageSize,
-                        enablePlaceholders = false,
-                    ),
-                remoteMediator =
-                    FeedMediator(
-                        feedId = feedId,
-                        database = database,
-                        sources = sources,
-                        onFailures = { failed -> _failures.update { failed } },
-                        onRowsHeld = { held -> mediatorRowCounts.tryEmit(feedId to held) },
-                    ),
-                pagingSourceFactory = { database.feed().pagingSource(feedId) },
+        // Invalidated by the mediator after each write, not only by Room: see
+        // FeedMediator.onWritten for the first page this used to lose (#41).
+        val pages = InvalidatingPagingSourceFactory { database.feed().pagingSource(feedId) }
+
+        val mediator =
+            FeedMediator(
+                feedId = feedId,
+                database = database,
+                sources = sources,
+                onFailures = { failed -> _failures.update { failed } },
+                onRowsHeld = { held -> mediatorRowCounts.tryEmit(feedId to held) },
+                onWritten = pages::invalidate,
             )
-            .flow
+
+        val pager =
+            Pager(
+                    config =
+                        PagingConfig(
+                            pageSize = pageSize,
+                            // Room's PagingSource reads from disk, so a generous
+                            // prefetch costs a query rather than a round trip.
+                            prefetchDistance = pageSize,
+                            enablePlaceholders = false,
+                        ),
+                    remoteMediator = mediator,
+                    pagingSourceFactory = pages,
+                )
+                .flow
+
+        // The in-process half of making `NeedsRepage` mean anything. A sync that
+        // finds the server can no longer answer from an account's stored
+        // position clears its cursor, which is what a list built *afterwards*
+        // reads -- this list was built before it, and without being told would go
+        // on drawing rows that nothing can bring up to date. Only that account
+        // is paged again; the others' rows are still right.
+        return channelFlow {
+            launch { repages.accounts.collect { mediator.repage(it) } }
+            pager.collect { send(it) }
+        }
     }
 
     /**
@@ -431,7 +497,14 @@ constructor(
         directoryLock.withLock {
             if (now() - directoryRefreshedAt < DIRECTORY_REFRESH_INTERVAL) return
 
+            // Asked afresh, because the client is shared and keeps its Session
+            // for as long as the process lives: an account added on the web, or
+            // the inbox switched between tabs and one list, arrives in it and
+            // nowhere else. Every list used to get a client of its own and so a
+            // fresh Session on every switch; this is the same news once an
+            // interval rather than once a tap.
             val session = runCatching {
+                client.invalidateSession()
                 client.session()
             }
                 .getOrElse { failure ->
@@ -443,8 +516,11 @@ constructor(
                     return
                 }
 
-            mail.replaceAccounts(server, session)
-            refreshBindings(client, server, session.accountIds.map { AccountId(it.value) })
+            // The user switching the inbox between tabs and one list on the web
+            // changes what Primary holds, so a Primary on screen is re-paged under
+            // its new filter rather than left holding the old one's rows.
+            mail.replaceAccounts(server, session).forEach(repages::repage)
+            refreshBindings(client, server, session)
 
             // Stamped only where the session answered -- the failure path above
             // returns without setting it, so a server that is down is retried on
@@ -454,35 +530,90 @@ constructor(
         }
     }
 
-    /** Mailboxes and identities, per account, each account's failure its own. */
-    private suspend fun refreshBindings(
-        client: JmapClient,
-        server: String,
-        accountIds: List<AccountId>,
-    ) {
-        accountIds.forEach { accountId ->
-            val accountKey = StoreKey.account(server, accountId.value)
+    /** Mailboxes, identities and inbox tabs, per account, each account's failure its own. */
+    private suspend fun refreshBindings(client: JmapClient, server: String, session: Session) {
+        // Every account in one request, or as few as the server's call limit
+        // allows. One request per account was six round trips in a row on a
+        // phone with six, on every directory refresh.
+        val perRequest = (session.core.maxCallsInRequest / CALLS_PER_ACCOUNT).coerceAtLeast(1)
+        val probing = mutableListOf<Pair<String, AccountId>>()
 
-            runCatching {
-                val request = RequestBuilder()
-                val mailboxes = request.add(MailboxGet(accountId))
-                // In the same batch rather than its own round trip.
-                // Identities are what the composer's From row is drawn from,
-                // and a composer opened before the first sync would otherwise
-                // have nothing to send as -- against a server on a domestic
-                // uplink, one request is the resource worth saving.
-                val identities = request.add(IdentityGet(accountId))
-                val results = client.send(request)
+        session.accountIds.chunked(perRequest).forEach { chunk ->
+            // Asked of the session rather than tried: a server that predates the
+            // extension refuses a request declaring it with `unknownCapability`,
+            // which would take the mailboxes in the same batch down with it.
+            val withTabs = chunk.filter { session.supportsInboxTabs(it) }.toSet()
 
-                mail.replaceMailboxes(accountKey, results.result(mailboxes).list)
-                mail.replaceIdentities(accountKey, results.result(identities).list)
+            val request =
+                RequestBuilder(
+                    using =
+                        if (withTabs.isNotEmpty()) Capability.USING_INBOX_TABS
+                        else Capability.USING_MAIL,
+                    maxCallsInRequest = session.core.maxCallsInRequest,
+                )
+
+            val calls = chunk.map { accountId ->
+                Triple(
+                    accountId,
+                    request.add(MailboxGet(accountId)),
+                    // In the same batch rather than its own round trip.
+                    // Identities are what the composer's From row is drawn
+                    // from, and a composer opened before the first sync
+                    // would otherwise have nothing to send as.
+                    request.add(IdentityGet(accountId)) to
+                        // And the tabs, for the same reason and the
+                        // sidebar's sake: they are drawn beside the labels,
+                        // and a strip that arrived one round trip after them
+                        // would redraw the top of the drawer.
+                        accountId.takeIf { it in withTabs }?.let { request.add(InboxTabGet(it)) },
+                )
             }
+
+            val results = runCatching { client.send(request) }.getOrNull() ?: return@forEach
+
+            // Each account on its own answers: one whose mailboxes failed keeps
+            // what it had, and the others are not held back by it.
+            calls.forEach { (accountId, mailboxes, rest) ->
+                val (identities, tabs) = rest
+                val accountKey = StoreKey.account(server, accountId.value)
+                val boxes = results.resultOrNull(mailboxes) ?: return@forEach
+                val addresses = results.resultOrNull(identities) ?: return@forEach
+
+                mail.replaceMailboxes(accountKey, boxes.list)
+                mail.replaceIdentities(accountKey, addresses.list)
+
+                // An account that stopped advertising the extension -- a server
+                // rolled back -- goes back to the five built-ins rather than
+                // keeping tabs it can no longer query. One whose InboxTab/get
+                // failed on its own keeps the tabs it had: the strip is not worth
+                // the mailboxes above it, or the banner below.
+                if (tabs == null) {
+                    mail.replaceInboxTabs(accountKey, emptyList(), state = null)
+                } else {
+                    results.resultOrNull(tabs)?.let {
+                        mail.replaceInboxTabs(accountKey, it.list, it.state)
+                    }
+                    probing += accountKey to accountId
+                }
+
                 // This account just answered two methods, which is the whole of
                 // what a "could not reach it" banner claims it cannot do. Said
                 // here rather than left to the next sync: on the cached path
                 // nothing else runs, so a banner raised by one failed refresh
                 // would sit over mail that is being refreshed perfectly well.
-                .onSuccess { answered(accountKey) }
+                answered(accountKey)
+            }
+        }
+
+        // And which tabs hold mail, now that both the tabs and the Inbox binding
+        // are known (#52). A request per account, since each can carry fifteen
+        // probes, but side by side rather than one after another.
+        coroutineScope {
+            probing
+                .map { (accountKey, accountId) ->
+                    async { database.probeInboxTabs(client, accountKey, accountId) }
+                }
+                .awaitAll()
         }
     }
 
@@ -540,3 +671,6 @@ constructor(
 private suspend fun <T> kotlinx.coroutines.flow.FlowCollector<T>.emitAll(source: Flow<T>) {
     source.collect { emit(it) }
 }
+
+/** Mailboxes, identities and inbox tabs: what one account asks for in a directory refresh. */
+private const val CALLS_PER_ACCOUNT = 3

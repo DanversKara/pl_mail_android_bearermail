@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.plmail.core.database.AccountEntity
 import de.plmail.core.database.FeedCursorEntity
 import de.plmail.core.database.FeedEntryEntity
+import de.plmail.core.database.InboxTabEntity
 import de.plmail.core.database.MailboxEntity
 import de.plmail.core.database.PlMailDatabase
 import de.plmail.core.database.StoreKey
@@ -75,6 +76,8 @@ internal val inboxLabelKey: String = StoreKey.objectKey(testAccountKey, INBOX_MA
 internal suspend fun PlMailDatabase.seedAccount(
     accountKey: String = testAccountKey,
     emailState: String? = "s5",
+    /** Null by default: a canned transport then has only `Email/changes` to answer. */
+    threadState: String? = null,
 ) {
     accounts()
         .upsert(
@@ -85,6 +88,7 @@ internal suspend fun PlMailDatabase.seedAccount(
                     accountId = TEST_ACCOUNT_ID,
                     name = "someone@example.com",
                     emailState = emailState,
+                    threadState = threadState,
                 )
             )
         )
@@ -118,6 +122,8 @@ internal suspend fun PlMailDatabase.seedThread(
     accountKey: String = testAccountKey,
     labelKeys: String = inboxLabelKey,
     category: String? = null,
+    /** `Thread.inboxTab`, which only a server with the inbox-tabs extension sends. */
+    inboxTab: String? = null,
     receivedAt: Long = 5_000,
     /** Read by default, so a test about the new-mail digest has to say it means unread. */
     isUnread: Boolean = false,
@@ -126,6 +132,8 @@ internal suspend fun PlMailDatabase.seedThread(
     /** Whether the conversation is in the inbox, as `storeEmails` records it. */
     isInInbox: Boolean = false,
     sender: String = "",
+    /** How many messages the server last said the conversation holds. */
+    messageCount: Int = 1,
 ) {
     threads()
         .upsert(
@@ -135,8 +143,10 @@ internal suspend fun PlMailDatabase.seedThread(
                     accountKey = accountKey,
                     threadId = threadId,
                     latestReceivedAt = receivedAt,
+                    messageCount = messageCount,
                     labelKeys = labelKeys,
                     category = category,
+                    inboxTab = inboxTab,
                     isUnread = isUnread,
                     isNew = isNew,
                     isInInbox = isInInbox,
@@ -144,6 +154,43 @@ internal suspend fun PlMailDatabase.seedThread(
                 )
             )
         )
+}
+
+/**
+ * The tabs an `InboxTab/get` would have left for one account: Primary, the four other built-ins and
+ * whatever is passed, in that order. [switchedOff] are listed and marked, as the server lists them.
+ *
+ * Seeding any tab at all is what makes the account one whose server has the extension — the empty
+ * table is the older server — so a test of the old behaviour seeds nothing.
+ */
+internal suspend fun PlMailDatabase.seedTabs(
+    accountKey: String = testAccountKey,
+    own: List<Pair<String, String>> = emptyList(),
+    switchedOff: Set<MailCategory> = emptySet(),
+) {
+    val builtIns =
+        MailCategory.entries.map {
+            InboxTabEntity(
+                uid = StoreKey.objectKey(accountKey, it.wire),
+                accountKey = accountKey,
+                tabId = it.wire,
+                builtIn = it.wire,
+                isEnabled = it !in switchedOff,
+                sortOrder = it.ordinal,
+            )
+        }
+
+    val mine = own.mapIndexed { index, (key, name) ->
+        InboxTabEntity(
+            uid = StoreKey.objectKey(accountKey, key),
+            accountKey = accountKey,
+            tabId = key,
+            name = name,
+            sortOrder = builtIns.size + index,
+        )
+    }
+
+    inboxTabs().upsert(builtIns + mine)
 }
 
 /** Puts a conversation in a list, without going through the projection. */

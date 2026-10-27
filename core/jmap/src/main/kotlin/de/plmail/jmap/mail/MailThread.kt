@@ -46,6 +46,19 @@ data class MailThread(
      */
     val category: String? = null,
     /**
+     * The inbox tab the web shows this conversation in — `urn:plmail:params:jmap:inboxtabs` — or
+     * null when it was never categorised.
+     *
+     * Not [category] under another name. The reader's own tab (`c12`) when one of their filters, or
+     * a drag on the web, filed it there; Primary when its category is one the reader switched off;
+     * the category otherwise. [category] stays the built-in for clients that know only the five,
+     * and the two disagree exactly where the reader has arranged their tabs.
+     *
+     * Absent on a server that predates the extension, which is the null every row then carries and
+     * the reason the client falls back to [category] for those.
+     */
+    val inboxTab: String? = null,
+    /**
      * Whether this conversation is still **new**: never put in front of the user, and arrived
      * inside the server's own newness window.
      *

@@ -227,4 +227,32 @@ class MailActionTest {
         const val MONDAY = 1_767_254_400_000L
         const val WEDNESDAY = 1_767_427_200_000L
     }
+
+    /**
+     * A tab move is undone by moving each conversation back to the tab it was in, grouped the way a
+     * snooze is — and one that was in no tab at all is left where it was put, because there is no
+     * "unfiled" to send it back to.
+     */
+    @Test
+    fun `a tab move is undone per tab each conversation came from`() {
+        val a = ActionTarget("acc", "1")
+        val b = ActionTarget("acc", "2")
+        val c = ActionTarget("acc", "3")
+
+        val steps =
+            wayBackFrom(
+                MailAction.MoveToTab(tab = "c12", from = "promotions"),
+                listOf(a, b, c),
+                snoozedBefore = emptyMap(),
+                tabBefore = mapOf(a to "promotions", b to "updates", c to "c12"),
+            )
+
+        assertEquals(
+            listOf(
+                UndoStep(MailAction.MoveToTab("promotions", "c12"), listOf(a)),
+                UndoStep(MailAction.MoveToTab("updates", "c12"), listOf(b)),
+            ),
+            steps,
+        )
+    }
 }

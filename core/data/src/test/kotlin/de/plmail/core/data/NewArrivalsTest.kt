@@ -320,6 +320,95 @@ class NewArrivalsTest {
         assertEquals(1, found.size)
     }
 
+    // -- The reader's own tabs, and one list ---------------------------------
+
+    /** The five built-ins switched on, and one tab of the reader's own. */
+    private val tabs = MailCategory.entries.map { it.wire }.toSet() + "c12"
+
+    /**
+     * Mail one of the reader's filters filed in "Shipping" interrupts as Shipping — where the web
+     * lists it — and not as the Promotions it also is.
+     */
+    @Test
+    fun `mail filed in an own tab interrupts under that tab`() {
+        val asShipping =
+            NotificationPrefs(enabled = setOf("tab:c12"), disabled = setOf("category:primary"))
+        val asPromotions = NotificationPrefs(enabled = setOf("category:promotions"))
+
+        assertEquals(1, filed(prefs = asShipping).size)
+        assertTrue(filed(prefs = asPromotions).isEmpty(), "it is not in Promotions on the web")
+        assertTrue(filed(prefs = untouched).isEmpty(), "an own tab is quiet until switched on")
+    }
+
+    /** A category the reader switched off is Primary's on the web, and so it speaks as Primary. */
+    @Test
+    fun `mail in a switched-off category interrupts as primary`() {
+        val found =
+            newArrivals(
+                emails = listOf(email("5")),
+                accountKey = account,
+                accountName = "someone@example.com",
+                inboxMailboxId = inbox,
+                known = emptySet(),
+                prefs = untouched,
+                bindingKeys = bindings,
+                threadCategories = mapOf("t5" to "forums"),
+                serverClassifies = true,
+                threadInboxTabs = mapOf("t5" to "primary"),
+                enabledTabs = tabs - "forums",
+            )
+
+        assertEquals(listOf("5"), found.map { it.emailId })
+    }
+
+    /**
+     * One list: every inbox message is Primary's, so a promotion speaks under the default — and the
+     * Inbox label's own switch counts again, because no tab switches are drawn to override it.
+     */
+    @Test
+    fun `on one list the whole inbox is primary`() {
+        fun oneList(prefs: NotificationPrefs) =
+            newArrivals(
+                emails = listOf(email("5")),
+                accountKey = account,
+                accountName = "someone@example.com",
+                inboxMailboxId = inbox,
+                known = emptySet(),
+                prefs = prefs,
+                bindingKeys = bindings,
+                threadCategories = mapOf("t5" to "promotions"),
+                serverClassifies = true,
+                inboxTabs = false,
+            )
+
+        assertEquals(1, oneList(untouched).size)
+        assertEquals(
+            1,
+            oneList(
+                    NotificationPrefs(
+                        enabled = setOf("label:label-inbox"),
+                        disabled = setOf("category:primary"),
+                    )
+                )
+                .size,
+        )
+    }
+
+    private fun filed(prefs: NotificationPrefs): List<NewMessage> =
+        newArrivals(
+            emails = listOf(email("5")),
+            accountKey = account,
+            accountName = "someone@example.com",
+            inboxMailboxId = inbox,
+            known = emptySet(),
+            prefs = prefs,
+            bindingKeys = bindings,
+            threadCategories = mapOf("t5" to "promotions"),
+            serverClassifies = true,
+            threadInboxTabs = mapOf("t5" to "c12"),
+            enabledTabs = tabs,
+        )
+
     private fun arrivals(
         vararg emails: Email,
         known: Set<String> = emptySet(),

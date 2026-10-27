@@ -79,6 +79,24 @@ data class AccountEntity(
      */
     val calendarState: String? = null,
     val calendarEventState: String? = null,
+    /**
+     * The `InboxTab` state the cached tabs were read at, or null when this account has none.
+     *
+     * Null is also what an account on a server without the inbox-tabs extension keeps for ever, and
+     * what a `cannotCalculateChanges` puts back: either way the next refresh is a full
+     * `InboxTab/get`, which is a handful of rows.
+     */
+    val inboxTabState: String? = null,
+    /**
+     * Whether the user wants the inbox in tabs, off the Session's appearance capability.
+     *
+     * A user-level choice kept on every account row, because every row is rewritten from the same
+     * Session and the paths that need it — the projection, the pagers, the notification gate —
+     * already hold an account. False means one list: no tab rows, no bundles above Primary, and
+     * Primary holding every inbox conversation, exactly as on a server that classifies nothing.
+     * True by default, which is what a server older than the switch means.
+     */
+    val wantsInboxTabs: Boolean = true,
     val lastSyncedAt: Long? = null,
     /**
      * The last failure, kept so the diagnostics screen can show it. Users self-host: when something
@@ -145,6 +163,21 @@ data class ThreadEntity(
     val participantsAddress: String? = null,
     val snippet: String = "",
     val messageCount: Int = 1,
+    /**
+     * How many of [messageCount] are thrown away: in Trash and not in the inbox.
+     *
+     * Kept beside the total rather than instead of it, because which number a row shows depends on
+     * the list it is in. Trash shows these, every other list the rest; one count for both had a
+     * conversation with six deleted drafts read "8" in the inbox and in Trash alike.
+     */
+    @ColumnInfo(defaultValue = "0") val binnedCount: Int = 0,
+    /**
+     * When the newest thrown-away message arrived, or 0 when there is none: Trash's date for the
+     * conversation. [latestReceivedAt] is every other list's, and leaves these out — a draft
+     * deleted this morning moved a conversation from Sunday to the top of the inbox and labelled it
+     * with the draft's time, or did not, depending on which sync had written its row last.
+     */
+    @ColumnInfo(defaultValue = "0") val binnedReceivedAt: Long = 0,
     val isUnread: Boolean = false,
     val isFlagged: Boolean = false,
     val hasAttachment: Boolean = false,
@@ -174,6 +207,16 @@ data class ThreadEntity(
      * does not have.
      */
     val category: String? = null,
+    /**
+     * The inbox tab the web shows this conversation in, off `Thread.inboxTab`, or null.
+     *
+     * Beside [category] rather than instead of it, because the two answer different servers. A
+     * plMail with the inbox-tabs extension sends this — the reader's own tab where one of their
+     * filters filed the conversation, Primary for a category they switched off — and one without it
+     * leaves this null everywhere, where [category] is still the whole answer. Which of the two a
+     * row is placed by is decided in one function, `tabKeyOf`, against the tabs the account has.
+     */
+    val inboxTab: String? = null,
     /**
      * Whether this conversation is still **new**: the server's own marker, not a local guess.
      *
@@ -228,6 +271,11 @@ data class ThreadEntity(
      * separator is safe for the same reason it is there: these are server-issued ids.
      */
     val labelKeys: String = "",
+    /**
+     * Whether the newest message is end-to-end encrypted (#9) — the lock on the row. The newest, as
+     * in the web app, because that is the message the row's preview and sender describe.
+     */
+    val isEncrypted: Boolean = false,
 )
 
 @Entity(
@@ -265,7 +313,23 @@ data class EmailEntity(
     val hasAttachment: Boolean = false,
     /** Mailbox (binding) ids, comma-separated. */
     val mailboxIds: String = "",
-)
+    /**
+     * End-to-end encryption (#9), as the server reports it: `Email.cryptoType`, `encrypted`,
+     * `signatureState`, `signer`, `decryptedOnServer`. Server facts like every column here — the
+     * decrypted text is never stored, only that there is some to decrypt.
+     */
+    val cryptoType: String? = null,
+    val isEncrypted: Boolean = false,
+    val signatureState: String? = null,
+    val signer: String? = null,
+    val decryptedOnServer: Boolean = false,
+) {
+    /**
+     * Whether the text has to be decrypted on this device: encrypted, and no readable copy kept.
+     */
+    val needsDecryption: Boolean
+        get() = isEncrypted && !decryptedOnServer
+}
 
 /**
  * Bodies live in their own table so a list query never loads a 400KB HTML string into memory, and
@@ -278,6 +342,19 @@ data class EmailBodyEntity(
     /** Always the server's sanitised HTML, never a raw column. */
     val htmlBody: String? = null,
     val fetchedAt: Long = 0,
+    /**
+     * Whether the headers below came in the same fetch as the body.
+     *
+     * They are what a reply is built from, and they are kept here rather than on the message row
+     * because a list page re-fetches that row without them — a reply written from it would lose its
+     * Reply-To and its threading. False on a placeholder written for a message with no body.
+     */
+    @ColumnInfo(defaultValue = "0") val hasReplyHeaders: Boolean = false,
+    val replyToJson: String? = null,
+    val ccJson: String? = null,
+    /** Every Message-ID the header carries, space-separated as [references] is. */
+    val messageId: String? = null,
+    val references: String? = null,
 )
 
 @Entity(tableName = "attachments", indices = [Index("emailUid")])
@@ -541,4 +618,39 @@ data class IdentityEntity(
      */
     val htmlSignature: String = "",
     val sortIndex: Int = 0,
+)
+
+/**
+ * One of the reader's inbox tabs, as one account's `InboxTab/get` answered.
+ *
+ * Per account although the tabs are the user's: every account answers with the same list, but the
+ * state token that list was read at is per account, and so is the push that says it moved. Kept the
+ * way [MailboxEntity] keeps a label's bindings, and collapsed by [tabId] when read.
+ *
+ * Only ever written for an account whose session advertises the extension. An account with no rows
+ * here is one whose server predates it, and that absence is what tells the app to draw the five
+ * built-in categories off [ThreadEntity.category] as it always has.
+ */
+@Entity(tableName = "inbox_tabs", indices = [Index("accountKey")])
+data class InboxTabEntity(
+    @PrimaryKey val uid: String,
+    val accountKey: String,
+    /** The tab key — `primary`, `promotions`, `c12`. Never a display name. */
+    val tabId: String,
+    /** The reader's name for a tab of their own; null for a built-in, which the app names. */
+    val name: String? = null,
+    /** The built-in category this tab is, as the wire token, or null for the reader's own. */
+    val builtIn: String? = null,
+    /** False for a built-in the reader switched off on the web. Never drawn in the strip. */
+    val isEnabled: Boolean = true,
+    val sortOrder: Int = 0,
+    /**
+     * Whether the server says this tab holds inbox mail (#52), from an `Email/query` with `limit:
+     * 1` after the tabs were read.
+     *
+     * The sidebar lists a tab while it holds mail, as the web does. The cache alone cannot answer
+     * that: it only holds a tab's conversations once the tab was opened, or once new mail arrived
+     * in it, so a tab filled by a filter on the web was never listed, and so could never be opened.
+     */
+    val hasMail: Boolean = false,
 )

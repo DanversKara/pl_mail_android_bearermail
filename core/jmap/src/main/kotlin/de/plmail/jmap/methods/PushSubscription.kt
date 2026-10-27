@@ -209,8 +209,12 @@ sealed interface NewPushSubscription {
          *
          * `Identity` is excluded because it changes only when the user edits their own sending
          * addresses — which they just did, in this app.
+         *
+         * `InboxTab` is rare — a tab made, renamed, switched or moved on the web — and exactly what
+         * a phone cannot find out any other way. Safe to name on a server that predates it: `types`
+         * is a filter, and a type nothing ever changes is one nothing is ever sent for.
          */
-        val DEFAULT_TYPES = listOf("Email", "Mailbox", "Thread", "EmailSubmission")
+        val DEFAULT_TYPES = listOf("Email", "Mailbox", "Thread", "EmailSubmission", "InboxTab")
 
         private fun encodeTypes(types: List<String>?): JsonElement =
             types?.let { list -> buildJsonArray { list.forEach { add(it) } } } ?: JsonNull

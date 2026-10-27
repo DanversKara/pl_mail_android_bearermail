@@ -36,6 +36,22 @@ sealed interface NotifyScope {
     }
 
     /**
+     * One of the inbox tabs the reader made on the web, by its tab key (`c12`).
+     *
+     * Off until switched on, like every tab but Primary: a tab of the reader's own is mail one of
+     * their filters moved *out* of Primary, and the Gmail default this whole feature follows is
+     * that only Primary interrupts. A tab deleted on the web leaves its key behind in the
+     * preferences file harmlessly — nothing raises it any more, and the screen no longer draws it.
+     */
+    data class Tab(val tabKey: String) : NotifyScope {
+        override val key: String
+            get() = TAB_PREFIX + tabKey
+
+        override val isOnByDefault: Boolean
+            get() = false
+    }
+
+    /**
      * A label, by its collapse key — the same user-scoped `labelId` the sidebar groups on, so one
      * switch covers the label in every account that binds it. Keying on a *binding* would give the
      * user three identical rows and let them disagree.
@@ -51,6 +67,14 @@ sealed interface NotifyScope {
     companion object {
         const val CATEGORY_PREFIX = "category:"
         const val LABEL_PREFIX = "label:"
+        const val TAB_PREFIX = "tab:"
+
+        /**
+         * The scope a tab's mail falls under: a built-in's category switch, or a tab of the
+         * reader's own.
+         */
+        fun ofTab(tabKey: String): NotifyScope =
+            MailCategory.fromWire(tabKey)?.let(::Category) ?: Tab(tabKey)
 
         /** The one scope that is on out of the box. */
         val PRIMARY: NotifyScope = Category(MailCategory.PRIMARY)
@@ -78,6 +102,18 @@ fun NotificationPrefs.allows(key: String): Boolean =
  * A **set**, and then matched with `any` rather than fanned out — which is what makes a message
  * carrying three switched-on labels produce one notification instead of three. Dedup by
  * construction, at the only point where the alternative was ever tempting.
+ *
+ * ## The tab is the web's tab
+ *
+ * Where the server serves the reader's tabs ([enabledTabs] not null), the scope is the tab the web
+ * shows the conversation in — [tabKeyOf] over `Thread.inboxTab`, the same rule the lists are drawn
+ * by. So mail one of the reader's filters filed in "Shipping" interrupts as Shipping, not as the
+ * Promotions it also is, and a category the reader switched off interrupts as Primary, which is
+ * where the web lists it. Without the extension it is the category, exactly as before.
+ *
+ * **Where the reader wants one list** ([inboxTabs] false) every inbox message is Primary's, and the
+ * Inbox label keeps its switch: there are no tab switches on the screen then, and a promotion that
+ * stayed silent because a switch nobody can see was off would be the app hiding mail.
  *
  * ## What "Primary" means here
  *
@@ -128,27 +164,48 @@ internal fun notifyScopeKeys(
     bindingKeys: Map<String, String>,
     /** Whether this server classifies mail into inbox categories at all. */
     serverClassifies: Boolean,
+    /** `Thread.inboxTab`, where the server serves the reader's tabs. */
+    threadInboxTab: String? = null,
+    /** The tabs the reader has switched on, or null where the server serves none. */
+    enabledTabs: Set<String>? = null,
+    /** Whether the reader wants the inbox in tabs at all — false is one list. */
+    inboxTabs: Boolean = true,
 ): Set<String> {
     val scopes = mutableSetOf<String>()
 
     val boxes = email.mailboxes.map { it.value }
 
+    // The categories cover the inbox only where they are drawn as tabs.
+    val tabbed = serverClassifies && inboxTabs
+
     if (inboxMailboxId != null && inboxMailboxId in boxes) {
-        val category = MailCategory.fromWire(threadCategory)
+        val tab =
+            if (enabledTabs != null) tabKeyOf(threadInboxTab, threadCategory, enabledTabs)
+            else threadCategory
 
-        when {
-            category != null -> scopes += NotifyScope.Category(category).key
+        val scope =
+            when {
+                // One list: the inbox is Primary, whatever the category says.
+                !inboxTabs -> NotifyScope.PRIMARY
 
-            // Unclassified on a server that does classify: no category scope,
-            // exactly as the server's own tabs do it.
-            threadCategory != null || !serverClassifies -> scopes += NotifyScope.PRIMARY.key
-        }
+                // Unclassified on a server that does classify: no scope, exactly
+                // as the server's own tabs do it.
+                tab == null -> NotifyScope.PRIMARY.takeIf { !serverClassifies }
+
+                // A built-in this build can name, or a tab of the reader's own.
+                MailCategory.fromWire(tab) != null || enabledTabs != null -> NotifyScope.ofTab(tab)
+
+                // A token this build cannot name: see above.
+                else -> NotifyScope.PRIMARY
+            }
+
+        scope?.let { scopes += it.key }
     }
 
     boxes.forEach { box ->
-        // See above: where the categories cover the inbox, the Inbox label would
-        // be a sixth switch that overrides the five.
-        if (serverClassifies && box == inboxMailboxId) return@forEach
+        // See above: where the tabs cover the inbox, the Inbox label would be a
+        // switch that overrides every tab's.
+        if (tabbed && box == inboxMailboxId) return@forEach
 
         bindingKeys[box]?.let { scopes += NotifyScope.Labelled(it).key }
     }

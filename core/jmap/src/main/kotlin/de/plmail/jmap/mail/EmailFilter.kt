@@ -146,6 +146,29 @@ sealed interface EmailFilter {
         override fun toJson() = buildJsonObject { put("threadCategory", category) }
     }
 
+    /**
+     * The inbox tab the web shows the conversation in — `urn:plmail:params:jmap:inboxtabs`.
+     *
+     * [ThreadCategory] for a client that knows the reader's tabs, and the one to send whenever the
+     * account advertises them: it lists exactly what the web lists under the same key. A
+     * conversation filed in one of the reader's own tabs is in that tab and in no built-in one, a
+     * category the reader switched off is listed under Primary, and a switched-off tab holds
+     * nothing. [ThreadCategory] knows none of that, so a phone that kept sending it would show
+     * Promotions holding mail the browser shows under "Shipping".
+     *
+     * A key the reader does not have is refused with `invalidArguments` rather than answered empty,
+     * which is why the keys sent are only ever the ones `InboxTab/get` returned.
+     */
+    data class ThreadInboxTab(val tab: String) : EmailFilter {
+        init {
+            require(tab.isNotBlank()) {
+                "threadInboxTab needs a tab key; the server refuses anything that is not one."
+            }
+        }
+
+        override fun toJson() = buildJsonObject { put("threadInboxTab", tab) }
+    }
+
     // --- Operators ---
 
     data class And(val conditions: List<EmailFilter>) : EmailFilter {

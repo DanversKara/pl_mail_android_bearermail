@@ -86,4 +86,6 @@
     <string name="calendar_agenda_floating_widget_description">Upcoming events as cards on your wallpaper, no background</string>
     <string name="notes_floating_widget_label">Notes (floating)</string>
     <string name="notes_floating_widget_description">Your notes as cards on your wallpaper, no background</string>
+    <string name="unlock_title">Open your encrypted mail</string>
+    <string name="unlock_subtitle">Confirm it is you to use your keys on this device</string>
 </resources>

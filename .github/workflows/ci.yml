@@ -14,8 +14,13 @@ on:
             - 'docs/**'
             - 'README.md'
             - '**/*.dist'
+    # `wip/**` and `milestone/**` as in the server repository: a feature too
+    # big for one pull request is built on a `wip/` branch in phases, and a
+    # release's work is collected on a milestone branch (`milestone/v0.4.0`)
+    # before it reaches main. A pull request into either is the same proposal
+    # a pull request into main is.
     pull_request:
-        branches: [main]
+        branches: [main, 'wip/**', 'milestone/**']
     workflow_dispatch:
 
 permissions:
@@ -33,16 +38,16 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Set up JDK 21
-              uses: actions/setup-java@v4
+              uses: actions/setup-java@v6
               with:
                   distribution: temurin
                   java-version: '21'
 
             - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v4
+              uses: gradle/actions/setup-gradle@v6
 
             # Its own step, and first: a formatting failure is the cheapest
             # thing that can be wrong and the most annoying to discover at the
@@ -90,7 +95,7 @@ jobs:
 
             - name: Upload test and lint reports
               if: failure()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: reports
                   path: |
@@ -155,16 +160,16 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v5
+              uses: actions/checkout@v7
 
             - name: Set up JDK 21
-              uses: actions/setup-java@v5
+              uses: actions/setup-java@v6
               with:
                   distribution: temurin
                   java-version: 21
 
             - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v5
+              uses: gradle/actions/setup-gradle@v6
 
             # The foss flavour, because it is the one with no Google Play
             # Services to depend on -- if a minification fault reaches the
@@ -200,7 +205,7 @@ jobs:
             # A cached AVD, so the boot this job depends on is a restore
             # rather than a first creation every time.
             - name: Cache the AVD
-              uses: actions/cache@v4
+              uses: actions/cache@v6
               id: avd-cache
               with:
                   path: |

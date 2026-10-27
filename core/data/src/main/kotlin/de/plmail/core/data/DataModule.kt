@@ -22,6 +22,9 @@ abstract class DataModule {
 
     @Binds @Singleton abstract fun transportFactory(real: OkHttpTransportFactory): TransportFactory
 
+    /** Protected end-to-end keys ask through the activity on screen (#9, phase 5). */
+    @Binds @Singleton abstract fun unlockPrompt(real: DeviceUnlock): UnlockPrompt
+
     @Binds @Singleton abstract fun draftSender(real: ComposeRepository): DraftSender
 
     /**
@@ -75,6 +78,9 @@ abstract class DataModule {
      * sentence from a list.
      */
     @Binds @Singleton abstract fun reachableAccounts(real: FeedRepository): ReachableAccounts
+
+    /** The one method of [InboxTabRepository] the push path needs. See [InboxTabRefresh]. */
+    @Binds @Singleton abstract fun inboxTabRefresh(real: InboxTabRepository): InboxTabRefresh
 
     /**
      * The event editor's view of the calendar.

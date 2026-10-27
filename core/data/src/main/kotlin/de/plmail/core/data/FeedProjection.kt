@@ -59,11 +59,25 @@ constructor(
         // "is this in the inbox" can be asked of a row at all.
         val inboxKey = database.mailboxes().byRole(accountKey, INBOX_ROLE)?.labelKey()
 
+        // Trash's list, which dates a conversation by its thrown-away messages
+        // where every other list leaves them out -- see ThreadEntity.binnedReceivedAt.
+        val binFeed =
+            database.mailboxes().byRole(accountKey, TRASH_ROLE)?.labelKey()?.let(::labelFeedId)
+
         // Whether this server classifies mail at all, which decides what an
         // unclassified conversation means -- see targetFeeds. Read once for the
         // batch and outside the transaction: it is a fact about the server, and
         // the rows this reads are the ones storeEmails has already committed.
-        val classifies = database.threads().hasCategories()
+        val classifies = database.classifies(accountKey)
+
+        // The tabs this account has switched on, or null where its server has
+        // none -- which tab a conversation is in depends on them, see tabKeyOf.
+        // Read once for the batch, beside `classifies` and for the same reason.
+        val tabs = database.enabledTabKeys(accountKey)
+
+        // And whether the user wants tabs at all. Where they want one list,
+        // Primary holds the whole inbox, as the web's single list does.
+        val wantsTabs = database.wantsInboxTabs(accountKey)
 
         database.withTransaction {
             val live =
@@ -78,7 +92,17 @@ constructor(
             if (live.isEmpty()) return@withTransaction
 
             threadIds.forEach { threadId ->
-                project(accountKey, threadId, live, inboxKey, pending, classifies)
+                project(
+                    accountKey,
+                    threadId,
+                    live,
+                    inboxKey,
+                    binFeed,
+                    pending,
+                    classifies,
+                    tabs,
+                    wantsTabs,
+                )
             }
         }
     }
@@ -88,8 +112,11 @@ constructor(
         threadId: String,
         live: List<Pair<String, FeedCursorEntity?>>,
         inboxKey: String?,
+        binFeed: String?,
         pending: Set<String>,
         classifies: Boolean,
+        tabs: Set<String>?,
+        wantsTabs: Boolean,
     ) {
         val uid = StoreKey.objectKey(accountKey, threadId)
 
@@ -111,7 +138,7 @@ constructor(
             return
         }
 
-        val targets = targetFeeds(thread, inboxKey, classifies)
+        val targets = targetFeeds(thread, inboxKey, classifies, tabs, wantsTabs)
 
         live.forEach { (feedId, cursor) ->
             if (feedId !in targets) {
@@ -123,8 +150,10 @@ constructor(
                 return@forEach
             }
 
-            if (isWithinWindow(thread, cursor))
-                database.feed().upsertEntries(listOf(entry(feedId, thread)))
+            val sortDate = thread.receivedShown(inBin = feedId == binFeed)
+
+            if (isWithinWindow(sortDate, cursor))
+                database.feed().upsertEntries(listOf(entry(feedId, thread, sortDate)))
         }
     }
 
@@ -140,10 +169,10 @@ constructor(
      * Exhausted is the exception that proves it: a list that has reached the end of its account has
      * no tail left to fall below.
      */
-    private fun isWithinWindow(thread: ThreadEntity, cursor: FeedCursorEntity?): Boolean {
+    private fun isWithinWindow(sortDate: Long, cursor: FeedCursorEntity?): Boolean {
         val tail = cursor?.lastSortDate ?: return true
 
-        return cursor.isExhausted || thread.latestReceivedAt >= tail
+        return cursor.isExhausted || sortDate >= tail
     }
 
     /**
@@ -165,11 +194,22 @@ constructor(
      * start destination the app can open on without first asking whether this plMail classifies —
      * see [MailView]. [classifies] is passed in rather than read here because this runs inside the
      * projection's transaction, once per conversation.
+     *
+     * **Which tab is [tabKeyOf]'s answer**, against the [tabs] the account has switched on: the
+     * reader's own tab where one of their filters filed the conversation, Primary for a category
+     * they switched off. On a server without the extension [tabs] is null and that is the category,
+     * exactly as before — the same rule `FeedRepository.category` chooses its filter by.
+     *
+     * **Where the user wants one list** ([wantsTabs] false) Primary holds the whole inbox, as it
+     * does on a server that classifies nothing. The rule is [inboxFeedId], shared with the local
+     * half of every mail action.
      */
     private fun targetFeeds(
         thread: ThreadEntity,
         inboxKey: String?,
         classifies: Boolean,
+        tabs: Set<String>?,
+        wantsTabs: Boolean,
     ): Set<String> {
         val carried = thread.labelKeys.split(",").filter { it.isNotBlank() }
         val feeds = carried.mapTo(mutableSetOf(), ::labelFeedId)
@@ -177,12 +217,7 @@ constructor(
         if (inboxKey != null && inboxKey in carried) {
             feeds += Feed.UNIFIED_INBOX.id
 
-            val category = MailCategory.fromWire(thread.category)
-
-            when {
-                category != null -> feeds += category.feedId
-                !classifies -> feeds += MailCategory.PRIMARY.feedId
-            }
+            thread.inboxFeedId(tabs, classifies, wantsTabs)?.let { feeds += it }
         }
 
         return feeds
@@ -195,11 +230,11 @@ constructor(
      * time the list pages, and one that nothing can ever remove. `MailActions.restoreToInbox`
      * records what happened the last time this was got wrong.
      */
-    private fun entry(feedId: String, thread: ThreadEntity): FeedEntryEntity =
+    private fun entry(feedId: String, thread: ThreadEntity, sortDate: Long): FeedEntryEntity =
         FeedEntryEntity(
             uid = "$feedId#${thread.uid}",
             feedId = feedId,
-            sortDate = thread.latestReceivedAt,
+            sortDate = sortDate,
             accountKey = thread.accountKey,
             threadId = thread.threadId,
             // The thread id, as `restoreToInbox` also writes. The column names
@@ -212,5 +247,6 @@ constructor(
 
     private companion object {
         const val INBOX_ROLE = "inbox"
+        const val TRASH_ROLE = "trash"
     }
 }

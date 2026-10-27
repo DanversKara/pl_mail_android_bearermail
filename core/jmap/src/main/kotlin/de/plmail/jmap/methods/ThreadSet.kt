@@ -16,8 +16,9 @@ import kotlinx.serialization.json.put
  * `Thread/set` — a plMail extension, not RFC 8621.
  *
  * The spec's Thread is read-only: it is derived from its messages and has nothing on it to change.
- * plMail's differs in two ways — a thread can be snoozed, and a thread can be reported as having
- * been shown — and both belong to the conversation rather than to any message in it.
+ * plMail's differs in three ways — a thread can be snoozed, reported as having been shown, and
+ * filed in an inbox tab — and all three belong to the conversation rather than to any message in
+ * it.
  *
  * **Snoozing is not a flag.** Setting `snoozedUntil` moves the conversation out of the Inbox and
  * into Snoozed, and a scheduled job brings it back. The web UI goes through the same service, so a
@@ -72,6 +73,15 @@ class ThreadSet(
          */
         fun shown(accountId: AccountId, threadIds: List<ThreadId>) =
             ThreadSet(accountId, threadIds.associateWith { ThreadPatch.shown() })
+
+        /**
+         * Files these conversations in the inbox tab [tab], as a drop onto the tab does on the web.
+         *
+         * Only for an account that advertises `urn:plmail:params:jmap:inboxtabs`, and only in a
+         * request that declares it.
+         */
+        fun moveToTab(accountId: AccountId, threadIds: List<ThreadId>, tab: String) =
+            ThreadSet(accountId, threadIds.associateWith { ThreadPatch.inboxTab(tab) })
     }
 }
 
@@ -111,6 +121,17 @@ class ThreadPatch private constructor(private val fields: Map<String, JsonElemen
                         }
                 )
             )
+
+        /**
+         * `inboxTab: "<key>"`: put the conversation in that tab, pinned there the way a drag on the
+         * web pins it, so the next re-sort does not move it back.
+         *
+         * A key the reader does not have — a built-in they switched off, a tab of their own they
+         * have since deleted — comes back in `notUpdated` as `invalidProperties` rather than being
+         * read as Primary.
+         */
+        fun inboxTab(tab: String): ThreadPatch =
+            ThreadPatch(mapOf("inboxTab" to kotlinx.serialization.json.JsonPrimitive(tab)))
 
         fun snoozedUntil(utcDateTime: String?): ThreadPatch =
             ThreadPatch(

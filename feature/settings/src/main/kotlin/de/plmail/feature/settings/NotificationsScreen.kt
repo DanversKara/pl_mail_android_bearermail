@@ -111,8 +111,15 @@ fun NotificationsScreen(onBack: () -> Unit, viewModel: NotificationsViewModel = 
 
                 scopes.categories.forEachIndexed { index, scope ->
                     ScopeRow(
-                        name = scope.category.displayName(),
-                        detail = scope.category.explains(),
+                        name =
+                            when (scope) {
+                                is NotifiableScope.Category -> scope.category.displayName()
+                                // By the name the reader gave it on the web; the key
+                                // only where the server named none, which it always does.
+                                is NotifiableScope.Tab -> scope.tab.name ?: scope.tab.key
+                                is NotifiableScope.Labelled -> scope.label.name
+                            },
+                        detail = (scope as? NotifiableScope.Category)?.category?.explains(),
                         isEnabled = scope.isEnabled,
                         onEnabled = { viewModel.setEnabled(scope.key, it) },
                     )

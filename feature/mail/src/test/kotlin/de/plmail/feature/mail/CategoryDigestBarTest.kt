@@ -2,6 +2,7 @@ package de.plmail.feature.mail
 
 import de.plmail.core.data.CategoryArrivals
 import de.plmail.core.data.MailCategory
+import de.plmail.core.data.MailTab
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -18,7 +19,12 @@ import kotlin.test.assertTrue
 class CategoryDigestBarTest {
 
     private fun arrivals(vararg categories: MailCategory) = categories.map {
-        CategoryArrivals(category = it, count = 3, senders = listOf("Someone"), moreSenders = 0)
+        CategoryArrivals(
+            tab = MailTab(it.wire, builtIn = it),
+            count = 3,
+            senders = listOf("Someone"),
+            moreSenders = 0,
+        )
     }
 
     /** At the top of the list the bundles are right there, and a bar would be saying it twice. */

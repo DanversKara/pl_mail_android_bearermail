@@ -15,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +41,7 @@ import de.plmail.core.database.ThreadEntity
 import de.plmail.core.designsystem.PlMailLabelColor
 import de.plmail.core.ui.RowChip
 import de.plmail.core.ui.ThreadRow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -86,6 +88,8 @@ fun SwipeableThreadRow(
      * marker. See [de.plmail.feature.mail.MailViewModel.badgedNew].
      */
     isNew: Boolean = false,
+    /** A finger has landed on the row; see [de.plmail.core.ui.ThreadRow]'s `onPress`. */
+    onPress: () -> Unit = {},
 ) {
     // Scoped to the conversation, not to the position in the list.
     //
@@ -96,6 +100,22 @@ fun SwipeableThreadRow(
     // That is exactly what happened.
     key(thread.uid) {
         val state = rememberSwipeToDismissBoxState()
+
+        // Whether a dismissed state is this row's own swipe. The state is
+        // saveable, and the list keeps saved state per conversation: a row
+        // swiped away and listed again -- by a sync, or by undo -- came back
+        // dismissed, and the effect below acted on it a second time, with a
+        // second snackbar, every time the conversation reappeared. Not
+        // saveable itself, so a row entering the list starts disarmed, puts
+        // any restored swipe back without acting, and only then listens.
+        var isArmed by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            if (state.currentValue != SwipeToDismissBoxValue.Settled) {
+                state.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+            isArmed = true
+        }
 
         var isSnoozeOpen by remember { mutableStateOf(false) }
         var isPickingTime by remember { mutableStateOf(false) }
@@ -130,7 +150,9 @@ fun SwipeableThreadRow(
         // feed table lets the list close the gap rather than this animating a
         // row that is about to disappear anyway; one that does not, puts the
         // row back.
-        LaunchedEffect(state.currentValue) {
+        LaunchedEffect(state.currentValue, isArmed) {
+            if (!isArmed) return@LaunchedEffect
+
             val towardsEnd =
                 when (state.currentValue) {
                     SwipeToDismissBoxValue.StartToEnd -> true
@@ -150,7 +172,7 @@ fun SwipeableThreadRow(
 
             perform(swiped)
 
-            if (!swiped.removesTheRow) state.reset()
+            if (swiped.removesTheRow) settleIfStillListed(state) else state.reset()
         }
 
         pending?.let { asked ->
@@ -161,7 +183,9 @@ fun SwipeableThreadRow(
                     pending = null
                     perform(asked)
 
-                    if (!asked.removesTheRow) scope.launch { state.reset() }
+                    scope.launch {
+                        if (asked.removesTheRow) settleIfStillListed(state) else state.reset()
+                    }
                 },
                 // Back, outside and "Cancel" are all the same answer, and the
                 // row goes back to where it was.
@@ -190,6 +214,7 @@ fun SwipeableThreadRow(
                 ThreadRow(
                     thread = thread,
                     onClick = onClick,
+                    onPress = onPress,
                     showsAccount = showsAccount,
                     onLongClick = onLongClick,
                     isSelected = isSelected,
@@ -252,6 +277,26 @@ private fun SwipeAction.question(isUnread: Boolean): Int =
             if (isUnread) R.string.swipe_confirm_read else R.string.swipe_confirm_unread
         else -> R.string.swipe_confirm_archive
     }
+
+/**
+ * Puts a row back that an archive or trash was expected to take away, if it is still here.
+ *
+ * Normally it never runs to the end: the action removes the conversation from the list, the row
+ * leaves the composition, and this coroutine is cancelled with it. What reaches the reset is a row
+ * whose list kept it — archive in a label, which takes away the inbox and not the label, an action
+ * the cache could not apply — and that one would otherwise stay parked off-screen over its icon,
+ * looking like an action stuck half way.
+ */
+private suspend fun settleIfStillListed(state: SwipeToDismissBoxState) {
+    delay(REMOVAL_GRACE_MILLIS)
+    state.reset()
+}
+
+/**
+ * How long the list gets to drop a swiped row before it is put back. Long enough for the paged list
+ * to re-query after the cache changed; short enough that a row that stays is not mistaken for gone.
+ */
+private const val REMOVAL_GRACE_MILLIS = 1_000L
 
 /** Whether the conversation leaves the list the moment this is swiped. */
 private val SwipeAction.removesTheRow: Boolean
