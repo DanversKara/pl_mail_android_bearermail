@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -615,7 +616,9 @@ private fun PlMailApp(
                                 onGestures = { isSettingGestures = true },
                                 onAppLock = { isSettingLock = true },
                                 onCheckUpdates =
-                                    if (AppUpdater.enabled) ({ UpdateChecks.checkNow() }) else null,
+                                    if (AppUpdater.enabled(LocalContext.current))
+                                        ({ UpdateChecks.checkNow() })
+                                    else null,
                                 onAccounts = { isManagingAccounts = true },
                                 onEncryption = { isManagingEncryption = true },
                                 // Null hides the drawer entry outright, which is

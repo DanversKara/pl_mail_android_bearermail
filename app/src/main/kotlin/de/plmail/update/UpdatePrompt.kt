@@ -59,9 +59,9 @@ private sealed interface UpdateStep {
  */
 @Composable
 fun UpdatePrompt() {
-    if (!AppUpdater.enabled) return
-
     val context = LocalContext.current
+    if (!AppUpdater.enabled(context)) return
+
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf<UpdateStep?>(null) }
 

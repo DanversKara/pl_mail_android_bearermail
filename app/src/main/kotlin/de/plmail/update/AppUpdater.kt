@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.os.Build
 import de.plmail.BuildConfig
 import java.io.File
 import java.net.HttpURLConnection
@@ -38,9 +39,33 @@ object AppUpdater {
     private const val LATEST = "https://api.github.com/repos/$REPO/releases/latest"
     private const val TIMEOUT_MS = 15_000
 
-    /** Whether this build updates itself at all. */
-    val enabled: Boolean
-        get() = !BuildConfig.DEBUG
+    /**
+     * Whether this install updates itself from GitHub at all: never for debug builds, and never for
+     * Google Play installs — Play delivers updates itself, and a GitHub APK cannot install over a
+     * Play-signed app anyway.
+     */
+    fun enabled(context: Context): Boolean = !BuildConfig.DEBUG && !isPlayInstall(context)
+
+    /**
+     * True when this install came from Google Play (installer package com.android.vending). An
+     * unknown installer, or a lookup failure, means "not Play".
+     */
+    fun isPlayInstall(context: Context): Boolean {
+        return try {
+            val installer =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    context.packageManager
+                        .getInstallSourceInfo(context.packageName)
+                        .installingPackageName
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getInstallerPackageName(context.packageName)
+                }
+            installer == "com.android.vending"
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     /**
      * The latest release if it is newer than this build, otherwise null. Throws on network errors.
