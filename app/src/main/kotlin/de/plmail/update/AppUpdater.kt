@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
-import android.os.Build
 import de.plmail.BuildConfig
 import java.io.File
 import java.net.HttpURLConnection
@@ -53,14 +52,9 @@ object AppUpdater {
     fun isPlayInstall(context: Context): Boolean {
         return try {
             val installer =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    context.packageManager
-                        .getInstallSourceInfo(context.packageName)
-                        .installingPackageName
-                } else {
-                    @Suppress("DEPRECATION")
-                    context.packageManager.getInstallerPackageName(context.packageName)
-                }
+                context.packageManager
+                    .getInstallSourceInfo(context.packageName)
+                    .installingPackageName
             installer == "com.android.vending"
         } catch (e: Exception) {
             false
