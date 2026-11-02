@@ -103,6 +103,13 @@ internal fun RecipientField(
     trailing: (@Composable () -> Unit)? = null,
     /** What a chip shows about its address's key (#9); null shows nothing. */
     lockOf: (EmailAddress) -> RecipientLock? = { null },
+    /**
+     * Text that was meant as a recipient and is not an address, for the composer to report.
+     *
+     * The text itself stays in the field, so it can be corrected; this is only the telling. The
+     * first piece of several, as on the web: one name is enough to find the line.
+     */
+    onRejected: (String) -> Unit = {},
 ) {
     var typed by remember { mutableStateOf("") }
     var isFocused by remember { mutableStateOf(false) }
@@ -112,18 +119,31 @@ internal fun RecipientField(
     // belonging to the field rather than as a panel that happened to appear.
     var fieldWidthPx by remember { mutableIntStateOf(0) }
 
-    fun commit(text: String = typed) {
-        val parsed = text.parseAddresses()
-        if (parsed.isEmpty()) return
+    fun apply(edit: RecipientEdit.Commit) {
+        if (edit.added.isNotEmpty()) onChanged(addresses + edit.added)
 
-        // De-duplicated against what is already on the line: adding the same
-        // person twice sends them two copies and reads as a bug in the sender's
-        // client rather than a slip.
-        val existing = addresses.mapNotNull { it.email?.lowercase() }.toSet()
-
-        onChanged(addresses + parsed.filter { it.email?.lowercase() !in existing })
-        typed = ""
+        typed = edit.remaining
         onQueryChanged("")
+
+        // What is not an address stays in the field and is said out loud. It
+        // used to be dropped without a word, and the mail went out without
+        // whoever it was meant for.
+        edit.rejected.firstOrNull()?.let(onRejected)
+    }
+
+    /**
+     * Enter, or the cursor leaving the line.
+     *
+     * Only Enter reports text with no address in it at all. Leaving the line with a half-typed name
+     * is a search abandoned, not a mistake to point out; pressing Enter on it is asking for a chip
+     * that cannot be made.
+     */
+    fun commit(isExplicit: Boolean) {
+        when (val edit = typed.commitRecipients(addresses)) {
+            is RecipientEdit.Commit -> apply(edit)
+            is RecipientEdit.Typing ->
+                if (isExplicit && typed.isNotBlank()) onRejected(typed.trim())
+        }
     }
 
     /**
@@ -202,13 +222,14 @@ internal fun RecipientField(
                 BasicTextField(
                     value = typed,
                     onValueChange = { value ->
-                        // A separator the user typed is a commit. Pasting "a@x, b@y"
-                        // therefore lands as two chips rather than one unusable string.
-                        if (value.endsWith(",") || value.endsWith(";") || value.endsWith(" ")) {
-                            commit(value)
-                        } else {
-                            typed = value
-                            onQueryChanged(value)
+                        // A separator the user typed, or a pasted list, is a commit;
+                        // see recipientEdit for which is which.
+                        when (val edit = recipientEdit(typed, value, addresses)) {
+                            is RecipientEdit.Commit -> apply(edit)
+                            is RecipientEdit.Typing -> {
+                                typed = edit.text
+                                onQueryChanged(edit.text)
+                            }
                         }
                     },
                     singleLine = true,
@@ -219,7 +240,7 @@ internal fun RecipientField(
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Done,
                         ),
-                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                    keyboardActions = KeyboardActions(onDone = { commit(isExplicit = true) }),
                     modifier =
                         Modifier.then(
                                 // Exactly, rather than at least: a text field has
@@ -240,7 +261,7 @@ internal fun RecipientField(
                                 // this exists for: without it the address being
                                 // typed is silently dropped and the mail goes to
                                 // whoever was already chipped, or to nobody.
-                                if (!focus.isFocused) commit()
+                                if (!focus.isFocused) commit(isExplicit = false)
                             },
                 )
             }
@@ -578,28 +599,198 @@ private val THUMB_WIDTH = 3.dp
 private const val MIN_THUMB = 0.12f
 
 /**
- * Turns typed text into addresses.
+ * Turns a list of addresses that arrived as text into addresses — from a share intent or a
+ * `mailto:` link, one entry per comma, semicolon or line.
  *
- * Accepts the `Name <address>` form as well as a bare address, because that is what pasting from
- * another mail client gives you. Anything with no `@` at all is dropped rather than sent: an
- * address the server would reject arrives back as a submission failure minutes later, by which
- * point the composer is long closed.
+ * Accepts the `Name <address>` form as well as a bare address, because that is what other apps and
+ * clients hand over. Anything that is not an address is dropped rather than sent: an address the
+ * server would reject arrives back as a submission failure minutes later, by which point the
+ * composer is long closed.
+ *
+ * **A space does not separate here**, unlike in [recipientPieces]. These lists were written by a
+ * program, not typed, and a space inside one entry means the entry is broken — `URLDecoder` turning
+ * `anna+lists@example.org` into `anna lists@example.org` is the case [Mailto] documents. Splitting
+ * on it would turn that into a mail to `lists@example.org`, a stranger, where refusing it loses a
+ * recipient visibly.
  */
 internal fun String.parseAddresses(): List<EmailAddress> =
     splitAddresses()
         .map { it.trim().trim(' ', ',', ';') }
         .filter { it.isNotEmpty() }
-        .mapNotNull { entry ->
-            val angled = Regex("""^(.*?)<([^>]+)>$""").find(entry)
+        .mapNotNull { it.asRecipient() }
 
-            val name = angled?.groupValues?.get(1)?.trim()?.trim('"')?.takeIf { it.isNotEmpty() }
-            val address = (angled?.groupValues?.get(2) ?: entry).trim()
+/**
+ * One recipient as somebody wrote it, and what it means.
+ *
+ * [address] is null for a piece that is not an address. The piece is kept either way, because a
+ * piece that is not an address is still something the user wrote, and it goes back into the field
+ * for them to correct rather than disappearing.
+ */
+internal data class RecipientPiece(val text: String, val address: EmailAddress?)
 
-            if (!address.contains('@') || address.count { it == '@' } != 1) return@mapNotNull null
-            if (address.startsWith('@') || address.endsWith('@')) return@mapNotNull null
+/**
+ * Picks the recipients out of typed or pasted text, the way the web composer does (pl_mail#379).
+ *
+ * **Each recipient is found, rather than the text being cut on separators.** A recipient is either
+ * a name followed by `<address>` — the name may hold spaces, and commas inside quotes — or a run
+ * with no space in it. So `;`, `,`, a new line, a space and a tab all separate addresses, while
+ * `Jean Dupont <jd@x.fr>` and `"Doe, Jane" <jane@doe.fr>` each stay one recipient. Cutting on the
+ * separators cannot do both: a space has to split `a@x.fr b@y.fr` and must not split `Jean Dupont`.
+ *
+ * **A name has no `@` outside quotes.** Without that rule the name runs back over whatever precedes
+ * it, and `jo@jo.fr Jean Dupont <jd@x.fr>` became one recipient called "jo@jo.fr Jean Dupont" —
+ * jo@jo.fr was never written to at all.
+ *
+ * Characters that belong to no recipient — the separators, a stray quote, a `<` that never closes —
+ * are skipped, as on the web.
+ */
+internal fun String.recipientPieces(): List<RecipientPiece> =
+    RECIPIENT.findAll(this)
+        .map { it.value.trim() }
+        .filter { it.isNotEmpty() }
+        .map { piece -> RecipientPiece(text = piece, address = piece.asRecipient()) }
+        .toList()
 
-            EmailAddress(name = name, email = address)
-        }
+/** What a change to the address line means. */
+internal sealed interface RecipientEdit {
+
+    /** Nothing to make chips of: the text stays as it is, and is looked up among contacts. */
+    data class Typing(val text: String) : RecipientEdit
+
+    /**
+     * Chips to add, and what the field keeps.
+     *
+     * [rejected] is every piece that is not an address, for the field to report; [remaining] is the
+     * same pieces, back in the field for the user to correct.
+     */
+    data class Commit(
+        val added: List<EmailAddress>,
+        val remaining: String,
+        val rejected: List<String>,
+    ) : RecipientEdit
+}
+
+/**
+ * What changing the line from [previous] to [value] means, with [existing] already chipped.
+ *
+ * **A typed character commits only when it ends a recipient** — a separator or a space. Committing
+ * on anything else would chip `jo@x` while the user is still typing `jo@x.fr`, because `jo@x` is
+ * already an address. **A paste commits at once**, because nothing more is coming: a list copied
+ * out of another client rarely ends in a separator, and used to sit in the field as text until
+ * Enter. A paste is told apart from typing by size, which is all a text field reports: more than
+ * one character arriving at once.
+ *
+ * **Text with no address in it is never a commit.** `Jean ` is somebody typing a name to look up;
+ * committing it found nothing and returned without keeping the space, so a two-word name could not
+ * be searched for at all. A single plain address pasted on its own is left as text too, as it
+ * always was, so the suggestions still open on it.
+ */
+internal fun recipientEdit(
+    previous: String,
+    value: String,
+    existing: List<EmailAddress>,
+): RecipientEdit {
+    // Deleting never commits: backspacing to just after a space would chip
+    // what is in front of it.
+    if (value.length <= previous.length) return RecipientEdit.Typing(value)
+
+    val isPaste = value.length - previous.length > 1
+    val endsPiece = value.last().let { it == ',' || it == ';' || it.isWhitespace() }
+
+    if (!isPaste && !endsPiece) return RecipientEdit.Typing(value)
+
+    // An angle-address or a quoted name still being written by hand: the
+    // space in `Jean <jd@x` must not cut it into three pieces.
+    if (
+        value.count { it == '<' } > value.count { it == '>' } || value.count { it == '"' } % 2 == 1
+    ) {
+        return RecipientEdit.Typing(value)
+    }
+
+    val pieces = value.recipientPieces()
+    val single = pieces.singleOrNull()
+
+    if (!endsPiece && single != null && single.text == single.address?.email) {
+        return RecipientEdit.Typing(value)
+    }
+
+    return value.commitRecipients(existing)
+}
+
+/**
+ * Makes chips of every address in [this]: what Enter, losing focus and a pasted list all do.
+ *
+ * Duplicates are dropped without regard to case, against [existing] and within the text itself: the
+ * same person twice is sent two copies, which reads as a bug in the sender's client rather than a
+ * slip. Text with no address in it at all is left exactly as typed — re-joining its pieces would
+ * turn `Jean Dupont` into `Jean; Dupont`.
+ */
+internal fun String.commitRecipients(existing: List<EmailAddress>): RecipientEdit {
+    val pieces = recipientPieces()
+
+    if (pieces.none { it.address != null }) return RecipientEdit.Typing(this)
+
+    val taken = existing.mapNotNull { it.email?.lowercase() }.toMutableSet()
+    val added =
+        pieces.mapNotNull { it.address }.filter { taken.add(it.email.orEmpty().lowercase()) }
+    val rejected = pieces.filter { it.address == null }.map { it.text }
+
+    return RecipientEdit.Commit(
+        added = added,
+        remaining = rejected.joinToString("; "),
+        rejected = rejected,
+    )
+}
+
+/**
+ * The web composer's pattern, unchanged: `(?:"[^"]*"|[^<>"@;,\r\n])*<[^<>]*>|[^\s<>;,"]+`.
+ *
+ * The two alternatives of the name part cannot match the same character — one starts with a quote,
+ * the other excludes it — so a failed match costs a pass over the run, not a combinatorial search.
+ */
+private val RECIPIENT = Regex("""(?:"[^"]*"|[^<>"@;,\r\n])*<[^<>]*>|[^\s<>;,"]+""")
+
+private val ANGLED = Regex("""^(.*?)<([^<>]*)>$""")
+
+private val MAILTO = Regex("""^mailto:""", RegexOption.IGNORE_CASE)
+
+/**
+ * One entry — `Name <address>`, `<address>` or a bare address — as an address, or null.
+ *
+ * `mailto:` in front is dropped: it is what a link copied out of a web page carries, and the
+ * address under it is perfectly good.
+ *
+ * **What counts as an address is deliberately loose**: one `@`, something on each side, no space.
+ * The web composer also wants a dot in the domain, and this does not: plMail is self-hosted, and
+ * `anna@nas` on a home network is an address its owner really uses. Anything stricter is the
+ * server's to say, and it does.
+ *
+ * **Loose, but not punctuation from around it.** `Jane Doe (jane@doe.fr)` and an address at the end
+ * of a sentence, `jo@x.fr.`, both reach here as one run with no space in it. Taken as they are,
+ * they became chips that looked right and failed only at submission, minutes later. Refused, they
+ * stay in the field to be corrected, with the message saying which.
+ */
+private fun String.asRecipient(): EmailAddress? {
+    val angled = ANGLED.find(this)
+
+    val name = angled?.groupValues?.get(1)?.trim()?.trim('"')?.trim()?.takeIf { it.isNotEmpty() }
+    val address = (angled?.groupValues?.get(2) ?: this).trim().replace(MAILTO, "")
+
+    if (address.count { it == '@' } != 1) return null
+    if (address.startsWith('@') || address.endsWith('@')) return null
+    if (address.any { it.isWhitespace() || it in NOT_IN_ADDRESS }) return null
+
+    // A dot that begins or ends either half, or two in a row, is never part
+    // of an address: it is the full stop of the sentence it was copied from.
+    if (address.split('@').any { it.startsWith('.') || it.endsWith('.') } || ".." in address) {
+        return null
+    }
+
+    return EmailAddress(name = name, email = address)
+}
+
+/** Characters an unquoted address cannot hold: what surrounds one in prose and in headers. */
+private const val NOT_IN_ADDRESS = "()[]<>\",;:\\"
 
 /**
  * Splits on separators that are not inside a quoted display name or an angle-address.

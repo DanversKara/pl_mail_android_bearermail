@@ -57,6 +57,7 @@
     <string name="compose_cancel_schedule">Abbrechen</string>
 
     <string name="compose_error_no_recipients">Fügen Sie eine Empfängerin oder einen Empfänger hinzu.</string>
+    <string name="compose_error_not_an_address">„%1$s“ ist keine E-Mail-Adresse. Korrigieren Sie sie im Feld oder entfernen Sie sie.</string>
     <string name="compose_error_no_identity">Noch kann kein Konto senden. Prüfen Sie, ob Ihr Server erreichbar ist.</string>
     <string name="compose_error_no_original">Diese Nachricht konnte nicht geladen werden, es gibt also nichts zu zitieren.</string>
     <string name="compose_error_save_failed">Der Entwurf konnte nicht gespeichert werden: %1$s</string>
