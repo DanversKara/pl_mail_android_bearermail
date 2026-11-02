@@ -96,6 +96,7 @@
     <string name="compose_cancel_schedule">Cancel</string>
 
     <string name="compose_error_no_recipients">Add someone to send this to.</string>
+    <string name="compose_error_not_an_address">“%1$s” is not an email address. Correct it in the field, or remove it.</string>
     <string name="compose_error_no_identity">No account can send mail yet. Check that your server is reachable.</string>
     <string name="compose_error_no_original">That message could not be loaded, so there is nothing to quote.</string>
     <!-- The server's own words, because they name the actual problem. -->

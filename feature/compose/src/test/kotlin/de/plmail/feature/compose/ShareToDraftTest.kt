@@ -123,8 +123,8 @@ class ShareToDraftTest {
                 .asDraft()
 
         assertEquals(listOf("anna@example.org", "bruno@example.org"), draft.to.map { it.email })
-        // The display name survives the trip, because parseAddresses is the same
-        // parser the recipient field uses on pasted text.
+        // The display name survives the trip, because parseAddresses reads an
+        // entry with the same rules the recipient field reads pasted text with.
         assertEquals(listOf(null, "Bruno Meyer"), draft.to.map { it.name })
         assertEquals(listOf("carla@example.net"), draft.cc.map { it.email })
         assertEquals(listOf("dana@example.net"), draft.bcc.map { it.email })

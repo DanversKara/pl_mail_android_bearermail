@@ -9,9 +9,9 @@ import androidx.core.content.IntentCompat
  *
  * Addresses are held as **text** rather than as `EmailAddress`, and that is reuse rather than
  * laziness: `Name <address>` and bare addresses and comma-or-semicolon separated lists all arrive
- * here, and [parseAddresses] already knows every one of those shapes because it is what the
- * recipient field parses pasted text with. One parser, one set of rules, one place where an address
- * can be silently dropped.
+ * here, and [parseAddresses] already knows every one of those shapes. It decides what an address is
+ * with the same rules as the recipient field, so an entry refused here would be refused there too;
+ * unlike the field it does not split on spaces, for the reason its own comment gives.
  *
  * [streams] are content URIs still standing on the temporary grant the intent came with — see
  * [SharedAttachmentStore] for why nothing may keep them in that form.

@@ -167,6 +167,12 @@ sealed interface ComposeError {
     /** Send was tapped with nobody to send to. */
     data object NoRecipients : ComposeError
 
+    /**
+     * Text in an address line that is not an address. It stays in the line to be corrected; this is
+     * the telling, with the first such piece named so it can be found.
+     */
+    data class NotAnAddress(val text: String) : ComposeError
+
     /** No account can send — nothing is paired, or `Identity/get` has never been answered. */
     data object NoIdentity : ComposeError
 

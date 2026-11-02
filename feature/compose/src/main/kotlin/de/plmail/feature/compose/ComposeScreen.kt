@@ -368,6 +368,7 @@ fun ComposeScreen(
                     onSubject = viewModel::setSubject,
                     onShowCopyFields = viewModel::showCopyFields,
                     onQueryChanged = viewModel::suggest,
+                    onRejected = viewModel::reportNotAnAddress,
                 )
 
                 EncryptionHint(state.encryption)
@@ -753,6 +754,7 @@ private fun composeStrings(): ComposeStrings =
 private fun ComposeError.text(): String =
     when (this) {
         ComposeError.NoRecipients -> stringResource(R.string.compose_error_no_recipients)
+        is ComposeError.NotAnAddress -> stringResource(R.string.compose_error_not_an_address, text)
         ComposeError.NoIdentity -> stringResource(R.string.compose_error_no_identity)
         ComposeError.OriginalUnavailable -> stringResource(R.string.compose_error_no_original)
         is ComposeError.SaveFailed -> stringResource(R.string.compose_error_save_failed, message)
