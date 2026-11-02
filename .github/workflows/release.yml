@@ -223,7 +223,8 @@ jobs:
     # each versionCode once.
     play:
         needs: release
-        if: ${{ !contains(github.ref_name, '-') }}
+        # BearerMail: upstream's Play listing only; this fork has no Play credentials.
+        if: ${{ github.repository == 'karatektus/pl_mail_android' && !contains(github.ref_name, '-') }}
         uses: ./.github/workflows/play.yml
         with:
             tag: ${{ github.ref_name }}
