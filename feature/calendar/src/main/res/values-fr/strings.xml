@@ -89,4 +89,34 @@
         <item quantity="many">%1$d de plus</item>
         <item quantity="other">%1$d de plus</item>
     </plurals>
+    <string name="calendar_add_from_drive">Ajouter depuis Drive</string>
+    <string name="calendar_reminders">Rappels</string>
+    <string name="calendar_reminders_loading">Lecture des rappels…</string>
+    <string name="calendar_reminder_add">Ajouter un rappel</string>
+    <string name="calendar_reminder_remove">Supprimer le rappel</string>
+    <string name="calendar_reminder_done">Terminé</string>
+    <string name="calendar_reminder_cancel">Annuler</string>
+    <string name="calendar_reminder_at_time">À l’heure de l’événement</string>
+    <string name="calendar_reminder_on_the_day">Le jour même</string>
+    <string name="calendar_reminder_night_before">La veille au soir (20 h)</string>
+    <plurals name="calendar_reminder_minutes">
+        <item quantity="one">%d minute avant</item>
+        <item quantity="many">%d minutes avant</item>
+        <item quantity="other">%d minutes avant</item>
+    </plurals>
+    <plurals name="calendar_reminder_hours">
+        <item quantity="one">%d heure avant</item>
+        <item quantity="many">%d heures avant</item>
+        <item quantity="other">%d heures avant</item>
+    </plurals>
+    <plurals name="calendar_reminder_days">
+        <item quantity="one">%d jour avant</item>
+        <item quantity="many">%d jours avant</item>
+        <item quantity="other">%d jours avant</item>
+    </plurals>
+    <plurals name="calendar_reminder_weeks">
+        <item quantity="one">%d semaine avant</item>
+        <item quantity="many">%d semaines avant</item>
+        <item quantity="other">%d semaines avant</item>
+    </plurals>
 </resources>

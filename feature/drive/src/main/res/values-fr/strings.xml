@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="drive_title">Drive</string>
+    <string name="drive_back">Retour</string>
+    <string name="drive_upload">Importer depuis le téléphone</string>
+    <string name="drive_new_folder">Nouveau dossier</string>
+    <string name="drive_refresh">Actualiser</string>
+    <string name="drive_root">Drive</string>
+    <string name="drive_usage">%1$s utilisés sur %2$s</string>
+    <string name="drive_usage_unlimited">%1$s utilisés</string>
+    <string name="drive_uploading">Importation %1$d sur %2$d…</string>
+    <string name="drive_empty_title">Rien ici pour l’instant</string>
+    <string name="drive_empty_body">Touchez le bouton d’importation pour ajouter des fichiers depuis votre téléphone, ou partagez un fichier vers BearerMail Drive depuis n’importe quelle application.</string>
+    <string name="drive_unavailable_title">Ce serveur n’a pas de Drive</string>
+    <string name="drive_unavailable_body">Mettez à jour le serveur BearerMail vers la version avec l’API Drive, puis revenez.</string>
+    <string name="drive_error_title">Impossible d’ouvrir ce dossier</string>
+    <string name="drive_retry">Réessayer</string>
+    <string name="drive_more">Plus d’actions pour %1$s</string>
+    <string name="drive_open">Ouvrir</string>
+    <string name="drive_send">Envoyer le fichier…</string>
+    <string name="drive_save">Enregistrer sur le téléphone</string>
+    <string name="drive_links">Lien de partage…</string>
+    <string name="drive_rename">Renommer</string>
+    <string name="drive_notes">Notes</string>
+    <string name="drive_move">Déplacer vers…</string>
+    <string name="drive_delete">Supprimer</string>
+    <string name="drive_cancel">Annuler</string>
+    <string name="drive_ok">OK</string>
+    <string name="drive_name">Nom</string>
+    <string name="drive_delete_file_title">Supprimer %1$s ?</string>
+    <string name="drive_delete_file_body">Le fichier et tous ses liens cessent de fonctionner. Cette action est irréversible.</string>
+    <string name="drive_delete_folder_title">Supprimer le dossier %1$s ?</string>
+    <string name="drive_delete_folder_body">Tout son contenu, sous-dossiers compris, est supprimé aussi. Cette action est irréversible.</string>
+    <plurals name="drive_shared">
+        <item quantity="one">%1$d lien</item>
+        <item quantity="many">%1$d liens</item>
+        <item quantity="other">%1$d liens</item>
+    </plurals>
+    <string name="drive_open_with">Ouvrir avec</string>
+    <string name="drive_send_with">Envoyer avec</string>
+    <string name="drive_move_title">Déplacer %1$s</string>
+    <string name="drive_move_here">Déplacer ici</string>
+    <string name="drive_move_up">Remonter d’un niveau</string>
+    <string name="drive_links_title">Liens pour %1$s</string>
+    <string name="drive_links_new">Nouveau lien</string>
+    <string name="drive_links_password">Mot de passe (facultatif)</string>
+    <string name="drive_links_expires">Expiration</string>
+    <string name="drive_links_never">Jamais</string>
+    <plurals name="drive_links_days">
+        <item quantity="one">%1$d jour</item>
+        <item quantity="many">%1$d jours</item>
+        <item quantity="other">%1$d jours</item>
+    </plurals>
+    <string name="drive_links_day">1 jour</string>
+    <string name="drive_links_create">Créer le lien</string>
+    <string name="drive_links_none">Aucun lien pour l’instant. Toute personne ayant un lien peut télécharger le fichier ; un mot de passe le réserve aux personnes à qui vous le donnez.</string>
+    <string name="drive_links_copy">Copier</string>
+    <string name="drive_links_share">Partager</string>
+    <string name="drive_links_revoke">Révoquer</string>
+    <string name="drive_links_protected">Protégé par mot de passe</string>
+    <string name="drive_links_expires_on">Expire le %1$s</string>
+    <plurals name="drive_links_downloads">
+        <item quantity="one">%1$d téléchargement</item>
+        <item quantity="many">%1$d téléchargements</item>
+        <item quantity="other">%1$d téléchargements</item>
+    </plurals>
+    <string name="drive_links_copied">Lien copié.</string>
+    <string name="drive_done">Terminé</string>
+    <string name="drive_pick_title">Insérer depuis Drive</string>
+    <string name="drive_pick_explain">Choisissez un fichier pour insérer un lien de téléchargement. Pour les gros fichiers, un lien vaut mieux qu’une pièce jointe.</string>
+    <string name="drive_pick_upload">Importer depuis le téléphone, puis lier</string>
+    <string name="drive_pick_search">Rechercher dans Drive</string>
+</resources>

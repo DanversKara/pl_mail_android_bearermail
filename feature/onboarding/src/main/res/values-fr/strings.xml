@@ -30,4 +30,6 @@
     <string name="onboarding_error_unreachable">Impossible de joindre %1$s. Vérifiez l’adresse et que le serveur fonctionne.</string>
     <string name="onboarding_error_certificate_changed">Le certificat de %1$s a changé depuis votre dernière connexion. Si ce n’est pas vous qui l’avez changé, n’allez pas plus loin.</string>
     <string name="onboarding_error_malformed">Quelque chose a répondu à cette adresse, mais ce n’était pas plMail.</string>
+    <string name="scanner_camera_failed">La caméra n’a pas pu démarrer. Vous pouvez quand même associer l’appareil en saisissant l’adresse de votre serveur et un mot de passe d’application. Si la caméra fonctionne dans d’autres applications, vérifiez que l’accès à la caméra est activé dans les réglages rapides d’Android.</string>
+    <string name="scanner_camera_failed_reason">Raison : %1$s</string>
 </resources>

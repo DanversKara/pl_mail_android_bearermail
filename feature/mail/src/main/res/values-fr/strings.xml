@@ -239,4 +239,18 @@
     <string name="crypto_signed_key_changed">Signé avec une autre clé que celle que plMail connaît pour cet expéditeur</string>
     <string name="crypto_signed_pending">Signé : vérification de la signature…</string>
     <string name="crypto_signer">Signé par %1$s</string>
+    <string name="drive">Drive</string>
+    <string name="contacts">Contacts</string>
+    <string name="notes">Notes</string>
+    <string name="save_as_note">Enregistrer en note</string>
+    <string name="new_alias">Nouvel alias</string>
+    <string name="app_lock">Verrouillage de l’app</string>
+    <string name="check_updates">Rechercher des mises à jour</string>
+    <string name="plan_heading">Cela ressemble à un rendez-vous</string>
+    <string name="plan_add">Ajouter à l’agenda</string>
+    <string name="plan_no_time">heure non indiquée</string>
+    <string name="code_heading">Code de vérification</string>
+    <string name="code_copy">Copier</string>
+    <string name="code_copied_short">Copié</string>
+    <string name="code_copied">Code copié</string>
 </resources>

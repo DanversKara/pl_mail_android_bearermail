@@ -27,4 +27,6 @@
     </plurals>
     <string name="channel_reminders">Rappels</string>
     <string name="channel_reminders_description">Les rappels de l’agenda, à l’heure réglée sur l’événement.</string>
+    <string name="action_copy_code">Copier %1$s</string>
+    <string name="code_copied">Code copié</string>
 </resources>
