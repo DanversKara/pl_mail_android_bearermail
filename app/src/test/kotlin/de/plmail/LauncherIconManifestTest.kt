@@ -164,13 +164,16 @@ class LauncherIconManifestTest {
     }
 
     @Test
-    fun `the default reuses the application's own icon and the rest wear their own`() {
+    fun `the default wears the committed fallback icon and the rest wear their own`() {
         val aliases = logoAliases()
 
-        // The default is not given a generated copy of the fallback: the
-        // application's android:icon, the drawable anything unknown falls back to
-        // and this alias are deliberately one asset, so "the default keeps
-        // working" holds by construction rather than by three files agreeing.
+        // The default is not given a generated copy of the fallback: this alias
+        // wears @mipmap/ic_launcher itself, the drawable anything unknown falls
+        // back to, so "the default keeps working" holds by construction rather
+        // than by three files agreeing. The application's own icon is the bear
+        // now, not the fallback — the bear is not a motif, so it cannot be the
+        // generated default, and the seal stays the answer when the server
+        // says nothing.
         assertEquals(
             "@mipmap/ic_launcher",
             aliases.getValue(LauncherIcon.Default.alias).android("icon"),

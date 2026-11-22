@@ -50,6 +50,9 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
         /** The motif the BearerMail artwork goes by: a fixed picture, never repainted. */
         const val BEARERMAIL = "bearermail"
 
+        /** The bear: the icon an account starts on, and a fixed picture, never repainted. */
+        const val BEAR = "bear"
+
         /**
          * The BearerMail artwork (Settings → Appearance → App icon on the web). Not generated with
          * the motifs — it is a finished bitmap, not a template to paint — so it is declared by hand
@@ -62,15 +65,28 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
         val BearermailWhite: LauncherIcon =
             LauncherIcon(BEARERMAIL, "white", "de.plmail.LogoLauncherBearermailWhite")
 
-        val all: List<LauncherIcon> = LAUNCHER_ICONS + Bearermail + BearermailWhite
+        /**
+         * The bear (Settings → Appearance → App icon on the web). Like the
+         * BearerMail artwork it is a finished picture, not a template to
+         * paint, so it is declared by hand in the main manifest and added to
+         * the table here — and, unlike the artwork, it is the icon an account
+         * starts on, so the server sends `bear` for everyone who never chose
+         * anything else.
+         */
+        val Bear: LauncherIcon =
+            LauncherIcon(BEAR, ORIGINAL, "de.plmail.LogoLauncherBear")
+
+        val all: List<LauncherIcon> = LAUNCHER_ICONS + Bearermail + BearermailWhite + Bear
 
         /**
-         * The icon the product ships with, and the answer when the server says nothing.
+         * The icon the product falls back to, and the answer when the server says nothing.
          *
-         * The wax seal in its own colours: the server's own default (`LogoMotif::DEFAULT`), the ink
-         * in `ic_launcher_foreground`, the application's `android:icon`, and the one alias the
-         * manifest enables. Those four being the same thing is what makes a fresh install, and a
-         * motif this build cannot draw, end at a correct icon rather than at no icon.
+         * The wax seal in its own colours: the ink in `ic_launcher_foreground` and the one
+         * alias the manifest enables. The server's own default is the bear now, and the
+         * application's `android:icon` is the bear too — but the bear is not a motif, so
+         * the generated default, and this fallback for a server that publishes none of
+         * the three, stay the seal. A fresh install, and a motif this build cannot draw,
+         * still end at a correct icon rather than at no icon.
          */
         val Default: LauncherIcon = DEFAULT_LAUNCHER_ICON
 
@@ -122,8 +138,9 @@ data class LauncherIcon(val motif: String, val paint: String, val alias: String)
             appIcon: String? = null,
         ): LauncherIcon {
             // The web's App icon choice wins over the logo when it names the artwork.
-            // Navy is `bearermail` (and anything else of that family this build has not
-            // heard of); white is `bearermail-white`.
+            // The bear is `bear`; navy is `bearermail` (and anything else of that
+            // family this build has not heard of); white is `bearermail-white`.
+            if (appIcon == BEAR) return Bear
             if (appIcon == "$BEARERMAIL-white") return BearermailWhite
             if (appIcon == BEARERMAIL || appIcon?.startsWith("$BEARERMAIL-") == true)
                 return Bearermail

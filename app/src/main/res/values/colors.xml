@@ -33,4 +33,7 @@
     <!-- BearerMail launcher icons: navy (the original artwork) and white. -->
     <color name="ic_launcher_bearermail_original_background">#1B1562</color>
     <color name="ic_launcher_bearermail_white_background">#FFFFFF</color>
+    <!-- The bear: white, so the bear's own blue (#1890ff) reads — on its own
+         blue the badge would vanish and only the white envelope would show. -->
+    <color name="ic_launcher_bear_original_background">#FFFFFF</color>
 </resources>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The bear mark (Settings → Appearance → App icon on the web), hand-drawn from
+     mail-vue/public/bearermail-logo.svg in the Cloud Mail fork: blue #1890ff badge
+     with bear ears and a white envelope. The SVG's artwork spans x 8..56, y 6..56,
+     so a 1.2 scale with a (15.6, 16.8) shift lands it at x 25.2..82.8, y 24..84 —
+     centred, inside the 66dp safe zone (21..87) of the 108dp canvas. The chevron
+     stroke is 3.5 so that, scaled, it keeps the SVG's weight (2.5 on a 64 canvas).
+     Paint order is the SVG's: ears, badge, envelope, chevron. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.2"
+        android:scaleY="1.2"
+        android:translateX="15.6"
+        android:translateY="16.8">
+        <path
+            android:fillColor="#1890FF"
+            android:pathData="M12,13 a7,7 0 1,1 14,0 a7,7 0 1,1 -14,0 Z" />
+        <path
+            android:fillColor="#1890FF"
+            android:pathData="M38,13 a7,7 0 1,1 14,0 a7,7 0 1,1 -14,0 Z" />
+        <path
+            android:fillColor="#8CC8FF"
+            android:pathData="M15.5,13 a3.5,3.5 0 1,1 7,0 a3.5,3.5 0 1,1 -7,0 Z" />
+        <path
+            android:fillColor="#8CC8FF"
+            android:pathData="M41.5,13 a3.5,3.5 0 1,1 7,0 a3.5,3.5 0 1,1 -7,0 Z" />
+        <path
+            android:fillColor="#1890FF"
+            android:pathData="M19,12 H45 A11,11 0 0 1 56,23 V45 A11,11 0 0 1 45,56 H19 A11,11 0 0 1 8,45 V23 A11,11 0 0 1 19,12 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M19.5,26 H44.5 A2.5,2.5 0 0 1 47,28.5 V43.5 A2.5,2.5 0 0 1 44.5,46 H19.5 A2.5,2.5 0 0 1 17,43.5 V28.5 A2.5,2.5 0 0 1 19.5,26 Z" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M18.5,28.5 L32,39 L45.5,28.5"
+            android:strokeWidth="3.5"
+            android:strokeColor="#1890FF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>
